@@ -125,8 +125,8 @@ skills:
 
 ## 7. 形象素材
 
-- 仓库自带 4 只机器人（cc-haha，MIT）。
-- 装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物（`install.py` 会自动尝试）。素材归 OpenAI，只留本机。
+- 仓库自带 13 只：4 只机器人（cc-haha，MIT）+ 9 只程序化绘制的角色（`make_pets.py`，MIT）。开箱每个岗位一只，不重复。改配色 / 形状 / 特征：编辑 `make_pets.py` 里的 `CHARS`，`python make_pets.py` 重新生成。
+- 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物（`install.py` 会自动尝试）。素材归 OpenAI，只留本机。
 - 自己加：任何 8 列 × 11 行、192×208/帧 的 `.webp` 雪碧图放进 `team-board/sprites/`，刷新页面即可在"形象"下拉里选到。行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅。
 
 每位出场成员独占一只不重复的形象：本岗位专属 → 同类别备选 → 任意空闲 → 全占满才换色。

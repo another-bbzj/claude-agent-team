@@ -445,8 +445,8 @@ const ANIM = {
 };
 /* 每个岗位一个独立形象：9 只 Codex 宠物（本机提取）+ 4 只 cc-haha 机器人，共 13 个，不重复 */
 const PET_BY_TYPE = {
-  '__lead': 'codex', 'team-architect': 'huhu-plan', 'backend-dev': 'dada-code', 'frontend-dev': 'seedy',
-  'researcher': 'dewey', 'qa-tester': 'bubu-fix', 'code-reviewer': 'bsod', 'docs-writer': 'stacky', 'release-ops': 'huihui-build',
+  '__lead': 'pip', 'team-architect': 'huhu-plan', 'backend-dev': 'dada-code', 'frontend-dev': 'puff',
+  'researcher': 'drip', 'qa-tester': 'bubu-fix', 'code-reviewer': 'kit', 'docs-writer': 'mush', 'release-ops': 'huihui-build',
 };
 /* 未用常驻角色派出的成员（general-purpose 等）按形象类别回退，同类第 2、3 人换色以示区分 */
 const PET_BY_AVATAR = {
@@ -454,17 +454,17 @@ const PET_BY_AVATAR = {
   'security-reviewer': 'bsod', 'data-analyst': 'dewey', 'docs-coordinator': 'stacky', 'release-engineer': 'huihui-build',
 };
 /* 独占分配：每位成员一只不重复的宠物。顺序：本岗位专属 → 同类别备选 → 任意未占用 → 13 只全占满才换色兜底 */
-const PREFERRED_PETS = ['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build'];
+const PREFERRED_PETS = ['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'];
 let ALL_PETS = PREFERRED_PETS.slice();  // 运行时按服务器 sprites/ 目录实际存在的文件过滤（snapshot.pets）
 const PET_FAMILY = {
-  'server-engineer': ['dada-code', 'rocky', 'stacky', 'huihui-build'], 'ui-designer': ['seedy', 'hoots', 'fireball'],
-  'qa-engineer': ['bubu-fix', 'null-signal', 'bsod'], 'security-reviewer': ['bsod', 'null-signal', 'bubu-fix'],
-  'data-analyst': ['dewey', 'hoots', 'huhu-plan'], 'docs-coordinator': ['stacky', 'huhu-plan', 'dewey'],
-  'release-engineer': ['huihui-build', 'rocky', 'fireball'], 'team-lead': ['codex'],
+  'server-engineer': ['dada-code', 'rocky', 'cubo', 'tank', 'stacky', 'huihui-build'], 'ui-designer': ['seedy', 'puff', 'spark', 'hoots', 'fireball'],
+  'qa-engineer': ['bubu-fix', 'null-signal', 'kit', 'bsod'], 'security-reviewer': ['bsod', 'kit', 'null-signal', 'bubu-fix'],
+  'data-analyst': ['dewey', 'drip', 'hoots', 'huhu-plan'], 'docs-coordinator': ['stacky', 'mush', 'huhu-plan', 'dewey'],
+  'release-engineer': ['huihui-build', 'tank', 'rocky', 'bolt', 'fireball'], 'team-lead': ['codex', 'pip'],
 };
 const petAssign = new Map();   // memberId -> { pet, hue }
 function assignPets(members) {
-  const have = new Set(ALL_PETS); const leadPet = have.has('codex') ? 'codex' : (have.has('huhu-plan') ? 'huhu-plan' : ALL_PETS[0]);
+  const have = new Set(ALL_PETS); const leadPet = ['pip', 'codex', 'huhu-plan'].find(x => have.has(x)) || ALL_PETS[0];
   petAssign.clear(); const taken = new Set([leadPet]); petAssign.set('__lead', { pet: leadPet, hue: 0 });
   const ordered = members.slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
   for (const m of ordered) {

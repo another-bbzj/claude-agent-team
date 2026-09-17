@@ -248,15 +248,15 @@ install.py         安装 / 卸载
 
 ### 形象素材
 
-仓库自带 4 只机器人（来自 [cc-haha](https://github.com/NanmiCoder/cc-haha)，MIT）。
+仓库自带 **13 只**：4 只机器人来自 [cc-haha](https://github.com/NanmiCoder/cc-haha)（MIT），9 只由 `team-board/make_pets.py` 程序化绘制（pip / cubo / drip / mush / kit / spark / bolt / puff / tank，随仓库 MIT 发布，想改配色或加新形象改脚本重跑即可）。每个岗位各占一只，开箱即不重复。
 
-**再加 9 只 Codex 宠物**（Codex、Dewey、Fireball、Hoots、Rocky、Seedy、Stacky、BSOD、Null Signal）：它们是 OpenAI Codex 桌面客户端里的素材，版权归 OpenAI，仓库不附带；如果你装了 Codex，`install.py` 会自动从**你本机**的安装文件里提取，或手动运行：
+**可选：再加 9 只 Codex 宠物**（Codex、Dewey、Fireball、Hoots、Rocky、Seedy、Stacky、BSOD、Null Signal）：它们是 OpenAI Codex 桌面客户端里的素材，版权归 OpenAI，仓库不附带；如果你装了 Codex，`install.py` 会自动从**你本机**的安装文件里提取，或手动运行：
 
 ```bash
 python ~/.claude/team-board/import_codex_pets.py    # 自动查找；也可传 app.asar 路径
 ```
 
-提取结果只留在你本机。装齐后 13 个岗位各占一只，不重复。看板会自动使用 `sprites/` 下所有 8 列 × 11 行、192×208/帧 的 `.webp` 雪碧图（行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅），放进更多就有更多形象。
+提取结果只留在你本机；装了之后总共 22 只可选。看板会自动使用 `sprites/` 下所有 8 列 × 11 行、192×208/帧 的 `.webp` 雪碧图（行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅），放进更多就有更多形象。
 
 ### 致谢
 

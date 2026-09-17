@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 server.log
-# 本机从 Codex 客户端提取的宠物雪碧图，不可分发；本地装好后放到 team-board/sprites/ 即自动启用
+# 本机从 Codex 客户端提取的宠物雪碧图（OpenAI 素材，不可分发）；本地运行 import_codex_pets.py 后会出现，git 忽略
 team-board/sprites/codex.webp
 team-board/sprites/dewey.webp
 team-board/sprites/fireball.webp
