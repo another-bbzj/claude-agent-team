@@ -223,7 +223,19 @@ python -m unittest discover -s tests -v
 ## 9. 常见问题
 
 **看板打不开 / 页面空白**
-新开一个会话让钩子触发，或手动 `python ~/.claude/team-board/ensure.py`。端口被占用可改 `TEAM_BOARD_PORT` 环境变量。
+新开一个会话让钩子触发，或手动 `python ~/.claude/team-board/ensure.py --open`。端口被占用可改 `TEAM_BOARD_PORT` 环境变量。
+
+**说了「用 agent team」但看板没自动弹出来（常见于 macOS / 纯 CLI）**
+钩子只负责让服务在后台常驻，弹窗由技能在派工前执行 `ensure.py --open` 完成（系统默认浏览器）。如果 Claude 忘了，直接在对话里说「打开看板」，或自己开 http://127.0.0.1:7788/ ——服务一直在。
+
+**用的是第三方模型（DeepSeek / GPT / Qwen …），成本显示"未定价"**
+看板不会给不认识的模型瞎算钱。在 `~/.claude/team-board/team.json` 的 `pricing_usd_per_mtok` 里按模型 id 或前缀加一条即可（按最长前缀匹配）：
+
+```json
+"deepseek": { "in": 0.14, "out": 0.28, "cache_read": 0.014, "cache_write": 0.14 }
+```
+
+保存后页面即时生效，无需重启。
 
 **看板显示"还没有会话派出过子代理"**
 正常——你还没派过团队。派一次后自动出现；右上角下拉可切换到任何历史会话回看。
@@ -237,8 +249,10 @@ python -m unittest discover -s tests -v
 **成员之间为什么不直接聊天**
 桌面版子代理没有私信工具，所以走 `.team/inbox/` 文件；效果一样，看板照样画出来。
 
-**成本数字准吗**
-按 `team-board/team.json` 里的公开单价估算，包含缓存读写；不是账单。
+**token / 成本数字和我在服务商后台看到的对不上**
+- token 口径：看板的「合计」= 输入 + 输出 + 缓存读 + 缓存写，其中缓存读通常占 90% 以上（每次调用都要重读整段上下文）。服务商后台可能只显示输入 + 输出，或者把缓存读并进输入里——对比时看同一口径。
+- 每条 API 消息在转录里会被写成多行（每个内容块一行，usage 是快照），看板按 message id 去重、只取最后一份快照；旧版本重复累计过，已修。
+- 成本按 `team-board/team.json` 的公开单价估算（Claude 系列内置），不是账单；第三方模型需要你自己加价格（见上一条）。
 
 **换电脑**
 把仓库 clone 过去再 `python install.py`；钩子路径按新机器自动生成。

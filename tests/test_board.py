@@ -162,6 +162,51 @@ class SnapshotTest(unittest.TestCase):
         self.assertTrue({'dada-code', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'} <= set(self.snap['pets']))
 
 
+class UsageAndPricingTest(unittest.TestCase):
+    def setUp(self):
+        self.env = BoardEnv(); self.tb = self.env.load()
+
+    def tearDown(self):
+        self.env.cleanup()
+
+    def test_usage_deduped_by_message_id(self):
+        """Claude Code 把一条 API 消息写成多行（每个 content block 一行，usage 是快照），只能计一次、取最后一份。"""
+        sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
+        def a(ts, out, mid):
+            e = asst(ts, 'claude-haiku-4-5', [{'type': 'text', 'text': 'x'}], stop='end_turn',
+                     usage={'input_tokens': 10, 'output_tokens': out, 'cache_read_input_tokens': 1000, 'cache_creation_input_tokens': 0})
+            e['message']['id'] = mid; return e
+        (sub / 'agent-c3.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
+            a('2026-01-01T11:00:01Z', 1, 'msg_1'), a('2026-01-01T11:00:01Z', 1, 'msg_1'), a('2026-01-01T11:00:02Z', 300, 'msg_1'),
+            a('2026-01-01T11:00:05Z', 2, 'msg_2'), a('2026-01-01T11:00:06Z', 500, 'msg_2')), encoding='utf-8')
+        (sub / 'agent-c3.meta.json').write_text(json.dumps({'agentType': 'researcher', 'description': 'dedupe'}), encoding='utf-8')
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        m = next(x for x in snap['members'] if x['agentType'] == 'researcher')
+        self.assertEqual(m['usage'], {'in': 20, 'out': 800, 'cache_read': 2000, 'cache_write': 0})
+        self.assertEqual(m['totalTokens'], 2820)
+        self.assertEqual(m['modelFamily'], 'haiku')
+
+    def test_third_party_model_unpriced_until_configured(self):
+        sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
+        (sub / 'agent-d4.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
+            asst('2026-01-01T11:00:01Z', 'deepseek-v4-flash-vision-exp', [{'type': 'text', 'text': 'x'}], stop='end_turn')), encoding='utf-8')
+        (sub / 'agent-d4.meta.json').write_text(json.dumps({'agentType': 'docs-writer', 'description': 'third party'}), encoding='utf-8')
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')
+        self.assertIsNone(m['cost']); self.assertEqual(m['modelFamily'], 'deepseek')
+        self.assertEqual(snap['totals']['unpriced'], 1); self.assertIn('deepseek-v4-flash-vision-exp', snap['totals']['unpricedModels'])
+        # 配置价格后（按前缀匹配）即计价
+        self.tb.TEAM_CFG['pricing_usd_per_mtok']['deepseek'] = {'in': 0.14, 'out': 0.28, 'cache_read': 0.014, 'cache_write': 0.14}
+        self.tb._agent_cache.clear()
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')
+        self.assertIsNotNone(m['cost']); self.assertEqual(snap['totals']['unpriced'], 0)
+        # 更长的 key 优先
+        self.tb.TEAM_CFG['pricing_usd_per_mtok']['deepseek-v4-flash'] = {'in': 1, 'out': 1, 'cache_read': 1, 'cache_write': 1}
+        self.assertEqual(self.tb.price_for('deepseek-v4-flash-vision-exp')['in'], 1)
+        self.assertEqual(self.tb.price_for('claude-opus-5-20260101')['in'], self.tb.TEAM_CFG['pricing_usd_per_mtok']['opus']['in'])
+
+
 class AgentApiTest(unittest.TestCase):
     def setUp(self):
         self.env = BoardEnv(); self.tb = self.env.load()

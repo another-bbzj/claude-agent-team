@@ -11,3 +11,6 @@ team-board/sprites/seedy.webp
 team-board/sprites/stacky.webp
 team-board/sprites/bsod.webp
 team-board/sprites/null-signal.webp
+
+# ensure.py --open 的去重时间戳
+team-board/.last-open

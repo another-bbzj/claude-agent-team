@@ -235,12 +235,33 @@ def model_family(model: str) -> str:
     for fam in ('opus', 'sonnet', 'haiku', 'fable'):
         if fam in low:
             return fam
-    return low or ''
+    # 第三方模型（deepseek / gpt / qwen …）：取 id 的首段作为家族名，方便按家族汇总
+    head = re.split(r'[-_/:.]', low, 1)[0] if low else ''
+    return head or ''
 
 
-def estimate_cost(model: str, usage: dict) -> float:
-    fam = model_family(model) or 'sonnet'
-    p = TEAM_CFG['pricing_usd_per_mtok'].get(fam) or TEAM_CFG['pricing_usd_per_mtok']['sonnet']
+def price_for(model: str):
+    """从 team.json 的 pricing_usd_per_mtok 里找价格：先按最长的子串匹配（可写完整 id 或家族名），
+    再退到 Claude 家族名；第三方模型没配价就返回 None（成本显示为未定价，而不是瞎算）。"""
+    low = (model or '').lower()
+    table = TEAM_CFG.get('pricing_usd_per_mtok') or {}
+    best = None
+    for key, p in table.items():
+        k = key.lower()
+        if k and k in low and (best is None or len(k) > len(best[0])):
+            best = (k, p)
+    if best:
+        return best[1]
+    fam = model_family(model)
+    if fam in table:
+        return table[fam]
+    return None
+
+
+def estimate_cost(model: str, usage: dict):
+    p = price_for(model)
+    if not p:
+        return None
     return (usage.get('in', 0) * p['in'] + usage.get('out', 0) * p['out']
             + usage.get('cache_read', 0) * p['cache_read'] + usage.get('cache_write', 0) * p['cache_write']) / 1e6
 
@@ -346,6 +367,37 @@ def parse_agent(jsonl: Path, meta: dict, now: float, stale: float, group):
     return _finish_agent(parsed, jsonl, meta, now, stale, group, mtime)
 
 
+class UsageLedger:
+    """按 message.id 去重累计 usage：同一条 API 消息会被写成多行（每个 content block 一行，usage 是当时的快照），
+    只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。"""
+
+    def __init__(self):
+        self.by_id = {}
+        self.order = []
+        self.anon = 0
+
+    def add(self, msg: dict):
+        usage = msg.get('usage') or {}
+        if not usage:
+            return
+        mid = msg.get('id')
+        if not mid:
+            self.anon += 1
+            mid = f'_anon{self.anon}'
+        if mid not in self.by_id:
+            self.order.append(mid)
+        self.by_id[mid] = usage
+
+    def total(self):
+        t = {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
+        for u in self.by_id.values():
+            t['in'] += u.get('input_tokens', 0) or 0
+            t['out'] += u.get('output_tokens', 0) or 0
+            t['cache_read'] += u.get('cache_read_input_tokens', 0) or 0
+            t['cache_write'] += u.get('cache_creation_input_tokens', 0) or 0
+        return t
+
+
 def _parse_agent_file(jsonl: Path):
     entries = read_jsonl(jsonl)
     agent_id = jsonl.stem.replace('agent-', '')
@@ -353,7 +405,7 @@ def _parse_agent_file(jsonl: Path):
     timeline, tool_count, out_tokens, thinking_count = [], 0, 0, 0
     pending = {}
     last_text, last_stop, last_kind = '', None, None
-    model, usage_tot = '', {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
+    model, ledger = '', UsageLedger()
     messages, writes, reads = [], [], []
 
     for e in entries:
@@ -385,12 +437,7 @@ def _parse_agent_file(jsonl: Path):
                         last_kind = 'tool_result'
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
-            usage = msg.get('usage') or {}
-            out_tokens += usage.get('output_tokens', 0) or 0
-            usage_tot['in'] += usage.get('input_tokens', 0) or 0
-            usage_tot['out'] += usage.get('output_tokens', 0) or 0
-            usage_tot['cache_read'] += usage.get('cache_read_input_tokens', 0) or 0
-            usage_tot['cache_write'] += usage.get('cache_creation_input_tokens', 0) or 0
+            ledger.add(msg)
             if msg.get('model'):
                 model = msg['model']
             has_tool = False
@@ -435,7 +482,7 @@ def _parse_agent_file(jsonl: Path):
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
             'tool_count': tool_count, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
-            'usage': usage_tot, 'messages': messages, 'writes': writes, 'reads': reads}
+            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads}
 
 
 def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
@@ -470,7 +517,8 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'model': P['model'],
         'modelFamily': model_family(P['model']),
         'usage': P['usage'],
-        'cost': round(estimate_cost(P['model'], P['usage']), 4),
+        'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(P['model'], P['usage'])),
+        'priced': estimate_cost(P['model'], P['usage']) is not None,
         'messages': P['messages'],
         'writes': P['writes'],
         'reads': P['reads'],
@@ -508,7 +556,7 @@ def parse_lead(path: Path, now: float):
         timeline, pending, dispatches, messages, tool_count, out_tokens = [], {}, {}, [], 0, 0
         last_user_prompt, last_ts, first_ts = '', None, None
         notifications = {}
-        lead_model, lead_usage = '', {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
+        lead_model, lead_ledger = '', UsageLedger()
         for e in read_jsonl(path):
             if e.get('isSidechain'):
                 continue
@@ -544,12 +592,7 @@ def parse_lead(path: Path, now: float):
                                 if ts and item['ts']:
                                     item['ms'] = int((ts - item['ts']) * 1000)
             elif et == 'assistant':
-                usage = msg.get('usage') or {}
-                out_tokens += usage.get('output_tokens', 0) or 0
-                lead_usage['in'] += usage.get('input_tokens', 0) or 0
-                lead_usage['out'] += usage.get('output_tokens', 0) or 0
-                lead_usage['cache_read'] += usage.get('cache_read_input_tokens', 0) or 0
-                lead_usage['cache_write'] += usage.get('cache_creation_input_tokens', 0) or 0
+                lead_ledger.add(msg)
                 if msg.get('model'):
                     lead_model = msg['model']
                 if isinstance(content, list):
@@ -576,8 +619,10 @@ def parse_lead(path: Path, now: float):
                                 body = inp.get('new_string') or inp.get('content') or ''
                                 messages.append({'ts': ts, 'kind': 'direct', 'from': '__lead', 'to': inbox.group(1),
                                                  'text': '留言：' + short(body, 200)})
+        lead_usage = lead_ledger.total()
+        out_tokens = lead_usage['out']
         data = {'timeline': timeline[-60:], 'toolCount': tool_count, 'outputTokens': out_tokens,
-                'model': lead_model, 'usage': lead_usage, 'cost': round(estimate_cost(lead_model, lead_usage), 4),
+                'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
                 'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime}
@@ -681,6 +726,8 @@ def build_snapshot(args):
                 comms.append({'ts': d['ts'], 'kind': 'assign', 'from': '__lead', 'fromName': '队长', 'fromAvatar': 'team-lead',
                               'to': m['id'], 'toName': m['name'], 'toAvatar': m['avatar'], 'text': d['description'] or m['description']})
             # 队长转达：派工指令里点名了先前成员（如“阿服·2 已写好 store.js”）→ 画一条 该成员 → 新成员 的转达线
+            if not d:
+                continue  # 没对上派工记录（meta 缺 toolUseId 或来自旧会话）
             ptxt = re.sub('你是[^。，,\\n]{0,16}', '', d.get('prompt') or '')  # 去掉“你是研发部的阿服”这类自我角色描述
             seen_base = set()
             for other in sorted(members, key=lambda x: -(x.get('dispatchedAt') or x.get('startedAt') or 0)):
@@ -826,7 +873,8 @@ def build_snapshot(args):
         dur = sum(((m['endedAt'] or m['lastActivityAt'] or 0) - (m['startedAt'] or 0)) for m in ms if m['startedAt'])
         departments.append({**d, 'members': [m['id'] for m in ms], 'status': st, 'needed': needed,
                             'missing': needed and not ms and d['id'] != 'hq',
-                            'cost': round(sum(m['cost'] for m in ms), 4),
+                            'cost': round(sum(m['cost'] or 0 for m in ms), 4),
+                            'unpriced': sum(1 for m in ms if m['cost'] is None),
                             'running': sum(1 for m in ms if m['status'] == 'running'),
                             'done': sum(1 for m in ms if m['status'] == 'completed'),
                             'failed': sum(1 for m in ms if m['status'] in ('error', 'stalled')),
@@ -856,8 +904,10 @@ def build_snapshot(args):
         ctx = u.get('in', 0) + u.get('cache_read', 0) + u.get('cache_write', 0)
         m['totalTokens'] = ctx + u.get('out', 0)
         m['cacheHit'] = round(u.get('cache_read', 0) / ctx, 4) if ctx else 0.0
-    totals = {'cost': round(sum(m['cost'] for m in members) + (lead['cost'] or 0), 4),
-              'membersCost': round(sum(m['cost'] for m in members), 4),
+    totals = {'cost': round(sum(m['cost'] or 0 for m in members) + (lead.get('cost') or 0), 4),
+              'membersCost': round(sum(m['cost'] or 0 for m in members), 4),
+              'unpriced': sum(1 for m in members if m['cost'] is None) + (1 if lead.get('cost') is None and lead.get('model') else 0),
+              'unpricedModels': sorted({m['model'] for m in members if m['cost'] is None and m['model']} | ({lead['model']} if lead.get('cost') is None and lead.get('model') else set())),
               'modelMix': model_mix,
               'tokens': members_usage['out'],
               'usage': members_usage, 'leadUsage': lead_usage, 'allUsage': all_usage}

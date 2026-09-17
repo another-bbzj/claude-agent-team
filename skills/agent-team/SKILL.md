@@ -5,7 +5,7 @@ description: 用 Agent Team（部门制多代理）完成一个开发任务。�
 
 # Agent Team 协议
 
-参考：[roles.md](roles.md)（部门、模型档位、何时必须出场）· [office.md](office.md)（`.team/` 办公目录：工单、收件箱、交接单、汇报模板）· [lean.md](lean.md)（token 规则）。看板 http://127.0.0.1:7788/ ，派工前用浏览器工具打开；没监听就 `python ~/.claude/team-board/ensure.py`。
+参考：[roles.md](roles.md)（部门、模型档位、何时必须出场）· [office.md](office.md)（`.team/` 办公目录：工单、收件箱、交接单、汇报模板）· [lean.md](lean.md)（token 规则）。看板 http://127.0.0.1:7788/ 。**派工前先运行 `python ~/.claude/team-board/ensure.py --open`**（服务没起就启动，并在用户默认浏览器打开看板，10 分钟内不重复弹）；在有浏览器面板的桌面版里可以再用浏览器工具打开同一地址让它显示在旁边。
 
 ## 步骤
 
