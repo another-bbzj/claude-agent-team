@@ -149,20 +149,31 @@
   .lower > .panel { display: flex; flex-direction: column; max-height: 1100px; }
   .lower > .panel > .tasks, .lower > .panel > .feed, .lower > .panel > .comms { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
   .lower > .panel > .tasks { align-content: start; }
-  .statsrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+  .statsrow { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; max-width: 1180px; margin: 0 auto; width: 100%; }
+  .statsrow > .panel { min-height: 520px; }
   @media (max-width: 1000px) { .statsrow { grid-template-columns: minmax(0, 1fr); } }
-  table.dept { width: auto; border-collapse: collapse; font-size: 12px; }
-  table.dept td, table.dept th { padding-right: 18px; }
+  table.dtable { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+  table.dtable td { padding-top: 8px; padding-bottom: 8px; }
+  table.dtable td, table.dtable th { overflow: hidden; text-overflow: ellipsis; }
+  table.dtable col.c-dept { width: 20%; }
+  table.dtable th, table.dtable td { padding-left: 5px; padding-right: 5px; }
+  .dept-share { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+  .dept-share .row { display: grid; grid-template-columns: 120px 1fr 90px; align-items: center; gap: 10px; font-size: 11.5px; }
+  .dept-share .row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dept-share .track { height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; display: flex; }
+  .dept-share .track > i { display: block; height: 100%; }
+  .dept-share .v { font-family: var(--mono); font-size: 11px; color: var(--text-2); text-align: right; white-space: nowrap; }
+  .dept-share h4 { margin: 14px 0 6px; font-size: 10.5px; color: var(--text-3); letter-spacing: .5px; font-weight: 600; }
   .statsrow > .panel { min-width: 0; overflow: hidden; }
-  table.dept th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 10.5px; letter-spacing: .5px; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  table.dept td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
-  table.dept td:first-child { font-family: var(--sans); font-weight: 600; }
-  table.dept tr.missing td:first-child { color: var(--err); }
-  table.dept tr.empty td { color: var(--text-3); }
-  table.dept .st { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-  table.dept tfoot td { font-weight: 700; border-bottom: 0; color: var(--text); }
+  table.dtable th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 10.5px; letter-spacing: .5px; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.dtable td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
+  table.dtable td:first-child { font-family: var(--sans); font-weight: 600; }
+  table.dtable tr.missing td:first-child { color: var(--err); }
+  table.dtable tr.empty td { color: var(--text-3); }
+  table.dtable .st { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  table.dtable tfoot td { font-weight: 700; border-bottom: 0; color: var(--text); }
   .bars { display: flex; flex-direction: column; gap: 6px; }
-  .bar-row { display: grid; grid-template-columns: 26px 92px 1fr 64px; align-items: center; gap: 8px; font-size: 11.5px; }
+  .bar-row { display: grid; grid-template-columns: 26px 92px 1fr 64px; align-items: center; gap: 8px; font-size: 11.5px; min-height: 26px; }
   .bar-row .nm { font-family: var(--mono); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar-row .track { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
   .bar-row .track > i { display: block; height: 100%; border-radius: 5px; background: var(--brand); transition: width .6s ease; }
@@ -335,7 +346,8 @@
   <div class="statsrow">
     <section class="panel">
       <h2>DEPARTMENTS · 部门汇总 <span class="count" id="dept-count"></span></h2>
-      <div style="overflow-x:auto"><table class="dept" id="dept-table"></table></div>
+      <div style="overflow-x:auto"><table class="dtable" id="dept-table"></table></div>
+      <div class="dept-share" id="dept-share"></div>
     </section>
     <section class="panel">
       <h2>COST · 成员成本排行 <span class="count" id="bars-count"></span></h2>
@@ -754,9 +766,15 @@ function renderStats(snap) {
   const fmtS = (n) => !n ? '—' : n < 60 ? `${n}s` : n < 3600 ? `${Math.floor(n / 60)}m${n % 60}s` : `${(n / 3600).toFixed(1)}h`;
   const rows = deps.map(d => `<tr class="${d.missing ? 'missing' : ''} ${!d.members.length && d.id !== 'hq' ? 'empty' : ''}"><td><span class="st" style="background:${STC[d.status] || STC.empty}"></span>${esc(d.icon || '')} ${esc(d.name)}${d.missing ? ' <span style="font-weight:400">· 必须出场</span>' : ''}</td><td>${d.id === 'hq' ? '队长' + (d.members.length ? ' +' + d.members.length : '') : d.members.length || '—'}</td><td>${d.id === 'hq' ? '—' : `${d.running} / ${d.done}${d.failed ? ` / <span style="color:var(--err)">${d.failed}</span>` : ''}`}</td><td>${d.tools || '—'}</td><td>${d.tokens ? fmtTok(d.tokens) : '—'}</td><td>${d.tokens ? Math.round(d.cacheHit * 100) + '%' : '—'}</td><td>${fmtS(d.seconds)}</td><td>${(d.models || []).join(' ') || '—'}</td><td>${d.cost ? fmtCost(d.cost) : '—'}</td></tr>`).join('');
   const t = snap.totals || {}, u = t.usage || {};
-  $('#dept-table').innerHTML = `<thead><tr><th>部门</th><th>成员</th><th>进行 / 完成</th><th>工具</th><th>tokens</th><th>缓存命中</th><th>累计用时</th><th>模型</th><th>成本</th></tr></thead><tbody>${rows}</tbody>
+  $('#dept-table').innerHTML = `<colgroup><col class="c-dept"><col style="width:7%"><col style="width:10%"><col style="width:9%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col><col style="width:11%"></colgroup><thead><tr><th>部门</th><th>人</th><th>进/完</th><th>工具</th><th>tokens</th><th>缓存</th><th>用时</th><th>模型</th><th>成本</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>合计（不含队长）</td><td>${snap.members.length}</td><td>${snap.lead.running} / ${snap.lead.done}</td><td>${snap.members.reduce((a, m) => a + m.toolCount, 0)}</td><td>${fmtTok(u.total)}</td><td>${u.total ? Math.round(u.cacheHit * 100) + '%' : '—'}</td><td>${fmtS(snap.members.reduce((a, m) => a + (m.startedAt ? Math.round(((m.endedAt || m.lastActivityAt) - m.startedAt)) : 0), 0))}</td><td>${Object.entries(t.modelMix || {}).map(([k, v]) => `${k}×${v}`).join(' ')}</td><td>${fmtCost(t.membersCost) || '—'}</td></tr></tfoot>`;
   $('#dept-count').textContent = `${deps.filter(d => d.members.length || d.id === 'hq').length}/${deps.length} 出场`;
+  const active = deps.filter(d => d.members.length);
+  const totCost = active.reduce((a, d) => a + (d.cost || 0), 0) || 1, totTok = active.reduce((a, d) => a + (d.tokens || 0), 0) || 1, totSec = active.reduce((a, d) => a + (d.seconds || 0), 0) || 1;
+  const DC = ['var(--brand)', 'var(--info)', 'var(--ok)', 'var(--warn)', 'var(--peer)', 'var(--hand)', 'var(--err)'];
+  const maxC = Math.max(...active.map(d => d.cost || 0), 0.0001), maxT = Math.max(...active.map(d => d.tokens || 0), 1), maxS = Math.max(...active.map(d => d.seconds || 0), 1);
+  const mini = (v, max, color, label) => `<span class="track" title="${label}"><i style="width:${Math.max(2, 100 * v / max)}%;background:${color}"></i></span>`;
+  $('#dept-share').innerHTML = active.length ? `<h4>部门对比 <span style="font-weight:400">· 成本 / tokens / 用时（各按最大值归一）</span></h4>` + active.map((d, i) => `<div class="row"><span class="nm">${esc(d.icon || '')} ${esc(d.name)}</span><span style="display:flex;flex-direction:column;gap:3px">${mini(d.cost || 0, maxC, DC[i % DC.length], '成本 ' + fmtCost(d.cost || 0))}${mini(d.tokens || 0, maxT, 'color-mix(in srgb, ' + DC[i % DC.length] + ' 60%, transparent)', 'tokens ' + fmtTok(d.tokens))}${mini(d.seconds || 0, maxS, 'color-mix(in srgb, ' + DC[i % DC.length] + ' 30%, transparent)', '用时 ' + fmtS(d.seconds))}</span><span class="v">${Math.round(100 * (d.cost || 0) / totCost)}% · ${fmtCost(d.cost || 0)}</span></div>`).join('') : '';
   const ms = snap.members.slice().sort((a, b) => (b.cost || 0) - (a.cost || 0)).slice(0, 12), max = Math.max(...ms.map(m => m.cost || 0), 0.0001);
   $('#bars').innerHTML = ms.map(m => `<div class="bar-row" title="${esc(m.description)} · ${fmtTok(m.totalTokens)} tok · 缓存 ${Math.round((m.cacheHit || 0) * 100)}%">${miniPet(m, 22)}<span class="nm">${esc(m.name)}</span><span class="track"><i class="${esc(m.modelFamily || '')}" style="width:${Math.max(2, 100 * (m.cost || 0) / max)}%"></i></span><span class="v">${fmtCost(m.cost) || '$0'}</span></div>`).join('') || '<div style="color:var(--text-3);font-size:12px">还没有成员出场。</div>';
   $('#bars-count').textContent = ms.length ? `前 ${ms.length} 位` : '';
@@ -916,6 +934,17 @@ async function tick() {
   } catch (e) { console.error(e); if (++failing > 2) $('#live').classList.add('off'); }
 }
 tick(); setInterval(tick, 1500);
+/* 文档截图辅助：?shot=stats|lower|member|dept 只显示对应区域 / 打开对应弹窗（对普通使用无影响） */
+(function shotMode() {
+  const shot = new URLSearchParams(location.search).get('shot'); if (!shot) return;
+  const hide = (sel) => document.querySelectorAll(sel).forEach(e => e.style.display = 'none');
+  setTimeout(async () => {
+    if (shot === 'stats') { hide('header, .mission, .stage, .lower'); }
+    if (shot === 'lower') { hide('header, .mission, .stage, .statsrow'); }
+    if (shot === 'member') { await openAgentModal(null); const f = $('#agent-form'); f.name.value = 'security-reviewer'; f.display.value = '小审'; f.role.value = '安全审查员'; f.dept.value = 'qa'; f.model.value = 'opus'; f.effort.value = 'high'; f.color.value = 'purple'; f.description.value = '小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露。'; f.skills.value = 'security-review'; f.body.value = '你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单；逐条给出 文件:行号 → 问题 → 后果 → 改法；完成后写交接单，汇报 ≤ 200 字。'; updatePreview(); }
+    if (shot === 'dept') { await openDeptModal(); }
+  }, 2500);
+})();
 window.addEventListener('resize', () => prev && layout(prev));
 </script>
 </body>
