@@ -1,5 +1,7 @@
 # claude-agent-team
 
+[![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml) ![python](https://img.shields.io/badge/python-3.8%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+
 **让 Claude Code 像一家小公司一样干活**：一支常驻的、分部门的 Agent 团队（每人有名字、职责、模型档位、动画形象），一套成员之间的办公协议（工单 / 收件箱 / 交接单），外加一块浏览器里的**实时指挥室看板**——谁在干什么、谁给谁发了消息、花了多少 token 和钱，一眼看清。
 
 ```
