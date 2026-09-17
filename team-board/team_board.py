@@ -506,7 +506,7 @@ def parse_lead(path: Path, now: float):
         data = cached[1]
     else:
         timeline, pending, dispatches, messages, tool_count, out_tokens = [], {}, {}, [], 0, 0
-        last_user_prompt, last_ts = '', None
+        last_user_prompt, last_ts, first_ts = '', None, None
         notifications = {}
         lead_model, lead_usage = '', {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
         for e in read_jsonl(path):
@@ -515,6 +515,7 @@ def parse_lead(path: Path, now: float):
             ts = parse_iso(e.get('timestamp'))
             if ts:
                 last_ts = ts
+                first_ts = first_ts or ts
             et = e.get('type')
             if et in ('queue-operation', 'attachment'):
                 raw = json.dumps(e, ensure_ascii=False)
@@ -579,7 +580,7 @@ def parse_lead(path: Path, now: float):
                 'model': lead_model, 'usage': lead_usage, 'cost': round(estimate_cost(lead_model, lead_usage), 4),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
-                'lastTs': last_ts, 'mtime': st.st_mtime}
+                'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime}
         _lead_cache[path] = (key, data)
     current = next((it for it in reversed(data['timeline']) if it['kind'] == 'tool'), None)
     active = now - data['mtime'] < 20
@@ -792,7 +793,12 @@ def build_snapshot(args):
                      'outputTokens': lead_data['outputTokens'], 'timeline': lead_data['timeline'],
                      'lastUserPrompt': lead_data['lastUserPrompt'], 'lastActivityAt': lead_data['mtime'],
                      'model': lead_data.get('model', ''), 'modelFamily': model_family(lead_data.get('model', '')),
-                     'cost': lead_data.get('cost', 0.0), 'usage': lead_data.get('usage', {})})
+                     'cost': lead_data.get('cost', 0.0), 'usage': lead_data.get('usage', {}),
+                     'startedAt': lead_data.get('firstTs'), 'endedAt': lead_data.get('lastTs')})
+        lu = lead.get('usage') or {}
+        lctx = lu.get('in', 0) + lu.get('cache_read', 0) + lu.get('cache_write', 0)
+        lead['totalTokens'] = lctx + lu.get('out', 0)
+        lead['cacheHit'] = round(lu.get('cache_read', 0) / lctx, 4) if lctx else 0.0
 
     # 部门汇总 + 完整性
     coders = [m for m in members if m['dept'] == 'dev' or m['writes']]
