@@ -1,0 +1,126 @@
+{
+  "departments": [
+    {
+      "id": "hq",
+      "name": "指挥部",
+      "icon": "🎯",
+      "required": "always"
+    },
+    {
+      "id": "dev",
+      "name": "研发部",
+      "icon": "🛠",
+      "required": "code"
+    },
+    {
+      "id": "qa",
+      "name": "质量部",
+      "icon": "🔍",
+      "required": "code2"
+    },
+    {
+      "id": "rnd",
+      "name": "研究部",
+      "icon": "🔭",
+      "required": "optional"
+    },
+    {
+      "id": "docs",
+      "name": "文档部",
+      "icon": "📄",
+      "required": "deliver"
+    },
+    {
+      "id": "ops",
+      "name": "运维部",
+      "icon": "🚀",
+      "required": "optional"
+    }
+  ],
+  "agents": {
+    "team-architect": {
+      "dept": "hq",
+      "avatar": "docs-coordinator",
+      "name": "阿图",
+      "role": "架构师"
+    },
+    "backend-dev": {
+      "dept": "dev",
+      "avatar": "server-engineer",
+      "name": "阿服",
+      "role": "后端工程师"
+    },
+    "frontend-dev": {
+      "dept": "dev",
+      "avatar": "ui-designer",
+      "name": "小界",
+      "role": "前端工程师"
+    },
+    "researcher": {
+      "dept": "rnd",
+      "avatar": "data-analyst",
+      "name": "探探",
+      "role": "研究分析员"
+    },
+    "qa-tester": {
+      "dept": "qa",
+      "avatar": "qa-engineer",
+      "name": "测测",
+      "role": "测试工程师"
+    },
+    "code-reviewer": {
+      "dept": "qa",
+      "avatar": "security-reviewer",
+      "name": "老审",
+      "role": "审查员"
+    },
+    "docs-writer": {
+      "dept": "docs",
+      "avatar": "docs-coordinator",
+      "name": "文文",
+      "role": "文档协调员"
+    },
+    "release-ops": {
+      "dept": "ops",
+      "avatar": "release-engineer",
+      "name": "发发",
+      "role": "发布工程师"
+    }
+  },
+  "avatar_dept": {
+    "team-lead": "hq",
+    "server-engineer": "dev",
+    "ui-designer": "dev",
+    "qa-engineer": "qa",
+    "security-reviewer": "qa",
+    "data-analyst": "rnd",
+    "docs-coordinator": "docs",
+    "release-engineer": "ops"
+  },
+  "pricing_usd_per_mtok": {
+    "opus": {
+      "in": 5,
+      "out": 25,
+      "cache_read": 0.5,
+      "cache_write": 6.25
+    },
+    "fable": {
+      "in": 5,
+      "out": 25,
+      "cache_read": 0.5,
+      "cache_write": 6.25
+    },
+    "sonnet": {
+      "in": 3,
+      "out": 15,
+      "cache_read": 0.3,
+      "cache_write": 3.75
+    },
+    "haiku": {
+      "in": 1,
+      "out": 5,
+      "cache_read": 0.1,
+      "cache_write": 1.25
+    }
+  }
+}
