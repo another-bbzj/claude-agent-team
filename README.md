@@ -29,8 +29,9 @@
 5. [内置成员与模型分级](#5-内置成员与模型分级)
 6. [添加你自己的部门和成员](#6-添加你自己的部门和成员)
 7. [省 token 的规则](#7-省-token-的规则)
-8. [常见问题](#8-常见问题)
-9. [目录结构 / 形象素材 / 致谢](#9-目录结构)
+8. [自检与测试](#8-自检与测试)
+9. [常见问题](#9-常见问题)
+10. [目录结构 / 形象素材 / 致谢](#10-目录结构)
 
 ---
 
@@ -209,7 +210,15 @@ skills:
 
 ---
 
-## 8. 常见问题
+## 8. 自检与测试
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+11 个测试，只用标准库，1 秒跑完：用合成的 Claude Code 转录跑完整解析（成员状态 / 模型 / token / 成本 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门门禁），成员与部门的增删改校验，HTTP 接口，以及 `install.py` 在临时 HOME 上的安装 / 重复安装 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+
+## 9. 常见问题
 
 **看板打不开 / 页面空白**
 新开一个会话让钩子触发，或手动 `python ~/.claude/team-board/ensure.py`。端口被占用可改 `TEAM_BOARD_PORT` 环境变量。
@@ -234,9 +243,10 @@ skills:
 
 ---
 
-## 9. 目录结构
+## 10. 目录结构
 
 ```
+tests/             自动化测试（python -m unittest discover -s tests）
 docs/              图文操作手册 GUIDE.md 与截图
 team-board/        看板：team_board.py（标准库 HTTP + 转录解析）、index.html（单文件前端）、
                    ensure.py（钩子入口）、team.json（部门/价格配置）、import_codex_pets.py（从本机 Codex 提取宠物）

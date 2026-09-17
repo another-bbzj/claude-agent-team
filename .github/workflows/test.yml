@@ -1,0 +1,22 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.8', '3.12']
+        exclude:
+          - os: macos-latest
+            python: '3.8'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node -e "const s=require('fs').readFileSync('team-board/index.html','utf8'); new Function(s.slice(s.indexOf('<script>')+8, s.lastIndexOf('</script>'))); console.log('index.html js ok')"

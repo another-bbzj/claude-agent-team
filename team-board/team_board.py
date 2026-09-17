@@ -684,7 +684,7 @@ def build_snapshot(args):
             ptxt = re.sub('你是[^。，,\\n]{0,16}', '', d.get('prompt') or '')  # 去掉“你是研发部的阿服”这类自我角色描述
             seen_base = set()
             for other in sorted(members, key=lambda x: -(x.get('dispatchedAt') or x.get('startedAt') or 0)):
-                if other['id'] == m['id'] or (other.get('dispatchedAt') or 0) >= (d['ts'] or 0):
+                if other['id'] == m['id'] or (other.get('dispatchedAt') or 0) > (d['ts'] or 0):
                     continue
                 if other['baseName'] == m['baseName'] and '·' not in other['name']:
                     continue
@@ -696,7 +696,7 @@ def build_snapshot(args):
                                   'text': f"队长把 {other['name']} 的成果/问题转达给 {m['name']}"})
                     seen_base.add(other['baseName'])
         for msg in lead_data['messages']:
-            target = next((m for m in members if m['id'] == msg['to'] or msg['to'] in m['id']), None)
+            target = next((m for m in members if m['id'] == msg['to'] or msg['to'] in m['id'] or m['agentType'] == msg['to'] or m['name'] == msg['to']), None)
             comms.append({'ts': msg['ts'], 'kind': 'direct', 'from': '__lead', 'fromName': '队长', 'fromAvatar': 'team-lead',
                           'to': target['id'] if target else msg['to'], 'toName': target['name'] if target else msg['to'],
                           'toAvatar': target['avatar'] if target else 'docs-coordinator', 'text': msg['text']})
