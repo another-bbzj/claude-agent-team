@@ -189,14 +189,18 @@ class UsageAndPricingTest(unittest.TestCase):
     def test_third_party_model_unpriced_until_configured(self):
         sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
         (sub / 'agent-d4.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
-            asst('2026-01-01T11:00:01Z', 'deepseek-v4-flash-vision-exp', [{'type': 'text', 'text': 'x'}], stop='end_turn')), encoding='utf-8')
+            asst('2026-01-01T11:00:01Z', 'llama-4-70b-instruct', [{'type': 'text', 'text': 'x'}], stop='end_turn')), encoding='utf-8')
         (sub / 'agent-d4.meta.json').write_text(json.dumps({'agentType': 'docs-writer', 'description': 'third party'}), encoding='utf-8')
         snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
         m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')
-        self.assertIsNone(m['cost']); self.assertEqual(m['modelFamily'], 'deepseek')
-        self.assertEqual(snap['totals']['unpriced'], 1); self.assertIn('deepseek-v4-flash-vision-exp', snap['totals']['unpricedModels'])
+        self.assertIsNone(m['cost']); self.assertEqual(m['modelFamily'], 'llama')
+        self.assertEqual(snap['totals']['unpriced'], 1); self.assertIn('llama-4-70b-instruct', snap['totals']['unpricedModels'])
+        # 内置了常见第三方价格：DeepSeek / OpenAI / Gemini / Qwen / GLM / Kimi / MiniMax
+        for mid in ('deepseek-v4-flash-vision-exp', 'gpt-5.6-terra', 'gemini-2.5-flash', 'qwen3-max', 'glm-5', 'kimi-k2.5', 'minimax-m2.7'):
+            self.assertIsNotNone(self.tb.price_for(mid), mid)
+        self.assertEqual(self.tb.price_key('deepseek-v4-flash-vision-exp'), 'deepseek-v4-flash')
         # 配置价格后（按前缀匹配）即计价
-        self.tb.TEAM_CFG['pricing_usd_per_mtok']['deepseek'] = {'in': 0.14, 'out': 0.28, 'cache_read': 0.014, 'cache_write': 0.14}
+        self.tb.TEAM_CFG['pricing_usd_per_mtok']['llama'] = {'in': 0.14, 'out': 0.28, 'cache_read': 0.014, 'cache_write': 0.14}
         self.tb._agent_cache.clear()
         snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
         m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')

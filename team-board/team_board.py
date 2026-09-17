@@ -258,6 +258,21 @@ def price_for(model: str):
     return None
 
 
+def price_key(model: str):
+    """price_for 实际命中的价格表 key（用于界面标注“按哪一行计价”）。"""
+    low = (model or '').lower()
+    table = TEAM_CFG.get('pricing_usd_per_mtok') or {}
+    best = ''
+    for key in table:
+        k = key.lower()
+        if k and k in low and len(k) > len(best):
+            best = k
+    if best:
+        return best
+    fam = model_family(model)
+    return fam if fam in table else ''
+
+
 def estimate_cost(model: str, usage: dict):
     p = price_for(model)
     if not p:
@@ -519,6 +534,7 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'usage': P['usage'],
         'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(P['model'], P['usage'])),
         'priced': estimate_cost(P['model'], P['usage']) is not None,
+        'priceKey': price_key(P['model']),
         'messages': P['messages'],
         'writes': P['writes'],
         'reads': P['reads'],

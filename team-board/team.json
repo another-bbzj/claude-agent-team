@@ -121,6 +121,200 @@
       "out": 5,
       "cache_read": 0.1,
       "cache_write": 1.25
+    },
+    "deepseek-v4-flash": {
+      "in": 0.3,
+      "out": 1.2,
+      "cache_read": 0.006,
+      "cache_write": 0.3
+    },
+    "deepseek-v4-pro": {
+      "in": 1.32,
+      "out": 3.96,
+      "cache_read": 0.044,
+      "cache_write": 1.32
+    },
+    "deepseek": {
+      "in": 0.3,
+      "out": 1.2,
+      "cache_read": 0.006,
+      "cache_write": 0.3
+    },
+    "gpt-6": {
+      "in": 10,
+      "out": 50,
+      "cache_read": 1.0,
+      "cache_write": 10
+    },
+    "gpt-5.6-sol": {
+      "in": 5,
+      "out": 30,
+      "cache_read": 0.5,
+      "cache_write": 5
+    },
+    "gpt-5.6-terra": {
+      "in": 2,
+      "out": 12,
+      "cache_read": 0.2,
+      "cache_write": 2
+    },
+    "gpt-5.6-luna": {
+      "in": 0.2,
+      "out": 1.2,
+      "cache_read": 0.02,
+      "cache_write": 0.2
+    },
+    "gpt-5.5": {
+      "in": 2.5,
+      "out": 15,
+      "cache_read": 0.25,
+      "cache_write": 2.5
+    },
+    "gpt-5.4": {
+      "in": 2.5,
+      "out": 15,
+      "cache_read": 0.25,
+      "cache_write": 2.5
+    },
+    "gpt-5": {
+      "in": 1.25,
+      "out": 10,
+      "cache_read": 0.125,
+      "cache_write": 1.25
+    },
+    "gpt": {
+      "in": 1.25,
+      "out": 10,
+      "cache_read": 0.125,
+      "cache_write": 1.25
+    },
+    "gemini-2.5-pro": {
+      "in": 1.25,
+      "out": 10,
+      "cache_read": 0.125,
+      "cache_write": 1.25
+    },
+    "gemini-2.5-flash-lite": {
+      "in": 0.1,
+      "out": 0.4,
+      "cache_read": 0.01,
+      "cache_write": 0.1
+    },
+    "gemini-2.5-flash": {
+      "in": 0.3,
+      "out": 2.5,
+      "cache_read": 0.03,
+      "cache_write": 0.3
+    },
+    "gemini-3.1-flash-lite": {
+      "in": 0.25,
+      "out": 1.5,
+      "cache_read": 0.025,
+      "cache_write": 0.25
+    },
+    "gemini": {
+      "in": 0.3,
+      "out": 2.5,
+      "cache_read": 0.03,
+      "cache_write": 0.3
+    },
+    "qwen3.7-max": {
+      "in": 12,
+      "out": 36,
+      "cache_read": 1.2,
+      "cache_write": 12
+    },
+    "qwen3-max": {
+      "in": 2.5,
+      "out": 10,
+      "cache_read": 0.25,
+      "cache_write": 2.5
+    },
+    "qwen-max": {
+      "in": 2.4,
+      "out": 9.6,
+      "cache_read": 0.24,
+      "cache_write": 2.4
+    },
+    "qwen-plus": {
+      "in": 0.8,
+      "out": 2.0,
+      "cache_read": 0.08,
+      "cache_write": 0.8
+    },
+    "qwen-turbo": {
+      "in": 0.3,
+      "out": 0.6,
+      "cache_read": 0.03,
+      "cache_write": 0.3
+    },
+    "qwen": {
+      "in": 0.8,
+      "out": 2.0,
+      "cache_read": 0.08,
+      "cache_write": 0.8
+    },
+    "glm-5.1": {
+      "in": 6,
+      "out": 24,
+      "cache_read": 1.3,
+      "cache_write": 6
+    },
+    "glm-5-turbo": {
+      "in": 5,
+      "out": 22,
+      "cache_read": 1.2,
+      "cache_write": 5
+    },
+    "glm-5": {
+      "in": 4,
+      "out": 18,
+      "cache_read": 1.0,
+      "cache_write": 4
+    },
+    "glm": {
+      "in": 4,
+      "out": 18,
+      "cache_read": 1.0,
+      "cache_write": 4
+    },
+    "kimi-k2.6": {
+      "in": 6.5,
+      "out": 27,
+      "cache_read": 1.1,
+      "cache_write": 6.5
+    },
+    "kimi-k2.5": {
+      "in": 4,
+      "out": 21,
+      "cache_read": 0.7,
+      "cache_write": 4
+    },
+    "kimi": {
+      "in": 4,
+      "out": 21,
+      "cache_read": 0.7,
+      "cache_write": 4
+    },
+    "moonshot": {
+      "in": 4,
+      "out": 21,
+      "cache_read": 0.7,
+      "cache_write": 4
+    },
+    "minimax-m2.7": {
+      "in": 2.1,
+      "out": 8.4,
+      "cache_read": 0.42,
+      "cache_write": 2.1
+    },
+    "minimax": {
+      "in": 2.1,
+      "out": 8.4,
+      "cache_read": 0.42,
+      "cache_write": 2.1
     }
-  }
+  },
+  "pricing_note": "公开标价（USD / 百万 token），2026-09-17 整理；按模型 id 最长前缀匹配。DeepSeek 为标准时段价（非高峰减半）；OpenAI/DeepSeek/Qwen 等无单独缓存写入费，cache_write 按输入价计。改价格直接编辑本文件，页面即时生效。",
+  "pricing_updated": "2026-09-17"
 }
