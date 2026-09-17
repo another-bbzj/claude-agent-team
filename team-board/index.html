@@ -464,7 +464,7 @@ function assignPets(members) {
     petAssign.set(m.id, { pet: base, hue: (n * 97) % 360 });
   }
 }
-const petOf = (m) => m.pet ||(petAssign.get(m.id) || {}).pet || PET_BY_TYPE[m.agentType] || PET_BY_TYPE[m.id] || PET_BY_AVATAR[m.avatar] || 'dada-code';
+const petOf = (m) => { const have = new Set(ALL_PETS); return [m.pet, (petAssign.get(m.id) || {}).pet, PET_BY_TYPE[m.agentType], PET_BY_TYPE[m.id], PET_BY_AVATAR[m.avatar], ...(PET_FAMILY[m.avatar] || []), ...ALL_PETS].find(x => x && have.has(x)) || 'dada-code'; };
 const hueOf = (m) => (petAssign.get(m.id) || {}).hue || 0;
 const miniPet = (m, size = 28) => { const pet = petOf(m), hue = hueOf(m); return `<span class="mini" style="width:${size}px;height:${Math.round(size * 208 / 192)}px;background-image:url(sprites/${pet}.webp);background-size:${size * 8}px auto;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"></span>`; };
 const frames = (name, mult = 1) => ANIM[name][1].map((d, i) => ({ row: ANIM[name][0], col: i, dur: d * mult }));
