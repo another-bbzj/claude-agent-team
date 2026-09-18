@@ -26,7 +26,7 @@ def open_board():
     stamp = HERE / '.last-open'
     try:
         if stamp.exists() and time.time() - stamp.stat().st_mtime < 600:
-            print(f'看板已在浏览器中：http://127.0.0.1:{PORT}/')
+            print(f'看板已在浏览器中：http://127.0.0.1:{PORT}/  ← 回复里请用这个链接：[Agent Team 指挥室](http://127.0.0.1:{PORT}/)')
             return
     except OSError:
         pass
@@ -36,7 +36,7 @@ def open_board():
         time.sleep(0.25)
     webbrowser.open(f'http://127.0.0.1:{PORT}/')
     stamp.write_text(str(time.time()), encoding='utf-8')
-    print(f'已在浏览器打开 http://127.0.0.1:{PORT}/')
+    print(f'已在浏览器打开 http://127.0.0.1:{PORT}/  ← 回复里请用这个链接：[Agent Team 指挥室](http://127.0.0.1:{PORT}/)')
 
 
 def main():

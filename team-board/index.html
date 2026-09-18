@@ -95,13 +95,13 @@
   .dept.completed { border-color: var(--ok); }
   .dept.stalled { border-color: var(--warn); }
   .dept.empty { border-style: dashed; opacity: .7; }
-  .dept.missing { border-color: var(--err); border-style: dashed; opacity: 1; background: color-mix(in srgb, var(--err-soft) 40%, transparent); }
+  .dept.missing { border-color: var(--warn, #ef9f27); border-style: dashed; opacity: 1; background: color-mix(in srgb, var(--warn-soft, #fff3dc) 50%, transparent); }
   .dept .dh { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-bottom: 1px dashed var(--line); font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; }
   .dept .dh .ic { font-size: 14px; }
   .dept .dh .pill { padding: 1px 7px; font-size: 10.5px; }
   .dept .dh .cost { margin-left: auto; font-family: var(--mono); font-weight: 400; font-size: 10.5px; color: var(--text-3); }
   .dept .vacancy { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-40%); text-align: center; font-size: 11.5px; color: var(--text-3); line-height: 1.5; padding: 0 10px; }
-  .dept.missing .vacancy { color: var(--err); font-weight: 600; }
+  .dept.missing .vacancy { color: var(--warn, #b26b00); font-weight: 600; }
 
   .person { position: absolute; width: 190px; display: flex; flex-direction: column; align-items: center; text-align: center; transition: left .9s cubic-bezier(.55,0,.25,1), top .9s cubic-bezier(.55,0,.25,1); z-index: 4; }
   .person.appear { animation: appear .5s ease both; }
@@ -168,7 +168,7 @@
   table.dtable th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 10.5px; letter-spacing: .5px; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   table.dtable td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
   table.dtable td:first-child { font-family: var(--sans); font-weight: 600; }
-  table.dtable tr.missing td:first-child { color: var(--err); }
+  table.dtable tr.missing td:first-child { color: var(--warn, #b26b00); }
   table.dtable tr.empty td { color: var(--text-3); }
   table.dtable .st { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
   table.dtable tfoot td { font-weight: 700; border-bottom: 0; color: var(--text); }
@@ -473,8 +473,10 @@ function assignPets(members) {
   const have = new Set(ALL_PETS); const leadPet = ['pip', 'codex', 'huhu-plan'].find(x => have.has(x)) || ALL_PETS[0];
   petAssign.clear(); const taken = new Set([leadPet]); petAssign.set('__lead', { pet: leadPet, hue: 0 });
   const ordered = members.slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+  for (const m of ordered) if (m.pet && have.has(m.pet) && !taken.has(m.pet)) { taken.add(m.pet); petAssign.set(m.id, { pet: m.pet, hue: 0 }); }
   for (const m of ordered) {
-    const wish = [PET_BY_TYPE[m.agentType], ...(PET_FAMILY[m.avatar] || []), PET_BY_AVATAR[m.avatar], ...ALL_PETS].filter(x => x && have.has(x));
+    if (petAssign.has(m.id)) continue;
+    const wish = [m.pet, PET_BY_TYPE[m.agentType], ...(PET_FAMILY[m.avatar] || []), PET_BY_AVATAR[m.avatar], ...ALL_PETS].filter(x => x && have.has(x));
     if (!wish.length) wish.push(ALL_PETS[0] || 'dada-code');
     let pet = wish.find(x => !taken.has(x));
     if (pet) { taken.add(pet); petAssign.set(m.id, { pet, hue: 0 }); continue; }
@@ -519,7 +521,7 @@ class Sprite {
 (function loop(now) { for (const s of sprites) s.tick(now); requestAnimationFrame(loop); })(performance.now());
 
 /* ---------- 布局与渲染 ---------- */
-const LEAD_TOP = 34, LEAD_FOOT = 168, DEPT_TOP = 232, DEPT_HEAD = 34, MEMBER_H = 262, DEPT_GAP = 16, ROW_GAP = 26, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170;
+const LEAD_TOP = 34, LEAD_FOOT = 168, DEPT_TOP = 280, DEPT_HEAD = 34, MEMBER_H = 262, DEPT_GAP = 16, ROW_GAP = 26, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170;
 let prev = null, selectedId = null, selectedSession = '', flights = 0, firstLoad = true;
 const personEls = new Map(), deptEls = new Map(), taskEls = new Map(), seenFeed = new Set(), seenComms = new Set();
 let positions = new Map(), leadPos = { x: 0, foot: LEAD_FOOT }, deptPos = new Map(), stageW = 0, spineX = 0, row0BusY = 0;
@@ -597,10 +599,10 @@ function ensureDept(d) {
   el.className = `dept ${d.status} ${d.missing ? 'missing' : ''}`;
   el.querySelector('.ic').textContent = d.icon;
   el.querySelector('.nm').textContent = d.name;
-  const st = el.querySelector('.st'); st.textContent = d.missing ? '缺席' : STATUS_LABEL[d.status]; st.className = `pill st ${d.missing ? 'err blink' : STATUS_PILL[d.status] || ''}`;
+  const st = el.querySelector('.st'); st.textContent = d.missing ? '建议补位' : STATUS_LABEL[d.status]; st.className = `pill st ${d.missing ? 'warn' : STATUS_PILL[d.status] || ''}`;
   el.querySelector('.cnt').textContent = d.members.length ? `${d.done}/${d.members.length}` : '';
   el.querySelector('.cost').textContent = d.cost ? fmtCost(d.cost) : '';
-  el.querySelector('.vacancy').innerHTML = d.id === 'hq' ? '' : d.missing ? '门禁：本部门<br>必须出场' : d.members.length ? '' : (d.required === 'optional' ? '按需出场' : '尚未派工');
+  el.querySelector('.vacancy').innerHTML = d.id === 'hq' ? '' : d.missing ? '收尾建议：<br>本部门补位' : d.members.length ? '' : '按需出场';
   return el;
 }
 
@@ -773,7 +775,7 @@ function renderStats(snap) {
   const L = snap.lead || {};
   const deps = snap.departments || [], STC = { running: 'var(--brand)', completed: 'var(--ok)', stalled: 'var(--warn)', idle: 'var(--text-3)', empty: 'var(--line-2)' };
   const fmtS = (n) => !n ? '—' : n < 60 ? `${n}s` : n < 3600 ? `${Math.floor(n / 60)}m${n % 60}s` : `${(n / 3600).toFixed(1)}h`;
-  const rows = deps.map(d => `<tr class="${d.missing ? 'missing' : ''} ${!d.members.length && d.id !== 'hq' ? 'empty' : ''}"><td><span class="st" style="background:${STC[d.status] || STC.empty}"></span>${esc(d.icon || '')} ${esc(d.name)}${d.missing ? ' <span style="font-weight:400">· 必须出场</span>' : ''}</td><td>${d.id === 'hq' ? '队长' + (d.members.length ? ' +' + d.members.length : '') : d.members.length || '—'}</td><td>${d.id === 'hq' ? (L.active ? '<span style="color:var(--brand)">在线</span>' : '待命') : `${d.running} / ${d.done}${d.failed ? ` / <span style="color:var(--err)">${d.failed}</span>` : ''}`}</td><td>${d.id === 'hq' ? (L.toolCount ?? 0) + (d.tools || 0) : d.tools || '—'}</td><td>${d.id === 'hq' ? fmtTok((L.totalTokens || 0) + (d.tokens || 0)) : d.tokens ? fmtTok(d.tokens) : '—'}</td><td>${d.id === 'hq' ? Math.round((L.cacheHit || 0) * 100) + '%' : d.tokens ? Math.round(d.cacheHit * 100) + '%' : '—'}</td><td>${d.id === 'hq' ? fmtS(L.startedAt ? Math.round((L.active ? Date.now() / 1000 : (L.endedAt || L.lastActivityAt)) - L.startedAt) : 0) : fmtS(d.seconds)}</td><td>${d.id === 'hq' ? [L.modelFamily, ...(d.models || [])].filter(Boolean).join(' ') : (d.models || []).join(' ') || '—'}</td><td>${d.id === 'hq' ? fmtCost((L.cost || 0) + (d.cost || 0)) : d.cost ? fmtCost(d.cost) : '—'}</td></tr>`).join('');
+  const rows = deps.map(d => `<tr class="${d.missing ? 'missing' : ''} ${!d.members.length && d.id !== 'hq' ? 'empty' : ''}"><td><span class="st" style="background:${STC[d.status] || STC.empty}"></span>${esc(d.icon || '')} ${esc(d.name)}${d.missing ? ' <span style="font-weight:400">· 建议补位</span>' : ''}</td><td>${d.id === 'hq' ? '队长' + (d.members.length ? ' +' + d.members.length : '') : d.members.length || '—'}</td><td>${d.id === 'hq' ? (L.active ? '<span style="color:var(--brand)">在线</span>' : '待命') : `${d.running} / ${d.done}${d.failed ? ` / <span style="color:var(--err)">${d.failed}</span>` : ''}`}</td><td>${d.id === 'hq' ? (L.toolCount ?? 0) + (d.tools || 0) : d.tools || '—'}</td><td>${d.id === 'hq' ? fmtTok((L.totalTokens || 0) + (d.tokens || 0)) : d.tokens ? fmtTok(d.tokens) : '—'}</td><td>${d.id === 'hq' ? Math.round((L.cacheHit || 0) * 100) + '%' : d.tokens ? Math.round(d.cacheHit * 100) + '%' : '—'}</td><td>${d.id === 'hq' ? fmtS(L.startedAt ? Math.round((L.active ? Date.now() / 1000 : (L.endedAt || L.lastActivityAt)) - L.startedAt) : 0) : fmtS(d.seconds)}</td><td>${d.id === 'hq' ? [L.modelFamily, ...(d.models || [])].filter(Boolean).join(' ') : (d.models || []).join(' ') || '—'}</td><td>${d.id === 'hq' ? fmtCost((L.cost || 0) + (d.cost || 0)) : d.cost ? fmtCost(d.cost) : '—'}</td></tr>`).join('');
   const t = snap.totals || {}, u = t.usage || {}, au = t.allUsage || u;
   $('#dept-table').innerHTML = `<colgroup><col class="c-dept"><col style="width:7%"><col style="width:10%"><col style="width:9%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col><col style="width:11%"></colgroup><thead><tr><th>部门</th><th>人</th><th>进/完</th><th>工具</th><th>tokens</th><th>缓存</th><th>用时</th><th>模型</th><th>成本</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>成员合计</td><td>${snap.members.length}</td><td>${snap.lead.running} / ${snap.lead.done}</td><td>${snap.members.reduce((a, m) => a + m.toolCount, 0)}</td><td>${fmtTok(u.total)}</td><td>${u.total ? Math.round(u.cacheHit * 100) + '%' : '—'}</td><td>${fmtS(snap.members.reduce((a, m) => a + (m.startedAt ? Math.round(((m.endedAt || m.lastActivityAt) - m.startedAt)) : 0), 0))}</td><td>${Object.entries(t.modelMix || {}).map(([k, v]) => `${k}×${v}`).join(' ')}</td><td>${fmtCost(t.membersCost) || '—'}</td></tr>
@@ -831,7 +833,7 @@ function renderHeader(snap) {
   const missing = (snap.departments || []).filter(d => d.missing).map(d => d.name);
   const present = (snap.departments || []).filter(d => d.members.length || d.id === 'hq').length;
   $('#stats').innerHTML = `<span class="pill brand">⚙ ${snap.lead.running} 进行中</span><span class="pill ok">✓ ${snap.lead.done} 已完成</span><span class="pill">${snap.lead.total} 成员</span>
-    <span class="pill ${missing.length ? 'err blink' : 'ok'}" title="部门完整性门禁">${missing.length ? `缺席：${missing.join('、')}` : `部门 ${present}/${(snap.departments || []).length}`}</span>
+    <span class="pill ${missing.length ? 'warn' : 'ok'}" title="部门出场情况；收尾后若质量部 / 文档部没出场会提示建议补位，不是错误">${missing.length ? `建议补位：${missing.join('、')}` : `部门 ${present}/${(snap.departments || []).length}`}</span>
     ${mix ? `<span class="pill mono" title="成员用到的模型">${esc(mix)}</span>` : ''}
     ${t.membersCost ? `<span class="pill mono" title="按公开价估算；队长 ${fmtCost(snap.lead.cost)}">≈ ${fmtCost(t.membersCost)} 成员 / ${fmtCost(t.cost)} 合计</span>` : ''}
     ${t.unpriced ? `<span class="pill warn" title="这些模型不在 team.json 的价格表里，成本未计入：${esc((t.unpricedModels || []).join(', '))}。在 team-board/team.json 的 pricing_usd_per_mtok 里按模型 id（或前缀）加一条即可">⚠ ${t.unpriced} 个模型未定价</span>` : ''}

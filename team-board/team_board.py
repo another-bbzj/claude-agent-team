@@ -509,6 +509,21 @@ def short_path(v: str) -> str:
     return '/'.join(v.replace('\\', '/').split('/')[-2:])
 
 
+def dept_hint(title: str):
+    """任务标题开头的「研究部·」「[rnd]」「质量部：」之类 → 部门 id；没写返回 None。让队长临时派的 general-purpose 也能进对的部门。"""
+    t = (title or '').strip()
+    if not t:
+        return None
+    m = re.match(r'^[\[【（(]?\s*([^\]】）)·:：|/\-—\s]{1,16})\s*[\]】）)]?\s*[·:：|/\-—]', t)
+    if not m:
+        return None
+    key = m.group(1).strip().lower()
+    for d in TEAM_CFG['departments']:
+        if key in (d['id'].lower(), d['name'].lower(), d['name'].replace('部', '').lower()):
+            return d['id']
+    return None
+
+
 def stable_hash(s: str) -> int:
     return int(hashlib.md5(s.encode('utf-8', 'ignore')).hexdigest()[:8], 16)
 
@@ -937,7 +952,8 @@ def build_snapshot(args):
     for m in members:
         cfg = TEAM_CFG['agents'].get(m['agentType'])
         d = agent_defs.get(m['agentType'], {})
-        m['dept'] = cfg['dept'] if cfg else TEAM_CFG['avatar_dept'].get(m['avatar'], 'dev')
+        m['dept'] = cfg['dept'] if cfg else (dept_hint(m.get('description', '')) or TEAM_CFG['avatar_dept'].get(m['avatar'], 'dev'))
+        m['pet'] = (cfg or {}).get('pet', '')
         m['definedModel'] = d.get('model', '')
         m['effort'] = d.get('effort', '')
         m['custom'] = bool(d.get('custom'))
@@ -1095,7 +1111,7 @@ def build_snapshot(args):
     for d in TEAM_CFG['departments']:
         ms = [m for m in members if m['dept'] == d['id']]
         req = d['required']
-        needed = req == 'always' or (req == 'code' and bool(members)) or (req == 'code2' and len(coders) >= 2) \
+        needed = req == 'always' or (req == 'code' and bool(coders)) or (req == 'code2' and len(coders) >= 2) \
             or (req == 'deliver' and len(coders) >= 2)
         if d['id'] == 'hq':
             st = 'running' if phase == 'coordinating' else 'completed' if phase == 'finished' else 'idle'
@@ -1114,7 +1130,7 @@ def build_snapshot(args):
         dctx = du['in'] + du['cache_read'] + du['cache_write']
         dur = sum(((m['endedAt'] or m['lastActivityAt'] or 0) - (m['startedAt'] or 0)) for m in ms if m['startedAt'])
         departments.append({**d, 'members': [m['id'] for m in ms], 'status': st, 'needed': needed,
-                            'missing': needed and not ms and d['id'] != 'hq',
+                            'missing': needed and not ms and d['id'] != 'hq' and phase == 'finished',   # 收尾后才提示“建议补位”，不算错误
                             'cost': round(sum(m['cost'] or 0 for m in ms), 4),
                             'unpriced': sum(1 for m in ms if m['cost'] is None),
                             'running': sum(1 for m in ms if m['status'] == 'running'),

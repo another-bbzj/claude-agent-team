@@ -171,9 +171,41 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(deps['dev']['status'], 'running')
         self.assertEqual(deps['dev']['tools'], 4)
         self.assertGreater(deps['dev']['tokens'], 0)
-        self.assertTrue(deps['qa']['missing'], '两人写了代码，质量部应标为必须出场')
-        self.assertFalse(deps['hq']['missing'])
+        # 进行中：空部门只是“按需出场”，不算缺席；needed 只是标记
+        self.assertTrue(deps['qa']['needed']); self.assertFalse(deps['qa']['missing'], '进行中不该报缺席')
+        self.assertFalse(deps['hq']['missing']); self.assertEqual(deps['qa']['status'], 'empty')
         self.assertEqual(self.snap['lead']['phase'], 'coordinating')
+
+    def test_gate_only_suggests_after_finish_and_small_team_ok(self):
+        """两人都完成后才提示“建议补位”；1 人的小团队一切正常、没有任何缺席。"""
+        sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
+        (sub / 'agent-b2.jsonl').write_text(jl(user('2026-01-01T10:00:20Z', 'go'),
+            asst('2026-01-01T10:00:21Z', 'claude-sonnet-5', [{'type': 'text', 'text': '完成'}], stop='end_turn')), encoding='utf-8')
+        os.utime(sub / 'agent-b2.jsonl', (1735725600, 1735725600))   # 不是“刚刚写完”，队长早已收到
+        self.tb._agent_cache.clear()
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        deps = {d['id']: d for d in snap['departments']}
+        self.assertEqual(snap['lead']['phase'], 'finished')
+        self.assertTrue(deps['qa']['missing']); self.assertTrue(deps['docs']['missing']); self.assertFalse(deps['rnd']['missing'])
+        # 只有一个人：研发部只有 1 人 → 质量部不需要；一切正常
+        (sub / 'agent-b2.jsonl').unlink(); (sub / 'agent-b2.meta.json').unlink()
+        self.tb._agent_cache.clear()
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        self.assertEqual(len(snap['members']), 1)
+        self.assertFalse(any(d['missing'] for d in snap['departments']))
+        self.assertEqual(snap['totals']['members'] if 'members' in snap['totals'] else len(snap['members']), 1)
+        # 临时成员：标题「研究部·xxx」→ 归研究部；「[qa] xxx」→ 质量部
+        (sub / 'agent-c9.jsonl').write_text(jl(user('2026-01-01T10:00:30Z', 'go'),
+            asst('2026-01-01T10:00:31Z', 'claude-haiku-4-5', [{'type': 'text', 'text': 'ok'}], stop='end_turn')), encoding='utf-8')
+        (sub / 'agent-c9.meta.json').write_text(json.dumps({'agentType': 'general-purpose', 'description': '研究部·对比三种排序算法'}), encoding='utf-8')
+        (sub / 'agent-d9.jsonl').write_text(jl(user('2026-01-01T10:00:30Z', 'go'),
+            asst('2026-01-01T10:00:31Z', 'claude-haiku-4-5', [{'type': 'text', 'text': 'ok'}], stop='end_turn')), encoding='utf-8')
+        (sub / 'agent-d9.meta.json').write_text(json.dumps({'agentType': 'general-purpose', 'description': '[qa] 抽查登录流程'}), encoding='utf-8')
+        self.tb._agent_cache.clear()
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        by = {m['description']: m['dept'] for m in snap['members'] if m['agentType'] == 'general-purpose'}
+        self.assertEqual(by['研究部·对比三种排序算法'], 'rnd'); self.assertEqual(by['[qa] 抽查登录流程'], 'qa')
+        self.assertEqual(self.tb.dept_hint('质量部：复核'), 'qa'); self.assertIsNone(self.tb.dept_hint('实现登录页'))
 
     def test_roster_and_pets(self):
         names = {r['name'] for r in self.snap['roster']}
@@ -308,6 +340,9 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(out.count('memory:'), 1)
         self.assertEqual(self.tb.read_agent('backend-dev')['pet'], 'kit')
         self.assertIn(a['body'][:40], out)
+        # 会话里正在出场的成员也立刻带上新形象（看板每次刷新按它换图）
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        self.assertEqual(next(m for m in snap['members'] if m['agentType'] == 'backend-dev')['pet'], 'kit')
 
 
 class PetApiTest(unittest.TestCase):
