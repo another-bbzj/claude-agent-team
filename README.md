@@ -243,6 +243,8 @@ skills:
 
 导入的形象放在 `~/.claude/team-board/sprites/<id>.webp|png`，旁边 `<id>.json` 记录名字、简介、**作者与来源**（下拉里悬停可见）。
 
+**主体自动适配**：自制 / 下载的形象常常主体偏小，或各动作大小不一（idle 坐着很小、跑起来很大、某几帧被生成器裁到格底）。看板会**识别每个动作的主体**（不透明像素的质量与包围盒），行间按 `sqrt(最大质量 / 本行质量)` 归一、整体偏小再全局放大，播放到哪个动作就用哪个倍率——在屏幕上放大，不裁切，翅膀再宽也不会被格子切掉；刻意画小的姿势（趴下、缩成一团）质量不变，不会被硬拉高。想把放大写进图片本身：成员表单 → 形象旁 **「适配主体」**，或 `python ~/.claude/team-board/fit_pet.py <id>`（需要 `pip install pillow`；格子里放得下的部分直接改图并留 `.orig` 备份，放不下的写进 `<id>.json` 的 `fitRows`；`--restore <id>` 还原；`--fix-cropped` 用 idle 帧顶替被裁掉身体的动作）。导入 / 上传时会自动跑一次。
+
 > **为什么仓库不直接附带这些形象**：Codex 内置的 9 只版权归 OpenAI；petdex 上的形象由各自作者上传、没有统一授权（很多是二创），标注出处并不等于获得再分发许可。所以脚本只把它们下载到**你自己的电脑**并记下作者——既能用上成千上万的形象，又不侵犯作者权利。
 
 ---
@@ -342,7 +344,7 @@ python -m unittest discover -s tests -v
 ```
 team-board/        看板：team_board.py（标准库 HTTP + 转录解析）· index.html（单文件前端）· ensure.py（钩子入口）
                    team.json（部门 / 成员登记 / 形象 / 价格）· update.py（检查 / 一键更新）
-                   import_codex_pets.py（导入本机 Codex / petdex 宠物或任意桌宠文件）· fetch_petdex.py（从 petdex 下载）
+                   import_codex_pets.py（导入本机 Codex / petdex 宠物或任意桌宠文件）· fit_pet.py（识别主体并适配大小）· fetch_petdex.py（从 petdex 下载）
                    make_pets.py（程序化绘制自带形象）· sprites/（形象）
 agents/            8 位通用常驻成员定义
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则

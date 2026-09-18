@@ -543,5 +543,69 @@ class UpdateTest(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class FitPetTest(unittest.TestCase):
+    """fit_pet.py：识别主体、按行归一倍率；有 Pillow 时再验证真的改图 + 备份 + 还原。"""
+
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('fit_pet', ROOT / 'team-board' / 'fit_pet.py')
+        self.fp = importlib.util.module_from_spec(spec); spec.loader.exec_module(self.fp)
+
+    def test_finish_rows_rules(self):
+        fp = self.fp
+        # 各行质量一样、站满格子 → 全 1（Codex 自带角色的情况）
+        rows = [{'h': 170, 'w': 140, 'mass': 18000, 'cropped': False} for _ in range(9)]
+        self.assertEqual([r['k'] for r in fp.finish_rows(rows, 8, 208)['rows']], [1.0] * 9)
+        # idle 只有跑动行 70% 的质量 → 按 sqrt 归一 ≈ 1.2；被裁的行只用全局倍率（这里为 1）；趴下但质量相同的行不拉高
+        rows = [{'h': 158, 'w': 186, 'mass': 14000, 'cropped': False}, {'h': 190, 'w': 155, 'mass': 20000, 'cropped': False},
+                {'h': 136, 'w': 123, 'mass': 12000, 'cropped': True}, {'h': 96, 'w': 150, 'mass': 20000, 'cropped': False}]
+        ks = [r['k'] for r in fp.finish_rows(rows, 8, 208)['rows']]
+        self.assertAlmostEqual(ks[0], (20000 / 14000) ** 0.5, places=2); self.assertEqual(ks[1], 1.0); self.assertEqual(ks[2], 1.0); self.assertEqual(ks[3], 1.0)
+        # 整体偏小（最壮的行只有 100px 高）→ 全局倍率 = 0.82*208/100，且不超过 KMAX
+        rows = [{'h': 100, 'w': 80, 'mass': 5000, 'cropped': False}, {'h': 100, 'w': 80, 'mass': 5000, 'cropped': True}]
+        ks = [r['k'] for r in fp.finish_rows(rows, 8, 208)['rows']]
+        self.assertAlmostEqual(ks[0], 0.82 * 208 / 100, places=2); self.assertEqual(ks[0], ks[1])
+        # 行间放大封顶 KROW
+        rows = [{'h': 60, 'w': 60, 'mass': 2000, 'cropped': False}, {'h': 190, 'w': 150, 'mass': 20000, 'cropped': False}]
+        self.assertEqual(fp.finish_rows(rows, 8, 208)['rows'][0]['k'], fp.KROW)
+
+    def test_fit_file_with_pillow(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest('没有 Pillow')
+        fp = self.fp
+        tmp = Path(tempfile.mkdtemp(prefix='fitpet-'))
+        try:
+            # 合成一张 8×9 雪碧图：每格一个 40×60 的小方块角色（远小于格子）→ 应被放大到约 82% 格高
+            sheet = Image.new('RGBA', (1536, 1872), (0, 0, 0, 0))
+            for r in range(9):
+                for c in range(8):
+                    box = Image.new('RGBA', (40, 60), (200, 80, 80, 255))
+                    sheet.alpha_composite(box, (c * 192 + 76, r * 208 + 140))
+            f = tmp / 'tiny.png'; sheet.save(f)
+            res = fp.fit_file(f)
+            self.assertTrue(res['changed']); self.assertTrue((tmp / 'tiny.orig.png').exists())
+            self.assertTrue(all(k > 1 for k in res['inImage']))
+            info = fp.analyze(Image.open(f))
+            self.assertGreaterEqual(info['rows'][0]['h'], int(0.82 * 208) - 2, '放大后主体高度接近 82% 格高')
+            self.assertEqual(info['rows'][0]['boxes'][0][1][3], 199, '脚底基线不动（原来离底 8px）')
+            self.assertTrue(all(r['k'] == 1.0 for r in info['rows']), '再跑一遍不需要再放大')
+            side = json.loads((tmp / 'tiny.json').read_text(encoding='utf-8'))
+            self.assertNotIn('fitRows', side, '图内已放大到位，不需要屏幕再放大')
+            self.assertTrue(fp.restore_file(f)); self.assertFalse((tmp / 'tiny.orig.png').exists())
+            self.assertEqual(fp.analyze(Image.open(f))['rows'][0]['h'], 60)
+            # 翅膀太宽放不下：图不改、写 fitRows 让看板放大
+            wide = Image.new('RGBA', (1536, 1872), (0, 0, 0, 0))
+            for r in range(9):
+                for c in range(8):
+                    wide.alpha_composite(Image.new('RGBA', (186, 100), (80, 80, 200, 255)), (c * 192 + 3, r * 208 + 100))
+            g = tmp / 'wide.png'; wide.save(g)
+            res = fp.fit_file(g)
+            self.assertFalse(res['changed']); self.assertTrue(all(k > 1 for k in res['onScreen']))
+            self.assertIn('fitRows', json.loads((tmp / 'wide.json').read_text(encoding='utf-8')))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -213,6 +213,10 @@ def pet_info() -> dict:
                     for k in ('displayName', 'description', 'source', 'credit', 'license'):
                         if meta.get(k):
                             entry[k] = str(meta[k])[:300]
+                    if isinstance(meta.get('fitRows'), list):
+                        entry['fitRows'] = [float(x) for x in meta['fitRows']][:16]
+                    if isinstance(meta.get('fit'), (int, float)):
+                        entry['fit'] = float(meta['fit'])
                 except Exception:
                     pass
             out[f.stem] = entry
@@ -297,7 +301,24 @@ def save_pet(meta: dict, ext: str, img: bytes, overwrite: bool = False, source: 
         side['spriteVersionNumber'] = meta['spriteVersionNumber']
     pet_meta_path(pet).write_text(json.dumps(side, ensure_ascii=False, indent=2), encoding='utf-8')
     w, h, rows = meta.get('_size', (0, 0, 0))
-    return {'id': pet, 'file': f'{pet}.{ext}', 'width': w, 'height': h, 'rows': rows, 'displayName': side['displayName']}
+    fit = fit_pet_file(pet)
+    return {'id': pet, 'file': f'{pet}.{ext}', 'width': w, 'height': h, 'rows': rows, 'displayName': side['displayName'], 'fit': fit}
+
+
+def fit_pet_file(pet: str, fix_cropped: bool = False):
+    """用 fit_pet.py 识别主体并放大：格子里放得下就改图（留 .orig 备份），放不下的写 fitRows 让看板按行放大显示。
+    需要 Pillow；没装就返回 None（前端自己用 canvas 量，同样能放大显示）。"""
+    f = SPRITES / pet_files().get(pet, '')
+    if not f.is_file():
+        raise ValueError('形象不存在：' + pet)
+    try:
+        sys.path.insert(0, str(HERE))
+        import fit_pet
+        return fit_pet.fit_file(f, fix_cropped=fix_cropped)
+    except RuntimeError as e:   # 没有 Pillow
+        return {'skipped': str(e)}
+    except Exception as e:
+        return {'error': f'{type(e).__name__}: {e}'}
 
 
 def write_pet(d: dict) -> dict:
@@ -1372,6 +1393,16 @@ class Handler(SimpleHTTPRequestHandler):
                 out = set_member_pet(payload)
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, **out})
+            if u.path == '/api/pets/fit':
+                pet = str(payload.get('id', '')).strip()
+                if payload.get('restore'):
+                    sys.path.insert(0, str(HERE)); import fit_pet
+                    f = SPRITES / pet_files().get(pet, '')
+                    out = {'restored': fit_pet.restore_file(f)} if f.is_file() else {'error': '形象不存在'}
+                else:
+                    out = fit_pet_file(pet, fix_cropped=bool(payload.get('fixCropped')))
+                Handler._cache = (0.0, None)
+                return self._json({'ok': True, 'fit': out, 'petInfo': pet_info()})
             if u.path == '/api/pets/delete':
                 delete_pet(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)

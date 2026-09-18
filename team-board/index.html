@@ -404,7 +404,7 @@
       <label>部门 <select name="dept" id="am-dept"></select></label>
       <label>模型 <small>选一个，或直接输入第三方模型 id（deepseek-chat、glm-4.6、openai/gpt-5…）</small><input name="model" id="am-model" list="am-model-list" placeholder="sonnet"><datalist id="am-model-list"></datalist></label>
       <label>思考强度 <select name="effort" id="am-effort"></select></label>
-      <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button><input type="file" id="am-pet-file" accept=".webp,.png,.zip,image/webp,image/png,application/zip" hidden></span></label>
+      <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn" id="am-pet-fit" title="识别主体：把偏小的角色放大、各动作大小拉齐；被裁到格底的动作不放大（需要 Pillow 才会改图，否则只在屏幕上放大）">适配主体</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button><input type="file" id="am-pet-file" accept=".webp,.png,.zip,image/webp,image/png,application/zip" hidden></span></label>
       <label>颜色 <select name="color" id="am-color"></select></label>
       <label class="wide">简介 <small>什么时候该用它——Claude 靠这句自动委派，写具体</small><textarea name="description" rows="2" required placeholder="小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露…"></textarea></label>
       <label class="wide">预载技能 <small>逗号分隔，~/.claude/skills 里的名字，可空</small><input name="skills" placeholder="my-domain-skill, security-review"></label>
@@ -507,41 +507,69 @@ const SEQ = {
   idle: () => rep('idle', 1, 6),
 };
 const sprites = new Set();
-/* 形象自动适配：Codex 自带角色画满 192×208 的格子，自制 / 下载的可能只占一半高。取 idle 行前几帧量不透明区域的高度，
-   不足格高 85% 的按比例放大（最多 1.5 倍），放大基点在脚底，所以站位不变。结果按形象缓存，所有用到它的元素同步更新。 */
-const petFit = new Map();   // pet -> scale（number）或 Promise
-function fitOf(pet) {
-  const cached = petFit.get(pet);
-  if (typeof cached === 'number') return cached;
-  if (cached) return 1;
+/* 形象自动适配：Codex 自带角色画满 192×208 的格子，自制 / 下载的可能主体偏小、或各动作大小不一（idle 坐着很小、跑起来很大）。
+   与 team-board/fit_pet.py 同一算法：逐行（= 逐动作）量不透明像素的“质量”和包围盒，行间按 sqrt(最大质量/本行质量) 归一，
+   整体偏小再乘全局倍率；被裁到格子底边的行只用全局倍率；差异 < 8% 视为相同。结果是每行一个倍率，播放到哪行就用哪行的
+   （CSS scale，不裁切；翅膀再宽也不会被格子切掉）。sidecar json 里有 fitRows（脚本算过）就直接用。 */
+const petFit = new Map();   // pet -> number[] (每行倍率) | Promise
+const FIT_TARGET = 0.82, FIT_MAX = 1.6, FIT_ROW_MAX = 1.35, FIT_DEADZONE = 1.08;
+function fitRowsFromInfo(info) {
+  if (Array.isArray(info.fitRows) && info.fitRows.length) return info.fitRows.map(k => Math.max(1, Math.min(FIT_MAX, +k || 1)));
+  if (info.fit) return Array(16).fill(Math.max(1, Math.min(FIT_MAX, +info.fit)));
+  return null;
+}
+function finishRows(rows, ch) {
+  const full = rows.filter(r => r.mass);
+  if (!full.length) return rows.map(() => 1);
+  const ref = full.reduce((a, b) => (b.mass > a.mass ? b : a));
+  const target = Math.max(ref.h, FIT_TARGET * ch), glob = ref.h ? Math.max(1, target / ref.h) : 1;
+  return rows.map(r => {
+    if (!r.mass) return 1;
+    let k = r.cropped ? glob : Math.min(FIT_ROW_MAX, Math.sqrt(ref.mass / r.mass)) * glob;
+    k = Math.min(k, FIT_MAX, (ch * 1.6) / Math.max(r.h, 1));
+    return k < FIT_DEADZONE ? 1 : Math.round(k * 1000) / 1000;
+  });
+}
+function fitRowsOf(pet) {
+  const v = petFit.get(pet);
+  if (Array.isArray(v)) return v;
+  if (v) return null;
+  const info = PET_INFO[pet] || {};
+  const side = fitRowsFromInfo(info);
+  if (side) { petFit.set(pet, side); return side; }
   const img = new Image();
   const pr = new Promise((resolve) => {
     img.onload = () => {
       try {
-        const info = PET_INFO[pet] || {}, cw = info.cw || ATLAS.cw, ch = info.ch || ATLAS.ch;
+        const cw = info.cw || ATLAS.cw, ch = info.ch || ATLAS.ch, rows = Math.max(1, Math.floor(img.naturalHeight / ch));
         const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d', { willReadFrequently: true });
-        let top = ch, bottom = -1;
-        for (let col = 0; col < Math.min(4, ATLAS.cols); col++) {
-          g.clearRect(0, 0, cw, ch); g.drawImage(img, col * cw, 0, cw, ch, 0, 0, cw, ch);
-          const d = g.getImageData(0, 0, cw, ch).data;
-          // 一行至少 6 个不透明像素才算身体，忽略头顶的光点 / 星星这类细碎装饰
-          for (let y = 0; y < ch; y++) { let n = 0; for (let x = 0; x < cw; x++) if (d[(y * cw + x) * 4 + 3] > 24) n++; if (n >= 6) { if (y < top) top = y; if (y > bottom) bottom = y; } }
+        const out = [];
+        for (let row = 0; row < rows; row++) {
+          let h = 0, mass = 0, cropped = false;
+          for (let col = 0; col < Math.min(4, ATLAS.cols); col++) {   // 前 4 帧够代表这一行
+            g.clearRect(0, 0, cw, ch); g.drawImage(img, col * cw, row * ch, cw, ch, 0, 0, cw, ch);
+            const d = g.getImageData(0, 0, cw, ch).data;
+            let top = -1, bottom = -1, m = 0;
+            for (let y = 0; y < ch; y++) { let n = 0; for (let x = 0; x < cw; x++) if (d[(y * cw + x) * 4 + 3] > 24) n++; m += n; if (n >= 6) { if (top < 0) top = y; bottom = y; } }
+            if (top >= 0) { h = Math.max(h, bottom - top + 1); if (bottom >= ch - 1) cropped = true; }
+            mass = Math.max(mass, m);
+          }
+          out.push({ h, mass, cropped });
         }
-        const h = bottom - top + 1;
-        let k = 1; if (h > 8 && h < ch * 0.85) k = Math.min(1.5, (ch * 0.85) / h);
-        resolve(Math.round(k * 100) / 100);
-      } catch (_) { resolve(1); }
+        resolve(finishRows(out, ch));
+      } catch (_) { resolve(null); }
     };
-    img.onerror = () => resolve(1);
+    img.onerror = () => resolve(null);
   });
   petFit.set(pet, pr);
-  pr.then(k => { petFit.set(pet, k); document.querySelectorAll(`[data-pet="${pet}"]`).forEach(el => el.style.setProperty('--fit', k)); });
+  pr.then(rows => { petFit.set(pet, rows || [1]); sprites.forEach(sp => { if (sp.pet === pet) sp.draw(); }); document.querySelectorAll(`.pv-sprite[data-pet="${pet}"], .mini[data-pet="${pet}"]`).forEach(el => el.style.setProperty('--fit', (rows || [1])[0] || 1)); });
   img.src = petUrl(pet);
-  return 1;
+  return null;
 }
+const fitOf = (pet, row = 0) => { const rows = fitRowsOf(pet); return rows ? (rows[row] ?? rows[0] ?? 1) : 1; };
 class Sprite {
   constructor(el, m) { this.el = el; this.pet = null; this.setPet(m); this.seq = SEQ.idle(); this.i = 0; this.next = performance.now(); this.state = 'idle'; this.after = null; sprites.add(this); this.draw(); }
-  setPet(m) { const pet = petOf(m), hue = hueOf(m); if (this.pet === pet && this.hue === hue) return; this.pet = pet; this.hue = hue; this.el.style.backgroundImage = `url(${petUrl(pet)})`; this.el.dataset.pet = pet; this.el.style.setProperty('--fit', fitOf(pet)); this.el.style.filter = (hue ? `hue-rotate(${hue}deg) ` : '') + 'drop-shadow(0 6px 5px rgba(0,0,0,.16))'; }
+  setPet(m) { const pet = petOf(m), hue = hueOf(m); if (this.pet === pet && this.hue === hue) return; this.pet = pet; this.hue = hue; this.el.style.backgroundImage = `url(${petUrl(pet)})`; this.el.dataset.pet = pet; this.el.style.setProperty('--fit', fitOf(pet, 0)); this.el.style.filter = (hue ? `hue-rotate(${hue}deg) ` : '') + 'drop-shadow(0 6px 5px rgba(0,0,0,.16))'; }
   play(state, burst) {
     if (state === this.state && !burst) return;
     this.state = state;
@@ -554,7 +582,7 @@ class Sprite {
     if (this.i >= this.seq.length) { this.i = 0; if (this.after) { this.seq = this.after(); this.after = null; } }
     this.next = now + this.seq[this.i].dur; this.draw();
   }
-  draw() { const f = this.seq[this.i]; const s = (this.el.clientWidth || 96) / ATLAS.cw; this.el.style.backgroundPosition = `-${f.col * ATLAS.cw * s}px -${f.row * ATLAS.ch * s}px`; }
+  draw() { const f = this.seq[this.i]; const s = (this.el.clientWidth || 96) / ATLAS.cw; this.el.style.backgroundPosition = `-${f.col * ATLAS.cw * s}px -${f.row * ATLAS.ch * s}px`; const k = fitOf(this.pet, f.row); if (k !== this._k) { this._k = k; this.el.style.setProperty('--fit', k); } }
   destroy() { sprites.delete(this); }
 }
 (function loop(now) { for (const s of sprites) s.tick(now); requestAnimationFrame(loop); })(performance.now());
@@ -989,6 +1017,20 @@ $('#am-pet-file').addEventListener('change', async (e) => {
   if (petImportTarget) { const t = petImportTarget; petImportTarget = null; await setMemberPet(t, r.pet.id, t.scope); drawerNote = { id: t.id, text: `✓ 已导入并换成 ${r.pet.id}`, until: Date.now() + 8000 }; const dm = $('#d-pet-msg'); if (dm) dm.textContent = drawerNote.text; return; }
   fillPetSelect(r.pets, r.pet.id); updatePreview();
   msg.textContent = `✓ 已导入形象 ${r.pet.id}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
+});
+$('#am-pet-fit').addEventListener('click', async () => {
+  const id = $('#am-pet').value, msg = $('#am-msg'); if (!id) { msg.className = 'err'; msg.textContent = '先在下拉里选一个形象'; return; }
+  msg.className = ''; msg.textContent = '识别主体中…';
+  const r = await fetch('/api/pets/fit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
+  PET_INFO = r.petInfo || PET_INFO; if (agentMeta) agentMeta.petInfo = r.petInfo; petFit.delete(id);
+  const f = r.fit || {};
+  if (f.skipped) { msg.className = 'err'; msg.textContent = `本机没有 Pillow，没改图（pip install pillow 后再试）；看板仍会按主体在屏幕上放大显示`; }
+  else if (f.error) { msg.className = 'err'; msg.textContent = f.error; }
+  else { const on = (f.onScreen || []).filter(k => k > 1).length, crop = (f.cropped || []).length; msg.textContent = `✓ ${f.changed ? '已放大图内主体（原图存为 .orig）' : '图内已够大'}${on ? `，${on} 个动作在屏幕上按行放大` : ''}${crop ? `；${crop} 个动作在源文件里就被裁到格底，无法补全` : ''}`; }
+  // 让预览与舞台立即用新倍率
+  sprites.forEach(sp => { if (sp.pet === id) { sp._k = null; sp.el.style.backgroundImage = `url(${petUrl(id)}?v=${Date.now()})`; sp.draw(); } });
+  updatePreview();
 });
 $('#am-pet-del').addEventListener('click', async () => {
   const id = $('#am-pet').value, msg = $('#am-msg'); if (!id) { msg.className = 'err'; msg.textContent = '先在下拉里选一个导入的形象'; return; }
