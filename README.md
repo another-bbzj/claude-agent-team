@@ -55,6 +55,8 @@ python install.py
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
 | `~/.claude/settings.json` | 追加一个 SessionStart 钩子，让看板随会话自动常驻（原文件先备份） |
 
+**以后更新**：看板顶栏出现「⬆ 有新版本 · 一键更新」就点它（自动下载 GitHub 最新版、重装、重启看板；你的部门 / 成员 / 形象 / 价格 / 改过的成员文件全部保留），或命令行 `python ~/.claude/team-board/update.py --apply --restart`。看板每 12 小时自动检查一次。
+
 装完**新开一个 Claude Code 会话**（任何项目文件夹都行）。看板会自动在后台启动：打开 http://127.0.0.1:7788/ 。想立刻看：`python ~/.claude/team-board/ensure.py`。
 
 如果你装了 Codex 桌面版，安装脚本还会从你本机提取 9 只 Codex 宠物形象；加 `--petdex` 可再从 [petdex](https://petdex.dev) 社区画廊下载一组桌宠（见[形象素材](#形象素材)）。
@@ -218,7 +220,7 @@ skills:
 python -m unittest discover -s tests -v
 ```
 
-19 个测试，只用标准库，2 秒跑完：用合成的 Claude Code 转录跑完整解析（成员状态 / 模型 / token 去重 / 第三方定价 / 成本 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 1 人小团队 / 临时成员归部门），成员与部门的增删改校验（编辑不丢 `.md` 里的其它字段），形象导入（webp / png / zip、缩放、坏尺寸拒绝、删除保护），HTTP 接口，导入脚本，以及 `install.py` 在临时 HOME 上的安装 / 重复安装 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+21 个测试，只用标准库，几秒跑完：用合成的 Claude Code 转录跑完整解析（成员状态 / 模型 / token 去重 / 第三方定价 / 成本 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 1 人小团队 / 临时成员归部门），成员与部门的增删改校验（编辑不丢 `.md` 里的其它字段），形象导入（webp / png / zip、缩放、坏尺寸拒绝、删除保护），第三方 API 转录（provider 前缀、requestId 去重、自定义模型 id），HTTP 接口，导入脚本，更新脚本（本地 zip 全流程），以及 `install.py` 在临时 HOME 上的安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
 
 ## 9. 常见问题
 
@@ -228,7 +230,10 @@ python -m unittest discover -s tests -v
 **说了「用 agent team」但看板没自动弹出来（常见于 macOS / 纯 CLI）**
 钩子只负责让服务在后台常驻，弹窗由技能在派工前执行 `ensure.py --open` 完成（系统默认浏览器）。如果 Claude 忘了，直接在对话里说「打开看板」，或自己开 http://127.0.0.1:7788/ ——服务一直在。
 
-**用的是第三方模型（DeepSeek / GPT / Gemini / Qwen / GLM / Kimi / MiniMax …）**
+**我不是 Claude 账号登录，用的是第三方 API（`ANTHROPIC_BASE_URL` 转发到 DeepSeek / GLM / Kimi / Qwen / OpenAI 等）**
+完全支持，四处都适配了：① 看板读的是 Claude Code 写的转录，第三方回复里的模型 id（`deepseek-chat`、`glm-4.6`、`openai/gpt-5`…）原样识别，provider 前缀自动忽略，按家族汇总；② token 去重对没有 message id、只有 requestId 的回复同样有效，没有缓存字段就按 0 计；③ 成员定义里的模型可以直接填第三方 id（新建成员 → 模型框直接输入），派工时就按它请求；④ 成本按内置的第三方价格表估算（下一条）。注意：`opus / sonnet / haiku` 这种别名在第三方网关下取决于网关怎么映射，成员想用指定模型就写完整 id。
+
+**用的是第三方模型（DeepSeek / GPT / Gemini / Qwen / GLM / Kimi / MiniMax / Grok / Llama …）**
 内置了这些家族的公开标价（`team-board/team.json` → `pricing_usd_per_mtok`，2026-09-17 整理），按模型 id **最长前缀匹配**：`deepseek-v4-flash-vision-exp` 用 `deepseek-v4-flash` 那一行，`gpt-5.6-terra` 用自己那一行，认不出具体版本时退到家族默认行（详情抽屉里会标"按价格行 xxx"）。完全不认识的模型显示"未定价"并在顶栏提示，不会瞎算。价格会变，改这个文件即可，页面即时生效：
 
 ```json
@@ -252,7 +257,13 @@ python -m unittest discover -s tests -v
 **token / 成本数字和我在服务商后台看到的对不上**
 - token 口径：看板的「合计」= 输入 + 输出 + 缓存读 + 缓存写，其中缓存读通常占 90% 以上（每次调用都要重读整段上下文）。服务商后台可能只显示输入 + 输出，或者把缓存读并进输入里——对比时看同一口径。
 - 每条 API 消息在转录里会被写成多行（每个内容块一行，usage 是快照），看板按 message id 去重、只取最后一份快照。旧版本重复累计过（约 1.5–2 倍），已修；修后与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对同一会话的统计一致（误差 < 1%）。
-- 成本按 `team-board/team.json` 的公开单价估算（Claude 系列内置），不是账单；第三方模型需要你自己加价格（见上一条）。
+- 成本按 `team-board/team.json` 的公开单价估算（Claude 系列与 DeepSeek / OpenAI / Gemini / Qwen / GLM / Kimi / MiniMax / Grok / Llama 等 50+ 行内置），不是账单；认不出的模型显示「未定价」，加一行即可。
+
+**怎么知道有没有新版本 / 怎么更新**
+看板顶栏会自动出现「⬆ 有新版本 vX · 一键更新」按钮（每 12 小时检查一次 GitHub 上的 `VERSION`）；点它即下载安装并重启看板。命令行：`python ~/.claude/team-board/update.py`（只检查）、`--apply --restart`（更新）。更新 = 重新运行 `install.py`：`team.json` 里你自建的部门 / 成员 / 形象 / 价格合并保留，你改过的成员 `.md` 和技能文件不覆盖（新版本另存为 `*.new` 供比较），`sprites/` 里导入的形象一律不动。fork 了仓库的话设 `TEAM_UPDATE_REPO=你/仓库名`。
+
+**正在工作的成员能换形象吗**
+能。点看板上任何一位（含队长）打开详情抽屉，最上面「形象」区：选一个 →「只改这位」（只这个会话里的这一位）、「改 xxx 角色」（写进常驻定义，以后都用）、「导入…」（直接选桌宠文件用在它身上）。改完舞台上立刻换，不用刷新。
 
 **换电脑**
 把仓库 clone 过去再 `python install.py`；钩子路径按新机器自动生成。
@@ -267,6 +278,8 @@ docs/              图文操作手册 GUIDE.md 与截图
 team-board/        看板：team_board.py（标准库 HTTP + 转录解析）、index.html（单文件前端）、
                    ensure.py（钩子入口）、team.json（部门/价格配置）
                    import_codex_pets.py（导入本机 Codex / petdex 宠物或任意桌宠文件）、fetch_petdex.py（从 petdex 画廊下载）
+                   update.py（检查 / 一键更新）
+VERSION            版本号（看板据此检查更新）
 agents/            8 位通用常驻成员定义
 skills/agent-team/ 团队协议：SKILL.md 步骤、roles.md 部门与模型档位、office.md 办公目录规范、lean.md 省 token 规则
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定

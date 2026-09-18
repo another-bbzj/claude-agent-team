@@ -50,6 +50,8 @@
 
 三个面板等高，各自内部滚动。
 
+**成员详情抽屉**：点舞台上任何一位、任务卡片或名单里的成员打开。最上面是**形象**区——下拉选一个形象后：`只改这位`（只影响这个会话里的这一位，记在 `team.json` 的 `member_pets`）、`改 <subagent_type> 角色`（写进常驻定义，以后每次都用；临时派的 general-purpose 没有这个按钮）、`导入…`（选 zip / webp / png 桌宠文件，导入后直接用在它身上）。队长也能换（`换队长形象`）。改完舞台立刻换图，不用刷新。往下是任务指令、概况（模型 · 成本 · token）、写过的文件、通信、交付回报、动作时间线。
+
 ---
 
 ## 4. 新建 / 编辑 / 删除成员
@@ -65,7 +67,7 @@
 | 标识 | `subagent_type`，小写字母 / 数字 / 连字符，如 `security-reviewer`。派工时用它点名 |
 | 显示名 / 岗位 | 看板上的名字和头衔，如 `小审` / `安全审查员` |
 | 部门 | 从部门管理里定义的部门中选 |
-| 模型 | `sonnet` / `opus` / `haiku` / `fable` / `inherit`（跟随主会话） |
+| 模型 | 选 `sonnet` / `opus` / `haiku` / `fable` / `inherit`（跟随主会话），或直接输入第三方模型 id（`deepseek-chat`、`glm-4.6`、`openai/gpt-5`…，第三方 API 用户用这个） |
 | 思考强度 | 留空 = 跟随会话；`low` / `medium` / `high` / `xhigh` / `max` |
 | 形象 | 下拉选一个（分「导入的形象」「仓库自带」两组，悬停显示作者）；旁边 **「导入形象…」** 可直接选 zip / webp / png 桌宠文件导入，**「删」** 删除选中的导入形象；"按部门自动分配"则按部门默认 |
 | 颜色 | Claude Code 任务列表里的颜色，也用作看板名牌边框 |
@@ -142,6 +144,7 @@ python ~/.claude/team-board/ensure.py                 # 没在运行就后台启
 python ~/.claude/team-board/team_board.py --port 7788 # 前台运行，Ctrl+C 退出
 python ~/.claude/team-board/team_board.py --dump      # 打印一次快照 JSON 后退出
 python ~/.claude/team-board/team_board.py --session <会话id前缀>   # 固定观察某个会话
+python ~/.claude/team-board/update.py                 # 检查更新；--apply --restart 一键更新并重启看板
 ```
 
 | 接口 | 用途 |
@@ -152,6 +155,10 @@ python ~/.claude/team-board/team_board.py --session <会话id前缀>   # 固定�
 | `GET /api/pets` | 形象列表：`pets`、`petInfo`（文件名、尺寸、行数、名字、作者、是否自带） |
 | `POST /api/pets` | 导入形象（JSON：id?, filename?, data = base64 或 dataURL 的 zip / webp / png, overwrite?） |
 | `POST /api/pets/delete` | 删除导入的形象（JSON：id）；自带的、有成员在用的会拒绝 |
+| `POST /api/members/pet` | 给会话里的成员换形象（JSON：id, pet, scope = member / type / lead, agentType）；pet 为空 = 恢复自动分配 |
+| `GET /api/update/check` | 版本检查：`local` / `remote` / `hasUpdate`（12 小时缓存，`?force=1` 立即查） |
+| `POST /api/update/apply` | 一键更新：后台运行 `update.py --apply --restart` |
+| `POST /api/shutdown` | 让服务退出（更新脚本用；钩子 / `ensure.py` 会再拉起） |
 | `POST /api/agents/delete` | 删除成员（`{"name": ...}`） |
 | `POST /api/departments` | 新建或更新部门（`{"id","name","icon","required"}`） |
 | `POST /api/departments/delete` | 删除部门（`{"id": ...}`） |

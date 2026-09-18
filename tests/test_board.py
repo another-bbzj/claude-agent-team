@@ -254,18 +254,19 @@ class UsageAndPricingTest(unittest.TestCase):
     def test_third_party_model_unpriced_until_configured(self):
         sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
         (sub / 'agent-d4.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
-            asst('2026-01-01T11:00:01Z', 'llama-4-70b-instruct', [{'type': 'text', 'text': 'x'}], stop='end_turn')), encoding='utf-8')
+            asst('2026-01-01T11:00:01Z', 'yi-lightning-2', [{'type': 'text', 'text': 'x'}], stop='end_turn')), encoding='utf-8')
         (sub / 'agent-d4.meta.json').write_text(json.dumps({'agentType': 'docs-writer', 'description': 'third party'}), encoding='utf-8')
         snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
         m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')
-        self.assertIsNone(m['cost']); self.assertEqual(m['modelFamily'], 'llama')
-        self.assertEqual(snap['totals']['unpriced'], 1); self.assertIn('llama-4-70b-instruct', snap['totals']['unpricedModels'])
+        self.assertIsNone(m['cost']); self.assertEqual(m['modelFamily'], 'yi')
+        self.assertEqual(snap['totals']['unpriced'], 1); self.assertIn('yi-lightning-2', snap['totals']['unpricedModels'])
         # 内置了常见第三方价格：DeepSeek / OpenAI / Gemini / Qwen / GLM / Kimi / MiniMax
-        for mid in ('deepseek-v4-flash-vision-exp', 'gpt-5.6-terra', 'gemini-2.5-flash', 'qwen3-max', 'glm-5', 'kimi-k2.5', 'minimax-m2.7'):
+        for mid in ('deepseek-v4-flash-vision-exp', 'gpt-5.6-terra', 'gemini-2.5-flash', 'qwen3-max', 'glm-5', 'kimi-k2.5', 'minimax-m2.7',
+                    'deepseek-chat', 'deepseek-reasoner', 'glm-4.6', 'kimi-k2-0905', 'grok-code-fast-1', 'openai/gpt-4.1-mini', 'meta-llama/llama-3.3-70b', 'MiniMax-M2'):
             self.assertIsNotNone(self.tb.price_for(mid), mid)
         self.assertEqual(self.tb.price_key('deepseek-v4-flash-vision-exp'), 'deepseek-v4-flash')
         # 配置价格后（按前缀匹配）即计价
-        self.tb.TEAM_CFG['pricing_usd_per_mtok']['llama'] = {'in': 0.14, 'out': 0.28, 'cache_read': 0.014, 'cache_write': 0.14}
+        self.tb.TEAM_CFG['pricing_usd_per_mtok']['yi'] = {'in': 0.14, 'out': 0.28, 'cache_read': 0.014, 'cache_write': 0.14}
         self.tb._agent_cache.clear()
         snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
         m = next(x for x in snap['members'] if x['agentType'] == 'docs-writer')
@@ -274,6 +275,26 @@ class UsageAndPricingTest(unittest.TestCase):
         self.tb.TEAM_CFG['pricing_usd_per_mtok']['deepseek-v4-flash'] = {'in': 1, 'out': 1, 'cache_read': 1, 'cache_write': 1}
         self.assertEqual(self.tb.price_for('deepseek-v4-flash-vision-exp')['in'], 1)
         self.assertEqual(self.tb.price_for('claude-opus-5-20260101')['in'], self.tb.TEAM_CFG['pricing_usd_per_mtok']['opus']['in'])
+
+
+    def test_third_party_api_transcript(self):
+        """第三方 API（ANTHROPIC_BASE_URL 转发）：模型 id 带 provider 前缀、消息没有 id 只有 requestId、没有缓存字段。"""
+        sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
+        def a(ts, out, rid):
+            e = asst(ts, 'deepseek/deepseek-chat', [{'type': 'text', 'text': 'x'}], stop='end_turn', usage={'input_tokens': 100, 'output_tokens': out})
+            e['requestId'] = rid; return e
+        (sub / 'agent-f6.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
+            a('2026-01-01T11:00:01Z', 5, 'req_1'), a('2026-01-01T11:00:01Z', 40, 'req_1'), a('2026-01-01T11:00:03Z', 60, 'req_2')), encoding='utf-8')
+        (sub / 'agent-f6.meta.json').write_text(json.dumps({'agentType': 'researcher', 'description': '第三方'}), encoding='utf-8')
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        m = next(x for x in snap['members'] if x['agentType'] == 'researcher')
+        self.assertEqual(m['usage'], {'in': 200, 'out': 100, 'cache_read': 0, 'cache_write': 0}, '同一 requestId 只计一次')
+        self.assertEqual(m['modelFamily'], 'deepseek'); self.assertEqual(m['priceKey'], 'deepseek-chat'); self.assertIsNotNone(m['cost'])
+        self.assertEqual(self.tb.model_family('openai/gpt-5'), 'gpt'); self.assertEqual(self.tb.model_family('anthropic/claude-sonnet-4-5'), 'sonnet')
+        # 成员定义可以填第三方模型 id
+        out = self.tb.write_agent({'name': 'ds-coder', 'description': '用 DeepSeek 写代码的成员，测试用', 'model': 'openai/gpt-5', 'dept': 'dev'})
+        self.assertEqual(out['model'], 'openai/gpt-5')
+        with self.assertRaises(ValueError): self.tb.write_agent({'name': 'ds-coder', 'description': '用 DeepSeek 写代码的成员，测试用', 'model': 'bad model!'})
 
 
 class AgentApiTest(unittest.TestCase):
@@ -489,6 +510,35 @@ class CustomPetImportTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertTrue((out / 'boba.webp').exists()); self.assertTrue((out / 'boba.json').exists())
             r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'import_codex_pets.py'), str(zp), '--out', str(out)], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertTrue((out / 'zhizhi.png').exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class UpdateTest(unittest.TestCase):
+    def test_check_and_apply_from_local_zip(self):
+        import subprocess, sys, zipfile
+        tmp = Path(tempfile.mkdtemp(prefix='teamupd-'))
+        try:
+            (tmp / 'VERSION').write_text('9.9.9\n', encoding='utf-8')
+            env = {**os.environ, 'TEAM_UPDATE_VERSION_URL': (tmp / 'VERSION').as_uri(), 'PYTHONIOENCODING': 'utf-8'}
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'update.py'), '--json'], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            self.assertEqual(r.returncode, 0, r.stderr); info = json.loads(r.stdout)
+            self.assertEqual(info['remote'], '9.9.9'); self.assertTrue(info['hasUpdate'])
+            (tmp / 'VERSION').write_text('0.0.1\n', encoding='utf-8')
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'update.py'), '--json'], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            self.assertFalse(json.loads(r.stdout)['hasUpdate'])
+            # --apply：把当前仓库打成 zip 当“GitHub 最新版”，装进临时 HOME
+            zp = tmp / 'main.zip'
+            with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as z:
+                for f in ROOT.rglob('*'):
+                    if f.is_file() and '.git' not in f.parts and '__pycache__' not in f.parts:
+                        z.write(f, 'claude-agent-team-main/' + f.relative_to(ROOT).as_posix())
+            home = tmp / 'home'; (home / '.claude').mkdir(parents=True)
+            env.update({'HOME': str(home), 'USERPROFILE': str(home), 'TEAM_UPDATE_ZIP_URL': zp.as_uri()})
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'update.py'), '--apply'], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=str(tmp))
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertTrue((home / '.claude' / 'team-board' / 'team_board.py').exists())
+            self.assertEqual((home / '.claude' / 'team-board' / 'VERSION').read_text(encoding='utf-8').strip(), (ROOT / 'VERSION').read_text(encoding='utf-8').strip())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

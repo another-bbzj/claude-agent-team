@@ -10,6 +10,7 @@ Agent Team Board — 本地实时看板服务
 用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600]
 """
 import argparse
+import os
 import sys
 import io
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -320,6 +321,43 @@ def write_pet(d: dict) -> dict:
     return save_pet(meta, ext, img, overwrite=bool(d.get('overwrite')), source=str(d.get('source', '')), credit=str(d.get('credit', '')))
 
 
+def set_member_pet(d: dict) -> dict:
+    """给正在工作的成员换形象：{id, pet, scope}。scope=member 只改这一位（按会话里的成员 id 记在 team.json 的 member_pets）；
+    scope=type 改这个 subagent_type 的常驻定义（以后每次都用）；scope=lead 改队长。pet 传空 = 恢复自动分配。"""
+    mid = str(d.get('id', '')).strip()
+    pet = str(d.get('pet', '')).strip().lower()
+    scope = str(d.get('scope', 'member')).strip() or 'member'
+    if pet and pet not in pet_files():
+        raise ValueError('形象不存在：' + pet)
+    if scope == 'lead':
+        if pet:
+            TEAM_CFG['lead_pet'] = pet
+        else:
+            TEAM_CFG.pop('lead_pet', None)
+    elif scope == 'type':
+        atype = str(d.get('agentType', '')).strip()
+        if atype not in TEAM_CFG.get('agents', {}):
+            raise ValueError('这个角色不是常驻成员（临时派的 general-purpose 只能“只改这位”）')
+        if pet:
+            TEAM_CFG['agents'][atype]['pet'] = pet
+        else:
+            TEAM_CFG['agents'][atype].pop('pet', None)
+        TEAM_CFG.setdefault('member_pets', {}).pop(mid, None)
+    else:
+        if not re.match(r'^[A-Za-z0-9_\-]{1,80}$', mid):
+            raise ValueError('成员 id 不合法')
+        mp = TEAM_CFG.setdefault('member_pets', {})
+        if pet:
+            mp[mid] = pet
+        else:
+            mp.pop(mid, None)
+        if len(mp) > 500:  # 只留最近 500 条，免得越积越多
+            for k in list(mp)[:-500]:
+                mp.pop(k, None)
+    save_team_cfg()
+    return {'id': mid, 'pet': pet, 'scope': scope}
+
+
 def delete_pet(pet: str):
     pet = str(pet).strip().lower()
     files = pet_files()
@@ -330,6 +368,13 @@ def delete_pet(pet: str):
     users = [k for k, v in TEAM_CFG.get('agents', {}).items() if v.get('pet') == pet]
     if users:
         raise ValueError('还有成员在用这个形象：' + '、'.join(users) + '，先给他们换形象')
+    mp = TEAM_CFG.get('member_pets') or {}
+    if any(v == pet for v in mp.values()):
+        for k in [k for k, v in mp.items() if v == pet]:
+            mp.pop(k, None)
+        save_team_cfg()
+    if TEAM_CFG.get('lead_pet') == pet:
+        TEAM_CFG.pop('lead_pet', None); save_team_cfg()
     (SPRITES / files[pet]).unlink()
     if pet_meta_path(pet).exists():
         pet_meta_path(pet).unlink()
@@ -360,8 +405,8 @@ def write_agent(d: dict):
     if not AGENT_NAME_RE.match(name):
         raise ValueError('标识只能用小写字母、数字、连字符，2-40 位，例如 my-reviewer')
     model = str(d.get('model', 'inherit')).strip() or 'inherit'
-    if model not in MODELS and not re.match(r'^[a-z0-9.-]+$', model):
-        raise ValueError('模型只能是 sonnet / opus / haiku / fable / inherit 或完整模型 id')
+    if model not in MODELS and not re.match(r'^[A-Za-z0-9._:/\-]{2,80}$', model):
+        raise ValueError('模型只能是 sonnet / opus / haiku / fable / inherit，或第三方完整模型 id（如 deepseek-chat、openai/gpt-5）')
     effort = str(d.get('effort', '')).strip()
     if effort not in EFFORTS:
         raise ValueError('思考强度只能是 low / medium / high / xhigh / max 或留空')
@@ -455,7 +500,8 @@ def model_family(model: str) -> str:
     for fam in ('opus', 'sonnet', 'haiku', 'fable'):
         if fam in low:
             return fam
-    # 第三方模型（deepseek / gpt / qwen …）：取 id 的首段作为家族名，方便按家族汇总
+    # 第三方模型（deepseek / gpt / qwen …）：去掉 provider 前缀（openai/…、deepseek/…）后取首段作为家族名，方便按家族汇总
+    low = low.rsplit('/', 1)[-1]
     head = re.split(r'[-_/:.]', low, 1)[0] if low else ''
     return head or ''
 
@@ -623,6 +669,46 @@ def real_model(model) -> bool:
     return bool(model) and not str(model).startswith('<')
 
 
+VERSION = (HERE / 'VERSION').read_text(encoding='utf-8').strip() if (HERE / 'VERSION').exists() else '0.0.0'
+_update_state = {'checkedAt': 0.0, 'result': None, 'busy': False, 'applying': False}
+
+
+def update_check(force: bool = False) -> dict:
+    """比较本机 VERSION 与 GitHub 上的；结果缓存 12 小时，检查在后台线程做，不卡快照。"""
+    st = _update_state
+    if st['result'] and not force and time.time() - st['checkedAt'] < 12 * 3600:
+        return st['result']
+    if st['busy']:
+        return st['result'] or {'local': VERSION, 'remote': '', 'hasUpdate': False, 'pending': True}
+    st['busy'] = True
+
+    def run():
+        try:
+            import importlib
+            sys.path.insert(0, str(HERE))
+            up = importlib.import_module('update')
+            st['result'] = up.check()
+        except Exception as e:
+            st['result'] = {'local': VERSION, 'remote': '', 'hasUpdate': False, 'error': f'{type(e).__name__}: {e}'}
+        finally:
+            st['checkedAt'] = time.time(); st['busy'] = False
+    threading.Thread(target=run, daemon=True).start()
+    return st['result'] or {'local': VERSION, 'remote': '', 'hasUpdate': False, 'pending': True}
+
+
+def update_apply() -> dict:
+    """后台起一个进程跑 update.py --apply --restart；装完它会让本服务退出并重启。"""
+    if _update_state['applying']:
+        return {'ok': True, 'note': '已经在更新中'}
+    _update_state['applying'] = True
+    import subprocess
+    log = open(HERE / 'update.log', 'ab')
+    flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
+    subprocess.Popen([sys.executable, str(HERE / 'update.py'), '--apply', '--restart'], stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                     creationflags=flags, close_fds=True, cwd=str(HERE), env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+    return {'ok': True, 'note': '更新已开始，约 10-30 秒后看板会自动重启；刷新页面即可'}
+
+
 class UsageLedger:
     """按 message.id 去重累计 usage：同一条 API 消息会被写成多行（每个 content block 一行，usage 是当时的快照），
     只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。"""
@@ -632,11 +718,11 @@ class UsageLedger:
         self.order = []
         self.anon = 0
 
-    def add(self, msg: dict):
+    def add(self, msg: dict, request_id: str = ''):
         usage = msg.get('usage') or {}
         if not usage:
             return
-        mid = msg.get('id')
+        mid = msg.get('id') or (('req:' + request_id) if request_id else None)
         if not mid:
             self.anon += 1
             mid = f'_anon{self.anon}'
@@ -693,7 +779,7 @@ def _parse_agent_file(jsonl: Path):
                         last_kind = 'tool_result'
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
-            ledger.add(msg)
+            ledger.add(msg, e.get('requestId') or '')
             if real_model(msg.get('model')):
                 model = msg['model']
             has_tool = False
@@ -849,7 +935,7 @@ def parse_lead(path: Path, now: float):
                                 if ts and item['ts']:
                                     item['ms'] = int((ts - item['ts']) * 1000)
             elif et == 'assistant':
-                lead_ledger.add(msg)
+                lead_ledger.add(msg, e.get('requestId') or '')
                 if real_model(msg.get('model')):
                     lead_model = msg['model']
                 if isinstance(content, list):
@@ -953,7 +1039,9 @@ def build_snapshot(args):
         cfg = TEAM_CFG['agents'].get(m['agentType'])
         d = agent_defs.get(m['agentType'], {})
         m['dept'] = cfg['dept'] if cfg else (dept_hint(m.get('description', '')) or TEAM_CFG['avatar_dept'].get(m['avatar'], 'dev'))
-        m['pet'] = (cfg or {}).get('pet', '')
+        m['pet'] = (TEAM_CFG.get('member_pets') or {}).get(m['id']) or (cfg or {}).get('pet', '')
+        m['petScope'] = 'member' if (TEAM_CFG.get('member_pets') or {}).get(m['id']) else ('type' if (cfg or {}).get('pet') else '')
+        m['hasDef'] = bool(cfg)
         m['definedModel'] = d.get('model', '')
         m['effort'] = d.get('effort', '')
         m['custom'] = bool(d.get('custom'))
@@ -1092,7 +1180,7 @@ def build_snapshot(args):
     feed.sort(key=lambda x: -x['ts'])
 
     lead = {'name': 'Claude', 'avatar': 'team-lead', 'phase': phase, 'running': running, 'done': done, 'total': len(members),
-            'dept': 'hq', 'model': '', 'cost': 0.0, 'usage': {}}
+            'dept': 'hq', 'model': '', 'cost': 0.0, 'usage': {}, 'pet': TEAM_CFG.get('lead_pet', '')}
     if lead_data:
         lead.update({'active': lead_data['active'], 'current': lead_data['current'], 'toolCount': lead_data['toolCount'],
                      'outputTokens': lead_data['outputTokens'], 'timeline': lead_data['timeline'],
@@ -1177,7 +1265,7 @@ def build_snapshot(args):
 
     return {
         'pets': pet_list(), 'petInfo': pet_info(),
-        'generatedAt': now,
+        'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
         'session': session_info,
         'sessions': [{'id': s['session'], 'project': s['project'], 'mtime': s['mtime'], 'count': s['count']}
                      for s in sessions[:12]],
@@ -1240,6 +1328,9 @@ class Handler(SimpleHTTPRequestHandler):
                                'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
         if u.path == '/api/pets':
             return self._json({'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
+        if u.path == '/api/update/check':
+            q = parse_qs(u.query)
+            return self._json({'version': VERSION, **update_check(force='force' in q)})
         if u.path == '/':
             self.path = '/index.html'
         return super().do_GET()
@@ -1271,6 +1362,16 @@ class Handler(SimpleHTTPRequestHandler):
                 out = write_pet(payload)
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'pet': out, 'pets': pet_list(), 'petInfo': pet_info()})
+            if u.path == '/api/update/apply':
+                return self._json(update_apply())
+            if u.path == '/api/shutdown':
+                self._json({'ok': True})
+                threading.Timer(0.5, lambda: os._exit(0)).start()
+                return
+            if u.path == '/api/members/pet':
+                out = set_member_pet(payload)
+                Handler._cache = (0.0, None)
+                return self._json({'ok': True, **out})
             if u.path == '/api/pets/delete':
                 delete_pet(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)
@@ -1306,6 +1407,7 @@ def main():
     if args.dump:
         print(json.dumps(build_snapshot(args), ensure_ascii=False, indent=1))
         return
+    os.environ['TEAM_BOARD_PORT'] = str(args.port)   # 更新脚本重启时用同一个端口
     srv = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
     print(f'Agent Team Board  ->  http://127.0.0.1:{args.port}/   (Ctrl+C 退出)')
     try:

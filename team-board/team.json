@@ -313,8 +313,110 @@
       "out": 8.4,
       "cache_read": 0.42,
       "cache_write": 2.1
+    },
+    "deepseek-chat": {
+      "in": 0.3,
+      "out": 1.2,
+      "cache_read": 0.006,
+      "cache_write": 0.3
+    },
+    "deepseek-reasoner": {
+      "in": 1.32,
+      "out": 3.96,
+      "cache_read": 0.044,
+      "cache_write": 1.32
+    },
+    "grok-code-fast": {
+      "in": 0.2,
+      "out": 1.5,
+      "cache_read": 0.02,
+      "cache_write": 0.2
+    },
+    "grok-4-fast": {
+      "in": 0.2,
+      "out": 0.5,
+      "cache_read": 0.05,
+      "cache_write": 0.2
+    },
+    "grok-4": {
+      "in": 3,
+      "out": 15,
+      "cache_read": 0.75,
+      "cache_write": 3
+    },
+    "grok": {
+      "in": 3,
+      "out": 15,
+      "cache_read": 0.75,
+      "cache_write": 3
+    },
+    "llama": {
+      "in": 0.2,
+      "out": 0.6,
+      "cache_read": 0.2,
+      "cache_write": 0.2
+    },
+    "mistral-large": {
+      "in": 2,
+      "out": 6,
+      "cache_read": 2,
+      "cache_write": 2
+    },
+    "mistral": {
+      "in": 0.4,
+      "out": 2,
+      "cache_read": 0.4,
+      "cache_write": 0.4
+    },
+    "codestral": {
+      "in": 0.3,
+      "out": 0.9,
+      "cache_read": 0.3,
+      "cache_write": 0.3
+    },
+    "glm-4.6": {
+      "in": 0.6,
+      "out": 2.2,
+      "cache_read": 0.11,
+      "cache_write": 0.6
+    },
+    "glm-4.5-air": {
+      "in": 0.2,
+      "out": 1.1,
+      "cache_read": 0.03,
+      "cache_write": 0.2
+    },
+    "glm-4.5": {
+      "in": 0.6,
+      "out": 2.2,
+      "cache_read": 0.11,
+      "cache_write": 0.6
+    },
+    "kimi-k2": {
+      "in": 0.6,
+      "out": 2.5,
+      "cache_read": 0.15,
+      "cache_write": 0.6
+    },
+    "qwen3-coder": {
+      "in": 1.0,
+      "out": 5.0,
+      "cache_read": 0.1,
+      "cache_write": 1.0
+    },
+    "gpt-4.1": {
+      "in": 2,
+      "out": 8,
+      "cache_read": 0.5,
+      "cache_write": 2
+    },
+    "gpt-4o": {
+      "in": 2.5,
+      "out": 10,
+      "cache_read": 1.25,
+      "cache_write": 2.5
     }
   },
-  "pricing_note": "公开标价（USD / 百万 token），2026-09-17 整理；按模型 id 最长前缀匹配。DeepSeek 为标准时段价（非高峰减半）；OpenAI/DeepSeek/Qwen 等无单独缓存写入费，cache_write 按输入价计。改价格直接编辑本文件，页面即时生效。",
+  "pricing_note": "公开标价（USD / 百万 token），2026-09-17 整理；按模型 id 最长前缀匹配。DeepSeek 为标准时段价（非高峰减半）；OpenAI/DeepSeek/Qwen 等无单独缓存写入费，cache_write 按输入价计。改价格直接编辑本文件，页面即时生效。第三方 API（ANTHROPIC_BASE_URL 转发到 DeepSeek / GLM / Kimi / Qwen / OpenAI / Gemini / Grok / Llama 等）返回的模型 id 也按同样规则匹配；provider 前缀（openai/、deepseek/）会被忽略。",
   "pricing_updated": "2026-09-17"
 }

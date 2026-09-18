@@ -42,8 +42,32 @@ class InstallTest(unittest.TestCase):
         self.assertTrue(hooks[1]['hooks'][0]['args'][0].startswith(self.home.as_posix()), '钩子路径按本机生成')
         md = (c / 'CLAUDE.md').read_text(encoding='utf-8')
         self.assertIn('# 我的旧约定', md); self.assertIn('claude-agent-team:begin', md); self.assertIn('agent-team', md)
+        # 用户改动：自建部门 / 成员 / 形象 / 价格 / 改过的成员 .md / 导入的形象 → 重复安装（= 更新）全部保留
+        tj = c / 'team-board' / 'team.json'
+        cfg = json.loads(tj.read_text(encoding='utf-8'))
+        cfg['departments'].append({'id': 'design', 'name': '设计部', 'icon': '🎨', 'required': 'optional'})
+        cfg['agents']['my-designer'] = {'dept': 'design', 'avatar': 'ui-designer', 'name': '小设', 'role': '设计师', 'pet': 'kit'}
+        cfg['agents']['backend-dev']['pet'] = 'cubo'
+        cfg['member_pets'] = {'abc123': 'pip'}; cfg['lead_pet'] = 'tank'
+        cfg['pricing_usd_per_mtok']['my-model'] = {'in': 1, 'out': 2, 'cache_read': 0.1, 'cache_write': 1}
+        cfg['pricing_usd_per_mtok']['sonnet'] = {'in': 9, 'out': 9, 'cache_read': 9, 'cache_write': 9}
+        tj.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+        md = c / 'agents' / 'qa-tester.md'
+        md.write_text(md.read_text(encoding='utf-8') + '\n- 我自己加的一条规则\n', encoding='utf-8')
+        (c / 'team-board' / 'sprites' / 'my-pet.webp').write_bytes(b'RIFF0000WEBPVP8X')
+        (c / 'team-board' / 'sprites' / 'pip.webp').write_bytes(b'RIFF0000WEBPVP8Xmine')   # 与自带同名但换了图
         # 重复安装不重复追加
         self.run_install('--no-pets')
+        cfg2 = json.loads(tj.read_text(encoding='utf-8'))
+        self.assertIn('design', [d['id'] for d in cfg2['departments']]); self.assertEqual(cfg2['departments'][0]['id'], 'hq')
+        self.assertEqual(cfg2['agents']['my-designer']['name'], '小设'); self.assertEqual(cfg2['agents']['backend-dev']['pet'], 'cubo')
+        self.assertEqual(cfg2['member_pets'], {'abc123': 'pip'}); self.assertEqual(cfg2['lead_pet'], 'tank')
+        self.assertEqual(cfg2['pricing_usd_per_mtok']['my-model']['in'], 1); self.assertEqual(cfg2['pricing_usd_per_mtok']['sonnet']['in'], 9, '用户改过的价格要保留')
+        self.assertIn('deepseek', cfg2['pricing_usd_per_mtok'], '新默认价格行要补上')
+        self.assertIn('我自己加的一条规则', md.read_text(encoding='utf-8')); self.assertTrue(md.with_name('qa-tester.md.new').exists(), '新版本另存为 .new')
+        self.assertTrue((c / 'team-board' / 'sprites' / 'my-pet.webp').exists())
+        self.assertEqual((c / 'team-board' / 'sprites' / 'pip.webp').read_bytes(), b'RIFF0000WEBPVP8Xmine', '用户换过的同名形象不覆盖')
+        self.assertTrue((c / 'team-board' / 'VERSION').exists()); self.assertTrue((c / 'team-board' / '.installed.json').exists())
         s = json.loads((c / 'settings.json').read_text(encoding='utf-8'))
         self.assertEqual(len(s['hooks']['SessionStart']), 2)
         self.assertEqual((c / 'CLAUDE.md').read_text(encoding='utf-8').count('claude-agent-team:begin'), 1)

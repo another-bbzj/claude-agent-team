@@ -53,6 +53,8 @@
   .pill.brand { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
   .pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
   .pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  button.pill { cursor: pointer; font: inherit; font-size: inherit; }
+  button.pill:disabled { opacity: .6; cursor: default; }
   .pill.err { background: var(--err-soft); color: var(--err); border-color: transparent; }
   .pill.info { background: var(--info-soft); color: var(--info); border-color: transparent; }
   .pill.peer { background: var(--peer-soft); color: var(--peer); border-color: transparent; }
@@ -260,6 +262,10 @@
   .am-grid label small { color: var(--text-3); font-size: 10.5px; }
   .am-grid .wide { grid-column: 1 / -1; }
   .am-grid .pet-row { display: flex; gap: 6px; align-items: center; }
+  .drawer .petpick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
+  .drawer .petpick select { flex: 1; min-width: 140px; font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  .drawer .petpick .mini-btn { margin: 0; font-size: 11.5px; }
+  .drawer .petpick #d-pet-msg { font-size: 11.5px; color: var(--text-2); flex-basis: 100%; }
   .am-grid .pet-row select { flex: 1; min-width: 0; }
   .am-grid .pet-row .mini-btn { margin: 0; white-space: nowrap; }
   .am-grid input, .am-grid select, .am-grid textarea { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
@@ -396,7 +402,7 @@
       <label>显示名 <small>看板上的名字</small><input name="display" placeholder="小审"></label>
       <label>岗位 <input name="role" placeholder="安全审查员"></label>
       <label>部门 <select name="dept" id="am-dept"></select></label>
-      <label>模型 <select name="model" id="am-model"></select></label>
+      <label>模型 <small>选一个，或直接输入第三方模型 id（deepseek-chat、glm-4.6、openai/gpt-5…）</small><input name="model" id="am-model" list="am-model-list" placeholder="sonnet"><datalist id="am-model-list"></datalist></label>
       <label>思考强度 <select name="effort" id="am-effort"></select></label>
       <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button><input type="file" id="am-pet-file" accept=".webp,.png,.zip,image/webp,image/png,application/zip" hidden></span></label>
       <label>颜色 <select name="color" id="am-color"></select></label>
@@ -469,8 +475,9 @@ const PET_FAMILY = {
   'release-engineer': ['huihui-build', 'tank', 'rocky', 'bolt', 'fireball'], 'team-lead': ['codex', 'pip'],
 };
 const petAssign = new Map();   // memberId -> { pet, hue }
-function assignPets(members) {
-  const have = new Set(ALL_PETS); const leadPet = ['pip', 'codex', 'huhu-plan'].find(x => have.has(x)) || ALL_PETS[0];
+function assignPets(members, wantLead = '') {
+  const have = new Set(ALL_PETS);
+  const leadPet = have.has(wantLead) ? wantLead : (['pip', 'codex', 'huhu-plan'].find(x => have.has(x)) || ALL_PETS[0]);
   petAssign.clear(); const taken = new Set([leadPet]); petAssign.set('__lead', { pet: leadPet, hue: 0 });
   const ordered = members.slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
   for (const m of ordered) if (m.pet && have.has(m.pet) && !taken.has(m.pet)) { taken.add(m.pet); petAssign.set(m.id, { pet: m.pet, hue: 0 }); }
@@ -610,7 +617,7 @@ function layout(snap) {
   const stage = $('#stage'), members = snap.members, n = members.length;
   if (snap.petInfo) PET_INFO = snap.petInfo;
   if (Array.isArray(snap.pets) && snap.pets.length) ALL_PETS = PREFERRED_PETS.filter(x => snap.pets.includes(x)).concat(snap.pets.filter(x => !PREFERRED_PETS.includes(x)));
-  assignPets(members);
+  assignPets(members, (snap.lead && snap.lead.pet) || '');
   const width = Math.max(360, stage.parentElement.clientWidth - 2); stageW = width;
   stage.style.width = width + 'px';
   const leadX = width / 2;
@@ -618,7 +625,7 @@ function layout(snap) {
 
   const L = snap.lead;
   const leadStatus = L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle';
-  const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost }, true, snap);
+  const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '' }, true, snap);
   lead.style.left = (leadX - 95) + 'px'; lead.style.top = LEAD_TOP + 'px';
   const leadBusy = L.active && L.current && !L.current.done;
   lead.querySelector('.state').textContent = leadBusy ? `正在${TOOL_ZH[L.current.name] || '使用'} ${shortTool(L.current.name)}` : L.phase === 'coordinating' ? `协调中 · ${L.running} 人在干活` : L.phase === 'finished' ? '全员交付，收尾中' : L.phase === 'waiting' ? '等待停滞成员' : (L.active ? '思考中…' : '待命');
@@ -836,6 +843,7 @@ function renderHeader(snap) {
     <span class="pill ${missing.length ? 'warn' : 'ok'}" title="部门出场情况；收尾后若质量部 / 文档部没出场会提示建议补位，不是错误">${missing.length ? `建议补位：${missing.join('、')}` : `部门 ${present}/${(snap.departments || []).length}`}</span>
     ${mix ? `<span class="pill mono" title="成员用到的模型">${esc(mix)}</span>` : ''}
     ${t.membersCost ? `<span class="pill mono" title="按公开价估算；队长 ${fmtCost(snap.lead.cost)}">≈ ${fmtCost(t.membersCost)} 成员 / ${fmtCost(t.cost)} 合计</span>` : ''}
+    ${snap.update && snap.update.hasUpdate ? `<button class="pill warn" id="btn-update" title="本机 v${esc(snap.update.local)} → GitHub v${esc(snap.update.remote)}。点击自动下载安装并重启看板；你的配置、形象、改过的成员都保留">⬆ 有新版本 v${esc(snap.update.remote)} · 一键更新</button>` : ''}
     ${t.unpriced ? `<span class="pill warn" title="这些模型不在 team.json 的价格表里，成本未计入：${esc((t.unpricedModels || []).join(', '))}。在 team-board/team.json 的 pricing_usd_per_mtok 里按模型 id（或前缀）加一条即可">⚠ ${t.unpriced} 个模型未定价</span>` : ''}
     ${t.allUsage ? `<span class="pill mono" title="成员 ${fmtTok(t.usage.total)} + 队长 ${fmtTok(t.leadUsage.total)}；输入 ${fmtTok(t.allUsage.in)} · 输出 ${fmtTok(t.allUsage.out)} · 缓存读 ${fmtTok(t.allUsage.cache_read)} · 缓存写 ${fmtTok(t.allUsage.cache_write)}">Σ ${fmtTok(t.allUsage.total)} tok · 缓存命中 ${Math.round(t.allUsage.cacheHit * 100)}%</span>` : ''}`;
   $('#session-pill').textContent = snap.session ? `${snap.session.id.slice(0, 8)} · ${fmtRel(snap.session.lastActivity)}` : '无会话';
@@ -850,7 +858,8 @@ function renderHeader(snap) {
 }
 
 function memberFor(id, avatar) { if (id === '__lead') return { id: '__lead', agentType: '', avatar: 'team-lead', name: '' }; return prev?.members.find(x => x.id === id) || { id, agentType: '', avatar: avatar || 'server-engineer', name: '' }; }
-function leadAsMember(snap) { const L = snap.lead; return { id: '__lead', name: '队长 · Claude', roleTitle: '主会话', avatar: 'team-lead', agentType: 'lead', dept: 'hq', status: L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle', prompt: L.lastUserPrompt || '', startedAt: null, endedAt: null, toolCount: L.toolCount ?? 0, thinkingCount: 0, outputTokens: L.outputTokens ?? 0, lastText: '', timeline: L.timeline || [], model: L.model, modelFamily: L.modelFamily, cost: L.cost, usage: L.usage || {}, messages: [], writes: [], reads: [] }; }
+function leadAsMember(snap) { const L = snap.lead; return { id: '__lead', name: '队长 · Claude', roleTitle: '主会话', avatar: 'team-lead', agentType: 'lead', dept: 'hq', pet: L.pet || '', status: L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle', prompt: L.lastUserPrompt || '', startedAt: null, endedAt: null, toolCount: L.toolCount ?? 0, thinkingCount: 0, outputTokens: L.outputTokens ?? 0, lastText: '', timeline: L.timeline || [], model: L.model, modelFamily: L.modelFamily, cost: L.cost, usage: L.usage || {}, messages: [], writes: [], reads: [] }; }
+let drawerNote = { id: '', text: '', until: 0 };
 function openDrawer(id) {
   selectedId = id; const m = id === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === id); if (!m) return;
   $('#d-avatar').innerHTML = miniPet(m, 60); $('#d-name').textContent = `${m.name} · ${m.roleTitle}`;
@@ -864,6 +873,8 @@ function renderDrawerBody(m) {
   const u = m.usage || {};
   const comms = (prev?.comms || []).filter(c => c.from === m.id || c.to === m.id);
   $('#d-body').innerHTML = `
+    <h3>形象 <small style="font-weight:400;color:var(--text-3)">当前 ${esc(petOf(m))}${m.petScope === 'member' ? ' · 本位专属' : m.petScope === 'type' ? ' · 角色默认' : ' · 自动分配'}</small></h3>
+    <div class="petpick"><select id="d-pet">${['<option value="">自动分配</option>', ...ALL_PETS.map(p => `<option value="${p}" ${p === (m.pet || '') ? 'selected' : ''}>${esc(petLabel(p))}</option>`)].join('')}</select><button class="mini-btn" data-petscope="${m.id === '__lead' ? 'lead' : 'member'}">${m.id === '__lead' ? '换队长形象' : '只改这位'}</button>${m.id !== '__lead' && m.hasDef ? `<button class="mini-btn" data-petscope="type" title="写进 ${esc(m.agentType)} 的常驻定义，以后每次都用">改 ${esc(m.agentType)} 角色</button>` : ''}<button class="mini-btn" id="d-pet-import" title="导入雪碧图 / zip 后直接用在这位身上">导入…</button><span id="d-pet-msg">${drawerNote.id === m.id && Date.now() < drawerNote.until ? esc(drawerNote.text) : ''}</span></div>
     <h3>${m.id === '__lead' ? '当前指令' : '任务指令'}</h3><div class="prompt">${esc(m.prompt) || '—'}</div>
     <h3>概况</h3><dl class="kv"><dt>状态</dt><dd>${STATUS_LABEL[m.status]}</dd><dt>模型</dt><dd>${esc(m.model || m.definedModel || '未知')}${m.effort ? ` · effort ${esc(m.effort)}` : ''}${m.dispatchModel ? ` · 派工指定 ${esc(m.dispatchModel)}` : ''}</dd><dt>成本估算</dt><dd>${fmtCostOr(m) || '—'}${m.priceKey && m.model && m.priceKey !== m.model.toLowerCase() && !/^(opus|sonnet|haiku|fable)$/.test(m.priceKey) ? ` <small style="color:var(--text-3)">按价格行 ${esc(m.priceKey)}</small>` : ''}${m.cost == null && m.model ? `<br><small style="color:var(--text-3)">模型 ${esc(m.model)} 不在 team.json 价格表里；加一条 pricing_usd_per_mtok["${esc(m.model)}"] 即可计价</small>` : ''}</dd><dt>Tokens</dt><dd>合计 ${fmtTok((u.in ?? 0) + (u.out ?? 0) + (u.cache_read ?? 0) + (u.cache_write ?? 0))} · 输入 ${fmtTok(u.in)} · 输出 ${fmtTok(u.out)}<br>缓存读 ${fmtTok(u.cache_read)} · 缓存写 ${fmtTok(u.cache_write)} · 命中率 ${(() => { const c = (u.in ?? 0) + (u.cache_read ?? 0) + (u.cache_write ?? 0); return c ? Math.round(100 * (u.cache_read ?? 0) / c) : 0; })()}%</dd>${m.startedAt ? `<dt>开始</dt><dd>${fmtClock(m.startedAt)}</dd><dt>用时</dt><dd>${fmtDur(m.startedAt, m.endedAt)}</dd>` : ''}<dt>工具调用</dt><dd>${m.toolCount} 次${m.thinkingCount ? ` · 思考 ${m.thinkingCount} 段` : ''}</dd></dl>
     ${m.writes?.length ? `<h3>写过的文件</h3><div class="prompt">${[...new Set(m.writes.map(w => w.label))].map(esc).join('\n')}</div>` : ''}
@@ -879,7 +890,7 @@ async function openAgentModal(name) {
   if (!agentMeta || !name) agentMeta = name ? await fetch('/api/agents').then(x => x.json()) : r;
   const meta = agentMeta, f = $('#agent-form'), a = name ? r : null;
   $('#am-dept').innerHTML = meta.departments.map(d => `<option value="${d.id}">${DEPT_ICON[d.id] || ''} ${esc(d.name)}</option>`).join('');
-  $('#am-model').innerHTML = meta.models.map(m => `<option value="${m}">${m}${m === 'inherit' ? '（跟随主会话）' : ''}</option>`).join('');
+  $('#am-model-list').innerHTML = meta.models.map(m => `<option value="${m}">${m === 'inherit' ? '跟随主会话' : ''}</option>`).join('');
   $('#am-effort').innerHTML = meta.efforts.map(e => `<option value="${e}">${EFFORT_LABEL[e] || e}</option>`).join('');
   if (meta.petInfo) PET_INFO = meta.petInfo;
   fillPetSelect(meta.pets);
@@ -887,7 +898,7 @@ async function openAgentModal(name) {
   f.reset(); $('#am-msg').textContent = ''; $('#am-msg').className = '';
   f.name.readOnly = !!a; $('#am-title').textContent = a ? `编辑成员 · ${a.display || a.name}` : '新建成员';
   $('#am-delete').hidden = !a;
-  if (a) { f.name.value = a.name; f.display.value = a.display || ''; f.role.value = a.role || ''; f.dept.value = a.dept || 'dev'; f.model.value = meta.models.includes(a.model) ? a.model : 'inherit'; f.effort.value = a.effort || ''; f.pet.value = a.pet || ''; f.color.value = a.color || ''; f.description.value = a.description || ''; f.skills.value = (a.skills || []).join(', '); f.body.value = a.body || ''; }
+  if (a) { f.name.value = a.name; f.display.value = a.display || ''; f.role.value = a.role || ''; f.dept.value = a.dept || 'dev'; f.model.value = a.model || 'inherit'; f.effort.value = a.effort || ''; f.pet.value = a.pet || ''; f.color.value = a.color || ''; f.description.value = a.description || ''; f.skills.value = (a.skills || []).join(', '); f.body.value = a.body || ''; }
   else { f.model.value = 'sonnet'; f.effort.value = 'medium'; }
   $('#agent-modal').hidden = false; updatePreview(); f.querySelector(a ? '[name=display]' : '[name=name]').focus();
 }
@@ -935,6 +946,7 @@ $('#am-pet-file').addEventListener('change', async (e) => {
   if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
   PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
   if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
+  if (petImportTarget) { const t = petImportTarget; petImportTarget = null; await setMemberPet(t, r.pet.id, t.scope); drawerNote = { id: t.id, text: `✓ 已导入并换成 ${r.pet.id}`, until: Date.now() + 8000 }; const dm = $('#d-pet-msg'); if (dm) dm.textContent = drawerNote.text; return; }
   fillPetSelect(r.pets, r.pet.id); updatePreview();
   msg.textContent = `✓ 已导入形象 ${r.pet.id}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
 });
@@ -973,6 +985,29 @@ $('#am-delete').addEventListener('click', async () => {
   if (r.error) { $('#am-msg').className = 'err'; $('#am-msg').textContent = r.error; return; }
   $('#agent-modal').hidden = true; agentMeta = null; tick();
 });
+async function setMemberPet(m, pet, scope) {
+  const msg = $('#d-pet-msg'); if (msg) msg.textContent = '保存中…';
+  const r = await fetch('/api/members/pet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id, agentType: m.agentType, pet, scope }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  if (r.error) { if (msg) { msg.style.color = 'var(--err)'; msg.textContent = r.error; } return; }
+  drawerNote = { id: m.id, text: pet ? `✓ 已换成 ${pet}${scope === 'type' ? '（这个角色以后都用它）' : scope === 'lead' ? '（队长）' : '（只这一位）'}` : '✓ 已恢复自动分配', until: Date.now() + 8000 };
+  agentMeta = null; await tick();
+}
+$('#d-body').addEventListener('click', async (e) => {
+  const m = selectedId === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === selectedId); if (!m) return;
+  const b = e.target.closest('[data-petscope]');
+  if (b) { await setMemberPet(m, $('#d-pet').value, b.dataset.petscope); return; }
+  if (e.target.closest('#d-pet-import')) { petImportTarget = { id: m.id, agentType: m.agentType, scope: m.id === '__lead' ? 'lead' : 'member' }; $('#am-pet-file').click(); }
+});
+let petImportTarget = null;
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#btn-update'); if (!b) return;
+  if (!confirm(`更新到 v${(prev && prev.update && prev.update.remote) || '最新'}？会下载 GitHub 最新版并重装（约 10-30 秒），看板随后自动重启。你的部门 / 成员 / 形象 / 价格设置都保留。`)) return;
+  b.disabled = true; b.textContent = '更新中…';
+  const r = await fetch('/api/update/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  if (r.error) { alert(r.error); b.disabled = false; return; }
+  const cur = prev && prev.version; let n = 0;
+  const poll = setInterval(async () => { n++; try { const s = await fetch('/snapshot.json', { cache: 'no-store' }).then(x => x.json()); if (s.version && s.version !== cur) { clearInterval(poll); location.reload(); } } catch (_) {} if (n > 90) { clearInterval(poll); b.textContent = '更新超时，看 team-board/update.log'; } }, 1000);
+});
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });
 $('#session-select').addEventListener('change', (e) => { selectedSession = e.target.value; prev = null; firstLoad = true; seenComms.clear(); seenFeed.clear(); for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); } personEls.clear(); for (const el of deptEls.values()) el.remove(); deptEls.clear(); for (const el of taskEls.values()) el.remove(); taskEls.clear(); tick(); });
 
@@ -983,7 +1018,7 @@ async function tick() {
     const snap = await r.json();
     failing = 0; $('#live').classList.remove('off');
     renderHeader(snap); layout(snap); renderStats(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap);
-    if (selectedId && $('#drawer').classList.contains('open')) { const m = selectedId === '__lead' ? leadAsMember(snap) : snap.members.find(x => x.id === selectedId); if (m) renderDrawerBody(m); }
+    if (selectedId && $('#drawer').classList.contains('open')) { const m = selectedId === '__lead' ? leadAsMember(snap) : snap.members.find(x => x.id === selectedId); if (m) { $('#d-avatar').innerHTML = miniPet(m, 60); renderDrawerBody(m); } }
     prev = snap; firstLoad = false;
   } catch (e) { console.error(e); if (++failing > 2) $('#live').classList.add('off'); }
 }
