@@ -864,6 +864,7 @@ function openDrawer(id) {
   selectedId = id; const m = id === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === id); if (!m) return;
   $('#d-avatar').innerHTML = miniPet(m, 60); $('#d-name').textContent = `${m.name} · ${m.roleTitle}`;
   $('#d-sub').textContent = `${DEPT_NAME[m.dept] || ''} · ${m.agentType || 'agent'} · ${STATUS_LABEL[m.status]} · ${id === '__lead' ? (prev.session?.id || '') : 'agent-' + m.id}`;
+  if (($('#d-petbox') || {}).dataset?.member !== m.id) $('#d-body').innerHTML = '';
   renderDrawerBody(m); $('#drawer').classList.add('open'); layout(prev);
 }
 function renderDrawerBody(m) {
@@ -872,9 +873,16 @@ function renderDrawerBody(m) {
     : `<div class="it text"><span class="t">${it.ts ? fmtClock(it.ts) : ''}</span><span class="lb">${esc(it.label)}</span></div>`).join('');
   const u = m.usage || {};
   const comms = (prev?.comms || []).filter(c => c.from === m.id || c.to === m.id);
-  $('#d-body').innerHTML = `
+  // 抽屉分两块：形象区（#d-petbox）只在切换成员 / 换完形象时重画，避免看板 1.5 秒一刷把你选的下拉重置、把按钮换掉；其余（#d-rest）每次刷新
+  let box = $('#d-petbox');
+  if (!box) { $('#d-body').innerHTML = '<div id="d-petbox"></div><div id="d-rest"></div>'; box = $('#d-petbox'); }
+  if (box.dataset.member !== m.id || box.dataset.pet !== (m.pet || '') || box.dataset.note !== (drawerNote.id === m.id ? drawerNote.text : '')) {
+    box.dataset.member = m.id; box.dataset.pet = m.pet || ''; box.dataset.note = drawerNote.id === m.id ? drawerNote.text : '';
+    box.innerHTML = `
     <h3>形象 <small style="font-weight:400;color:var(--text-3)">当前 ${esc(petOf(m))}${m.petScope === 'member' ? ' · 本位专属' : m.petScope === 'type' ? ' · 角色默认' : ' · 自动分配'}</small></h3>
-    <div class="petpick"><select id="d-pet">${['<option value="">自动分配</option>', ...ALL_PETS.map(p => `<option value="${p}" ${p === (m.pet || '') ? 'selected' : ''}>${esc(petLabel(p))}</option>`)].join('')}</select><button class="mini-btn" data-petscope="${m.id === '__lead' ? 'lead' : 'member'}">${m.id === '__lead' ? '换队长形象' : '只改这位'}</button>${m.id !== '__lead' && m.hasDef ? `<button class="mini-btn" data-petscope="type" title="写进 ${esc(m.agentType)} 的常驻定义，以后每次都用">改 ${esc(m.agentType)} 角色</button>` : ''}<button class="mini-btn" id="d-pet-import" title="导入雪碧图 / zip 后直接用在这位身上">导入…</button><span id="d-pet-msg">${drawerNote.id === m.id && Date.now() < drawerNote.until ? esc(drawerNote.text) : ''}</span></div>
+    <div class="petpick"><select id="d-pet" data-member="${esc(m.id)}">${['<option value="">自动分配</option>', ...ALL_PETS.map(p => `<option value="${p}" ${p === (m.pet || '') ? 'selected' : ''}>${esc(petLabel(p))}</option>`)].join('')}</select><button class="mini-btn" data-petscope="${m.id === '__lead' ? 'lead' : 'member'}">${m.id === '__lead' ? '换队长形象' : '只改这位'}</button>${m.id !== '__lead' && m.hasDef ? `<button class="mini-btn" data-petscope="type" title="写进 ${esc(m.agentType)} 的常驻定义，以后每次都用">改 ${esc(m.agentType)} 角色</button>` : ''}<button class="mini-btn" id="d-pet-import" title="导入雪碧图 / zip 后直接用在这位身上">导入…</button><span id="d-pet-msg">${drawerNote.id === m.id && Date.now() < drawerNote.until ? esc(drawerNote.text) : ''}</span></div>`;
+  }
+  $('#d-rest').innerHTML = `
     <h3>${m.id === '__lead' ? '当前指令' : '任务指令'}</h3><div class="prompt">${esc(m.prompt) || '—'}</div>
     <h3>概况</h3><dl class="kv"><dt>状态</dt><dd>${STATUS_LABEL[m.status]}</dd><dt>模型</dt><dd>${esc(m.model || m.definedModel || '未知')}${m.effort ? ` · effort ${esc(m.effort)}` : ''}${m.dispatchModel ? ` · 派工指定 ${esc(m.dispatchModel)}` : ''}</dd><dt>成本估算</dt><dd>${fmtCostOr(m) || '—'}${m.priceKey && m.model && m.priceKey !== m.model.toLowerCase() && !/^(opus|sonnet|haiku|fable)$/.test(m.priceKey) ? ` <small style="color:var(--text-3)">按价格行 ${esc(m.priceKey)}</small>` : ''}${m.cost == null && m.model ? `<br><small style="color:var(--text-3)">模型 ${esc(m.model)} 不在 team.json 价格表里；加一条 pricing_usd_per_mtok["${esc(m.model)}"] 即可计价</small>` : ''}</dd><dt>Tokens</dt><dd>合计 ${fmtTok((u.in ?? 0) + (u.out ?? 0) + (u.cache_read ?? 0) + (u.cache_write ?? 0))} · 输入 ${fmtTok(u.in)} · 输出 ${fmtTok(u.out)}<br>缓存读 ${fmtTok(u.cache_read)} · 缓存写 ${fmtTok(u.cache_write)} · 命中率 ${(() => { const c = (u.in ?? 0) + (u.cache_read ?? 0) + (u.cache_write ?? 0); return c ? Math.round(100 * (u.cache_read ?? 0) / c) : 0; })()}%</dd>${m.startedAt ? `<dt>开始</dt><dd>${fmtClock(m.startedAt)}</dd><dt>用时</dt><dd>${fmtDur(m.startedAt, m.endedAt)}</dd>` : ''}<dt>工具调用</dt><dd>${m.toolCount} 次${m.thinkingCount ? ` · 思考 ${m.thinkingCount} 段` : ''}</dd></dl>
     ${m.writes?.length ? `<h3>写过的文件</h3><div class="prompt">${[...new Set(m.writes.map(w => w.label))].map(esc).join('\n')}</div>` : ''}
@@ -1007,6 +1015,11 @@ document.addEventListener('click', async (e) => {
   if (r.error) { alert(r.error); b.disabled = false; return; }
   const cur = prev && prev.version; let n = 0;
   const poll = setInterval(async () => { n++; try { const s = await fetch('/snapshot.json', { cache: 'no-store' }).then(x => x.json()); if (s.version && s.version !== cur) { clearInterval(poll); location.reload(); } } catch (_) {} if (n > 90) { clearInterval(poll); b.textContent = '更新超时，看 team-board/update.log'; } }, 1000);
+});
+document.addEventListener('pointerdown', (e) => {
+  const dr = $('#drawer'); if (!dr.classList.contains('open')) return;
+  if (dr.contains(e.target) || e.target.closest('.person, .task, .msg, .ra, .modal, #am-pet-file')) return;   // 点人物 / 卡片是切换，不是关闭
+  selectedId = null; dr.classList.remove('open'); if (prev) layout(prev);
 });
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });
 $('#session-select').addEventListener('change', (e) => { selectedSession = e.target.value; prev = null; firstLoad = true; seenComms.clear(); seenFeed.clear(); for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); } personEls.clear(); for (const el of deptEls.values()) el.remove(); deptEls.clear(); for (const el of taskEls.values()) el.remove(); taskEls.clear(); tick(); });
