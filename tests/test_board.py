@@ -17,6 +17,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def webp_sheet(w, h):
+    """最小 VP8X webp 头：只有画布尺寸，够看板校验网格用。"""
+    return (b'RIFF' + (30).to_bytes(4, 'little') + b'WEBPVP8X' + (10).to_bytes(4, 'little') + bytes([0x10, 0, 0, 0])
+            + (w - 1).to_bytes(3, 'little') + (h - 1).to_bytes(3, 'little') + bytes(8))
+
+
+def png_sheet(w, h):
+    return b'\x89PNG\r\n\x1a\n' + (13).to_bytes(4, 'big') + b'IHDR' + w.to_bytes(4, 'big') + h.to_bytes(4, 'big') + bytes(5) + bytes(4)
+
+
+def pet_zip(files):
+    """files: {路径: bytes} → zip 字节。"""
+    import io, zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        for k, v in files.items():
+            z.writestr(k, v)
+    return buf.getvalue()
+
+
 def jl(*entries):
     return '\n'.join(json.dumps(e, ensure_ascii=False) for e in entries) + '\n'
 
@@ -186,6 +206,19 @@ class UsageAndPricingTest(unittest.TestCase):
         self.assertEqual(m['totalTokens'], 2820)
         self.assertEqual(m['modelFamily'], 'haiku')
 
+    def test_synthetic_model_does_not_override_real_one(self):
+        """Claude Code 本地合成的消息 model 是 <synthetic>（中断/错误回执），不能覆盖成员真实模型，也不该算成“未定价”。"""
+        sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
+        (sub / 'agent-e5.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
+            asst('2026-01-01T11:00:01Z', 'claude-sonnet-5', [{'type': 'text', 'text': 'x'}]),
+            asst('2026-01-01T11:00:02Z', '<synthetic>', [{'type': 'text', 'text': '[Request interrupted]'}], stop='end_turn',
+                 usage={'input_tokens': 0, 'output_tokens': 0, 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0})), encoding='utf-8')
+        (sub / 'agent-e5.meta.json').write_text(json.dumps({'agentType': 'qa-tester', 'description': 'synthetic'}), encoding='utf-8')
+        snap = self.tb.build_snapshot(self.tb.argparse.Namespace(session=None, project=None, stale=600))
+        m = next(x for x in snap['members'] if x['agentType'] == 'qa-tester')
+        self.assertEqual(m['model'], 'claude-sonnet-5'); self.assertIsNotNone(m['cost'])
+        self.assertNotIn('<synthetic>', snap['totals']['unpricedModels'])
+
     def test_third_party_model_unpriced_until_configured(self):
         sub = self.env.claude / 'projects' / 'C--demo' / 'sess-0001' / 'subagents'
         (sub / 'agent-d4.jsonl').write_text(jl(user('2026-01-01T11:00:00Z', 'hi'),
@@ -261,6 +294,83 @@ class AgentApiTest(unittest.TestCase):
         cfg = json.loads((self.env.claude / 'team-board' / 'team.json').read_text(encoding='utf-8'))
         self.assertNotIn('design', [d['id'] for d in cfg['departments']])
 
+    def test_edit_keeps_unmanaged_frontmatter(self):
+        """改形象 / 改简介不能把 tools、permissionMode、maxTurns 这类表单不管理的字段弄丢。"""
+        f = self.env.claude / 'agents' / 'backend-dev.md'
+        text = f.read_text(encoding='utf-8')
+        text = text.replace('\n---\n', '\nmaxTurns: 40\ntools:\n  - Read\n  - Bash\npermissionMode: default\nmemory: project\n---\n', 1)
+        f.write_text(text, encoding='utf-8')
+        a = self.tb.read_agent('backend-dev')
+        self.tb.write_agent({**a, 'pet': 'kit', 'skills': ', '.join(a['skills'])})
+        out = f.read_text(encoding='utf-8')
+        for line in ('maxTurns: 40', 'tools:', '  - Read', '  - Bash', 'permissionMode: default', 'memory: project'):
+            self.assertIn(line, out, line)
+        self.assertEqual(out.count('memory:'), 1)
+        self.assertEqual(self.tb.read_agent('backend-dev')['pet'], 'kit')
+        self.assertIn(a['body'][:40], out)
+
+
+class PetApiTest(unittest.TestCase):
+    """导入 / 删除桌宠形象：裸 webp、png、Codex/petdex zip 包、缩放过的雪碧图；坏尺寸与自带形象要拒绝。"""
+
+    def setUp(self):
+        self.env = BoardEnv(); self.tb = self.env.load()
+
+    def tearDown(self):
+        self.env.cleanup()
+
+    def b64(self, data):
+        import base64
+        return base64.b64encode(data).decode()
+
+    def test_import_variants(self):
+        tb = self.tb
+        r = tb.write_pet({'id': 'My Cat', 'filename': 'my-cat-spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))})
+        self.assertEqual((r['id'], r['file'], r['rows']), ('my-cat', 'my-cat.webp', 9))
+        r = tb.write_pet({'filename': 'Dog Sprite.png', 'data': 'data:image/png;base64,' + self.b64(png_sheet(1536, 2288))})
+        self.assertEqual((r['id'], r['file'], r['rows']), ('dog', 'dog.png', 11))
+        # petdex / Codex zip：pet.json 大写 id、子目录、__MACOSX 垃圾、spritesheetPath 指定文件
+        z = pet_zip({'Ovsyankin/pet.json': json.dumps({'id': 'Ovsyankin', 'displayName': 'Овсянкин', 'spriteVersionNumber': 2, 'spritesheetPath': 'spritesheet.webp'}),
+                     'Ovsyankin/spritesheet.webp': webp_sheet(1536, 2288), 'Ovsyankin/preview.png': png_sheet(300, 300),
+                     '__MACOSX/Ovsyankin/._spritesheet.webp': b'junk'})
+        r = tb.write_pet({'filename': 'ovsyankin-c6e8.zip', 'data': self.b64(z)})
+        self.assertEqual((r['id'], r['file'], r['rows'], r['displayName']), ('ovsyankin', 'ovsyankin.webp', 11, 'Овсянкин'))
+        # pet.json 没有 id：用 displayName
+        z = pet_zip({'pet.json': json.dumps({'displayName': 'ZhiZhi', 'spritesheetPath': 'spritesheet.png'}), 'spritesheet.png': png_sheet(1536, 1872)})
+        r = tb.write_pet({'filename': 'pet-package-b7d8.zip', 'data': self.b64(z)})
+        self.assertEqual((r['id'], r['file']), ('zhizhi', 'zhizhi.png'))
+        # 等比缩放过的雪碧图也接受
+        r = tb.write_pet({'id': 'small', 'data': self.b64(webp_sheet(768, 936))}); self.assertEqual(r['rows'], 9)
+        info = tb.pet_info()
+        self.assertEqual(info['small']['cw'], 96); self.assertEqual(info['small']['ch'], 104)
+        self.assertEqual(info['ovsyankin']['displayName'], 'Овсянкин'); self.assertFalse(info['ovsyankin']['shipped']); self.assertTrue(info['pip']['shipped'])
+        self.assertTrue((self.env.claude / 'team-board' / 'sprites' / 'ovsyankin.json').exists(), '边车记录名字与出处')
+        # 覆盖：同名 png → webp 时旧 png 要清掉
+        with self.assertRaises(ValueError): tb.write_pet({'id': 'dog', 'data': self.b64(webp_sheet(1536, 1872))})
+        r = tb.write_pet({'id': 'dog', 'data': self.b64(webp_sheet(1536, 1872)), 'overwrite': True})
+        self.assertEqual(r['file'], 'dog.webp'); self.assertFalse((self.env.claude / 'team-board' / 'sprites' / 'dog.png').exists())
+        snap = tb.build_snapshot(tb.argparse.Namespace(session=None, project=None, stale=600))
+        self.assertTrue({'my-cat', 'dog', 'ovsyankin', 'zhizhi', 'small'} <= set(snap['pets']))
+        self.assertEqual(snap['petInfo']['dog']['file'], 'dog.webp')
+
+    def test_reject_and_delete(self):
+        tb = self.tb
+        bad = [({'id': 'x', 'data': self.b64(webp_sheet(1000, 1000))}, '尺寸'), ({'id': 'x', 'data': self.b64(webp_sheet(1536, 1664))}, '尺寸'),
+               ({'id': 'x', 'data': self.b64(b'GIF89a' + bytes(40))}, '只支持'), ({'id': 'pip', 'data': self.b64(webp_sheet(1536, 1872))}, '自带'),
+               ({'id': 'x', 'data': self.b64(pet_zip({'readme.txt': b'hi'}))}, 'zip'), ({'id': 'x', 'data': '!!!'}, '')]
+        for payload, word in bad:
+            with self.assertRaises(ValueError, msg=str(payload)[:60]) as cm:
+                tb.write_pet(payload)
+            self.assertIn(word, str(cm.exception))
+        tb.write_pet({'id': 'tmp-pet', 'data': self.b64(webp_sheet(1536, 1872))})
+        tb.write_agent({'name': 'pet-user', 'description': '用 tmp-pet 形象的成员，测试用', 'pet': 'tmp-pet'})
+        with self.assertRaises(ValueError) as cm: tb.delete_pet('tmp-pet')
+        self.assertIn('pet-user', str(cm.exception))
+        with self.assertRaises(ValueError): tb.delete_pet('pip')
+        tb.write_agent({'name': 'pet-user', 'description': '用 tmp-pet 形象的成员，测试用', 'pet': ''})
+        tb.delete_pet('tmp-pet')
+        self.assertNotIn('tmp-pet', tb.pet_list())
+        self.assertFalse((self.env.claude / 'team-board' / 'sprites' / 'tmp-pet.json').exists())
 
 class HttpTest(unittest.TestCase):
     @classmethod
@@ -305,6 +415,47 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(st, 400); self.assertIn('error', r)
         st, r = self.post('/api/agents/delete', {'name': 'http-agent'}); self.assertEqual(st, 200)
         st, r = self.post('/api/departments/delete', {'id': 'hq'}); self.assertEqual(st, 400)
+        st, _, body = self.get('/api/pets'); self.assertEqual(st, 200); self.assertIn('pip', json.loads(body)['pets'])
+        st, r = self.post('/api/pets', {'id': 'http-pet', 'data': __import__('base64').b64encode(webp_sheet(1536, 1872)).decode()})
+        self.assertEqual(st, 200, r); self.assertEqual(r['pet']['id'], 'http-pet'); self.assertIn('http-pet', r['pets'])
+        self.assertEqual(self.get('/sprites/http-pet.webp')[0], 200)
+        st, r = self.post('/api/pets', {'id': 'http-pet', 'data': 'AAAA'}); self.assertEqual(st, 400)
+        st, r = self.post('/api/pets/delete', {'id': 'http-pet'}); self.assertEqual(st, 200); self.assertNotIn('http-pet', r['pets'])
+
+
+class CustomPetImportTest(unittest.TestCase):
+    """import_codex_pets.py 也要把用户在 Codex 里自制的宠物（~/.codex/pets/<id>/spritesheet.webp）搬进 sprites/。"""
+
+    def test_custom_pets_from_codex_home(self):
+        import subprocess, sys
+        tmp = Path(tempfile.mkdtemp(prefix='petimport-'))
+        try:
+            sheet = webp_sheet
+            good = tmp / 'codex' / 'pets' / 'my-pet'; good.mkdir(parents=True)
+            (good / 'pet.json').write_text(json.dumps({'id': 'my-pet', 'displayName': 'My Pet'}), encoding='utf-8')
+            (good / 'spritesheet.webp').write_bytes(sheet(1536, 1872))
+            bad = tmp / 'codex' / 'pets' / 'odd'; bad.mkdir()
+            (bad / 'spritesheet.webp').write_bytes(sheet(1000, 1000))
+            out = tmp / 'out'
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'import_codex_pets.py'), '/nonexistent/app.asar', '--out', str(out)],
+                               env={**os.environ, 'CODEX_HOME': str(tmp / 'codex'), 'PYTHONIOENCODING': 'utf-8'},
+                               capture_output=True, text=True, encoding='utf-8', errors='replace')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertTrue((out / 'my-pet.webp').exists())
+            self.assertFalse((out / 'odd.webp').exists(), '尺寸不对的雪碧图要跳过')
+            self.assertIn('my-pet', r.stdout); self.assertIn('My Pet', r.stdout)
+            # ~/.petdex/pets/<slug>/ 与直接传 zip 路径
+            pd = tmp / 'petdex' / 'pets' / 'boba'; pd.mkdir(parents=True)
+            (pd / 'pet.json').write_text(json.dumps({'id': 'boba', 'displayName': 'Boba', 'spritesheetPath': 'spritesheet.webp'}), encoding='utf-8')
+            (pd / 'spritesheet.webp').write_bytes(webp_sheet(1536, 2288))
+            zp = tmp / 'zhizhi.zip'; zp.write_bytes(pet_zip({'pet.json': json.dumps({'displayName': 'ZhiZhi', 'spritesheetPath': 'spritesheet.png'}), 'spritesheet.png': png_sheet(1536, 1872)}))
+            env = {**os.environ, 'CODEX_HOME': str(tmp / 'codex'), 'PETDEX_HOME': str(tmp / 'petdex'), 'PYTHONIOENCODING': 'utf-8'}
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'import_codex_pets.py'), '/nonexistent/app.asar', '--out', str(out)], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertTrue((out / 'boba.webp').exists()); self.assertTrue((out / 'boba.json').exists())
+            r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'import_codex_pets.py'), str(zp), '--out', str(out)], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertTrue((out / 'zhizhi.png').exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == '__main__':

@@ -1,16 +1,23 @@
 __pycache__/
 *.pyc
 server.log
-# 本机从 Codex 客户端提取的宠物雪碧图（OpenAI 素材，不可分发）；本地运行 import_codex_pets.py 后会出现，git 忽略
-team-board/sprites/codex.webp
-team-board/sprites/dewey.webp
-team-board/sprites/fireball.webp
-team-board/sprites/hoots.webp
-team-board/sprites/rocky.webp
-team-board/sprites/seedy.webp
-team-board/sprites/stacky.webp
-team-board/sprites/bsod.webp
-team-board/sprites/null-signal.webp
+# sprites/ 只提交仓库自带的 13 只（MIT）；本机导入的 Codex / petdex / 自制形象与它们的 .json 边车都不入库
+team-board/sprites/*
+!team-board/sprites/huhu-plan.webp
+!team-board/sprites/dada-code.webp
+!team-board/sprites/bubu-fix.webp
+!team-board/sprites/huihui-build.webp
+!team-board/sprites/pip.webp
+!team-board/sprites/cubo.webp
+!team-board/sprites/drip.webp
+!team-board/sprites/mush.webp
+!team-board/sprites/kit.webp
+!team-board/sprites/spark.webp
+!team-board/sprites/bolt.webp
+!team-board/sprites/puff.webp
+!team-board/sprites/tank.webp
+# petdex 清单缓存
+team-board/.petdex-manifest.json
 
 # ensure.py --open 的去重时间戳
 team-board/.last-open

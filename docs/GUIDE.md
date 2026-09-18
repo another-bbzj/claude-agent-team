@@ -67,7 +67,7 @@
 | 部门 | 从部门管理里定义的部门中选 |
 | 模型 | `sonnet` / `opus` / `haiku` / `fable` / `inherit`（跟随主会话） |
 | 思考强度 | 留空 = 跟随会话；`low` / `medium` / `high` / `xhigh` / `max` |
-| 形象 | 从 `sprites/` 里现有的雪碧图中选；"按部门自动分配"则按部门默认 |
+| 形象 | 下拉选一个（分「导入的形象」「仓库自带」两组，悬停显示作者）；旁边 **「导入形象…」** 可直接选 zip / webp / png 桌宠文件导入，**「删」** 删除选中的导入形象；"按部门自动分配"则按部门默认 |
 | 颜色 | Claude Code 任务列表里的颜色，也用作看板名牌边框 |
 | 简介 | **最重要的一格**：写清"什么时候该用它"。Claude 靠这句自动委派，越具体越准 |
 | 预载技能 | `~/.claude/skills/` 里的技能名，逗号分隔；成员开工时自动带着 |
@@ -126,8 +126,10 @@ skills:
 ## 7. 形象素材
 
 - 仓库自带 13 只：4 只机器人（cc-haha，MIT）+ 9 只程序化绘制的角色（`make_pets.py`，MIT）。开箱每个岗位一只，不重复。改配色 / 形状 / 特征：编辑 `make_pets.py` 里的 `CHARS`，`python make_pets.py` 重新生成。
-- 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物（`install.py` 会自动尝试）。素材归 OpenAI，只留本机。
-- 自己加：任何 8 列 × 11 行、192×208/帧 的 `.webp` 雪碧图放进 `team-board/sprites/`，刷新页面即可在"形象"下拉里选到。行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅。
+- 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物，并顺带导入 `~/.codex/pets/`（Codex 里创建 / 领养的）与 `~/.petdex/pets/` 里的桌宠（`install.py` 会自动尝试）。素材归各自作者，只留本机。
+- 从 petdex 画廊下载：`python ~/.claude/team-board/fetch_petdex.py --starter`（16 只）；`--list --search 关键词` 搜；按 slug 点名下载。作者与来源写进 `sprites/<id>.json`。
+- 看板里导入：成员编辑框 → 形象旁「导入形象…」→ 选 zip（pet.json + spritesheet）、.webp 或 .png。格式：8 列、每帧 192:208、9 行或 11 行（1536×1872 / 1536×2288，等比缩放也行）。行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅。
+- 手动放：把雪碧图直接丢进 `team-board/sprites/`，刷新页面即可选到。
 
 每位出场成员独占一只不重复的形象：本岗位专属 → 同类别备选 → 任意空闲 → 全占满才换色。
 
@@ -146,7 +148,10 @@ python ~/.claude/team-board/team_board.py --session <会话id前缀>   # 固定�
 |---|---|
 | `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals） |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
-| `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body） |
+| `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
+| `GET /api/pets` | 形象列表：`pets`、`petInfo`（文件名、尺寸、行数、名字、作者、是否自带） |
+| `POST /api/pets` | 导入形象（JSON：id?, filename?, data = base64 或 dataURL 的 zip / webp / png, overwrite?） |
+| `POST /api/pets/delete` | 删除导入的形象（JSON：id）；自带的、有成员在用的会拒绝 |
 | `POST /api/agents/delete` | 删除成员（`{"name": ...}`） |
 | `POST /api/departments` | 新建或更新部门（`{"id","name","icon","required"}`） |
 | `POST /api/departments/delete` | 删除部门（`{"id": ...}`） |

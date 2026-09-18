@@ -57,7 +57,7 @@ python install.py
 
 装完**新开一个 Claude Code 会话**（任何项目文件夹都行）。看板会自动在后台启动：打开 http://127.0.0.1:7788/ 。想立刻看：`python ~/.claude/team-board/ensure.py`。
 
-如果你装了 Codex 桌面版，安装脚本还会从你本机提取 9 只 Codex 宠物形象（见[形象素材](#形象素材)）。
+如果你装了 Codex 桌面版，安装脚本还会从你本机提取 9 只 Codex 宠物形象；加 `--petdex` 可再从 [petdex](https://petdex.dev) 社区画廊下载一组桌宠（见[形象素材](#形象素材)）。
 
 ---
 
@@ -265,7 +265,8 @@ python -m unittest discover -s tests -v
 tests/             自动化测试（python -m unittest discover -s tests）
 docs/              图文操作手册 GUIDE.md 与截图
 team-board/        看板：team_board.py（标准库 HTTP + 转录解析）、index.html（单文件前端）、
-                   ensure.py（钩子入口）、team.json（部门/价格配置）、import_codex_pets.py（从本机 Codex 提取宠物）
+                   ensure.py（钩子入口）、team.json（部门/价格配置）
+                   import_codex_pets.py（导入本机 Codex / petdex 宠物或任意桌宠文件）、fetch_petdex.py（从 petdex 画廊下载）
 agents/            8 位通用常驻成员定义
 skills/agent-team/ 团队协议：SKILL.md 步骤、roles.md 部门与模型档位、office.md 办公目录规范、lean.md 省 token 规则
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
@@ -276,13 +277,17 @@ install.py         安装 / 卸载
 
 仓库自带 **13 只**：4 只机器人来自 [cc-haha](https://github.com/NanmiCoder/cc-haha)（MIT），9 只由 `team-board/make_pets.py` 程序化绘制（pip / cubo / drip / mush / kit / spark / bolt / puff / tank，随仓库 MIT 发布，想改配色或加新形象改脚本重跑即可）。每个岗位各占一只，开箱即不重复。
 
-**可选：再加 9 只 Codex 宠物**（Codex、Dewey、Fireball、Hoots、Rocky、Seedy、Stacky、BSOD、Null Signal）：它们是 OpenAI Codex 桌面客户端里的素材，版权归 OpenAI，仓库不附带；如果你装了 Codex，`install.py` 会自动从**你本机**的安装文件里提取，或手动运行：
+**导入任何桌宠（推荐）**：看板与 Codex 桌宠、[petdex](https://petdex.dev) 画廊（4800+ 只社区形象）用的是**同一种雪碧图格式**——8 列、每帧 192×208、9 行（1536×1872）或 11 行（1536×2288），`.webp` 或 `.png`，通常打包成 `pet.json + spritesheet.webp` 的 zip。三种导入方式：
 
-```bash
-python ~/.claude/team-board/import_codex_pets.py    # 自动查找；也可传 app.asar 路径
-```
+| 方式 | 怎么做 |
+|---|---|
+| 看板里点 | `＋ 新建成员` 或点开任一成员 → 形象旁边 **「导入形象…」** → 选 zip / webp / png → 预览立刻换，点保存记到成员上。选中一个导入的形象再点「删」可删除（仓库自带的删不掉；有成员在用的先换掉） |
+| 从 petdex 下载 | `python ~/.claude/team-board/fetch_petdex.py --starter`（一组挑好的 16 只）、`fetch_petdex.py boba glitchcat`（按 slug）、`fetch_petdex.py --list --search cat`（先搜再挑） |
+| 命令行导入文件 | `python ~/.claude/team-board/import_codex_pets.py my-pet.zip ./boba/ sheet.png`；不带参数时自动导入本机 Codex 内置 9 只、`~/.codex/pets/`（Codex 里创建 / 领养的）、`~/.petdex/pets/`（`npx petdex install` 装的） |
 
-提取结果只留在你本机；装了之后总共 22 只可选。看板会自动使用 `sprites/` 下所有 8 列 × 11 行、192×208/帧 的 `.webp` 雪碧图（行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅），放进更多就有更多形象。
+导入的形象放在 `~/.claude/team-board/sprites/<id>.webp|png`，旁边的 `<id>.json` 记录名字、简介、**作者与来源链接**（看板形象下拉里悬停可见）。已建成员随时可换形象，重新保存不会丢 `.md` 里的其它字段（`tools` / `permissionMode` / `maxTurns` 等原样保留）。
+
+**为什么仓库不直接附带这些形象**：Codex 内置的 9 只版权归 OpenAI；petdex 上的形象由各自作者上传、**没有统一授权**（很多是二创），标注出处并不等于获得再分发许可。所以脚本只把它们下载到**你自己的电脑**，并把作者信息一起记下——这既能用上成千上万的形象，又不侵犯作者权利。作者要求下架请到 petdex 处理。
 
 ### 致谢
 

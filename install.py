@@ -6,7 +6,7 @@
     python install.py --uninstall
 
 做了什么：
-  team-board/  -> ~/.claude/team-board/          （已存在的 sprites/*.webp 会保留，不会删你本地的额外宠物）
+  team-board/  -> ~/.claude/team-board/          （已存在的 sprites/ 会保留，不会删你本地导入的宠物）
   agents/*.md  -> ~/.claude/agents/
   skills/*     -> ~/.claude/skills/
   CLAUDE.global.md 的内容 -> 追加到 ~/.claude/CLAUDE.md（用标记包裹，可重复运行、可卸载）
@@ -72,6 +72,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--uninstall', action='store_true')
     ap.add_argument('--no-pets', action='store_true', help='不尝试从本机 Codex 导入宠物形象')
+    ap.add_argument('--petdex', action='store_true', help='再从 petdex.dev 社区画廊下载一组桌宠形象到本机（联网）')
     a = ap.parse_args()
     if sys.version_info < (3, 8):
         sys.exit('需要 Python 3.8+')
@@ -99,13 +100,19 @@ def main():
     print('现在就想看看板：python', (CLAUDE / 'team-board' / 'ensure.py').as_posix())
     if not a.no_pets:
         print()
-        print('检测本机 Codex 客户端，导入它的 9 只宠物形象（只读你自己的安装文件，不联网）…')
+        print('检测本机 Codex 客户端与 ~/.codex/pets、~/.petdex/pets，导入里面的宠物形象（只读你自己的文件，不联网）…')
         import subprocess
         r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'import_codex_pets.py')], capture_output=True, text=True)
         if r.returncode == 0:
             print(r.stdout.strip().splitlines()[-1])
         else:
-            print('  没找到 Codex，跳过（看板用自带的 4 只形象；以后装了 Codex 再运行 team-board/import_codex_pets.py 即可）')
+            print('  没找到 Codex 或本机桌宠，跳过（看板用自带的 13 只形象；以后再运行 team-board/import_codex_pets.py 即可）')
+    if a.petdex:
+        print()
+        print('从 petdex.dev 下载一组桌宠形象（作者与来源会写进 sprites/<id>.json）…')
+        import subprocess
+        r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'fetch_petdex.py'), '--starter'], capture_output=True, text=True, encoding='utf-8', errors='replace')
+        print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[-300:])
 
 
 if __name__ == '__main__':

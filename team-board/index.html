@@ -259,6 +259,9 @@
   .am-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); }
   .am-grid label small { color: var(--text-3); font-size: 10.5px; }
   .am-grid .wide { grid-column: 1 / -1; }
+  .am-grid .pet-row { display: flex; gap: 6px; align-items: center; }
+  .am-grid .pet-row select { flex: 1; min-width: 0; }
+  .am-grid .pet-row .mini-btn { margin: 0; white-space: nowrap; }
   .am-grid input, .am-grid select, .am-grid textarea { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
   .am-grid textarea { resize: vertical; font-family: var(--sans); }
   .am-preview { display: flex; align-items: center; gap: 18px; padding: 12px 16px; border: 1px dashed var(--line-2); border-radius: 14px; background: var(--bg); }
@@ -395,7 +398,7 @@
       <label>部门 <select name="dept" id="am-dept"></select></label>
       <label>模型 <select name="model" id="am-model"></select></label>
       <label>思考强度 <select name="effort" id="am-effort"></select></label>
-      <label>形象 <select name="pet" id="am-pet"></select></label>
+      <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button><input type="file" id="am-pet-file" accept=".webp,.png,.zip,image/webp,image/png,application/zip" hidden></span></label>
       <label>颜色 <select name="color" id="am-color"></select></label>
       <label class="wide">简介 <small>什么时候该用它——Claude 靠这句自动委派，写具体</small><textarea name="description" rows="2" required placeholder="小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露…"></textarea></label>
       <label class="wide">预载技能 <small>逗号分隔，~/.claude/skills 里的名字，可空</small><input name="skills" placeholder="my-domain-skill, security-review"></label>
@@ -455,6 +458,9 @@ const PET_BY_AVATAR = {
 };
 /* 独占分配：每位成员一只不重复的宠物。顺序：本岗位专属 → 同类别备选 → 任意未占用 → 13 只全占满才换色兜底 */
 const PREFERRED_PETS = ['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'];
+let PET_INFO = {};  // snapshot.petInfo：{id: {file, w, h, cw, ch, rows, displayName, credit, shipped}}
+const petUrl = (pet) => 'sprites/' + ((PET_INFO[pet] || {}).file || pet + '.webp');
+const petLabel = (pet) => { const i = PET_INFO[pet] || {}; return i.displayName && i.displayName.toLowerCase() !== pet ? `${pet} · ${i.displayName}` : pet; };
 let ALL_PETS = PREFERRED_PETS.slice();  // 运行时按服务器 sprites/ 目录实际存在的文件过滤（snapshot.pets）
 const PET_FAMILY = {
   'server-engineer': ['dada-code', 'rocky', 'cubo', 'tank', 'stacky', 'huihui-build'], 'ui-designer': ['seedy', 'puff', 'spark', 'hoots', 'fireball'],
@@ -478,7 +484,7 @@ function assignPets(members) {
 }
 const petOf = (m) => { const have = new Set(ALL_PETS); return [m.pet, (petAssign.get(m.id) || {}).pet, PET_BY_TYPE[m.agentType], PET_BY_TYPE[m.id], PET_BY_AVATAR[m.avatar], ...(PET_FAMILY[m.avatar] || []), ...ALL_PETS].find(x => x && have.has(x)) || 'dada-code'; };
 const hueOf = (m) => (petAssign.get(m.id) || {}).hue || 0;
-const miniPet = (m, size = 28) => { const pet = petOf(m), hue = hueOf(m); return `<span class="mini" style="width:${size}px;height:${Math.round(size * 208 / 192)}px;background-image:url(sprites/${pet}.webp);background-size:${size * 8}px auto;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"></span>`; };
+const miniPet = (m, size = 28) => { const pet = petOf(m), hue = hueOf(m); return `<span class="mini" style="width:${size}px;height:${Math.round(size * 208 / 192)}px;background-image:url(${petUrl(pet)});background-size:${size * 8}px auto;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"></span>`; };
 const frames = (name, mult = 1) => ANIM[name][1].map((d, i) => ({ row: ANIM[name][0], col: i, dur: d * mult }));
 const rep = (name, n, mult = 1) => Array.from({ length: n }, () => frames(name, mult)).flat();
 const SEQ = {
@@ -494,7 +500,7 @@ const SEQ = {
 const sprites = new Set();
 class Sprite {
   constructor(el, m) { this.el = el; this.pet = null; this.setPet(m); this.seq = SEQ.idle(); this.i = 0; this.next = performance.now(); this.state = 'idle'; this.after = null; sprites.add(this); this.draw(); }
-  setPet(m) { const pet = petOf(m), hue = hueOf(m); if (this.pet === pet && this.hue === hue) return; this.pet = pet; this.hue = hue; this.el.style.backgroundImage = `url(sprites/${pet}.webp)`; this.el.style.filter = (hue ? `hue-rotate(${hue}deg) ` : '') + 'drop-shadow(0 6px 5px rgba(0,0,0,.16))'; }
+  setPet(m) { const pet = petOf(m), hue = hueOf(m); if (this.pet === pet && this.hue === hue) return; this.pet = pet; this.hue = hue; this.el.style.backgroundImage = `url(${petUrl(pet)})`; this.el.style.filter = (hue ? `hue-rotate(${hue}deg) ` : '') + 'drop-shadow(0 6px 5px rgba(0,0,0,.16))'; }
   play(state, burst) {
     if (state === this.state && !burst) return;
     this.state = state;
@@ -600,6 +606,7 @@ function ensureDept(d) {
 
 function layout(snap) {
   const stage = $('#stage'), members = snap.members, n = members.length;
+  if (snap.petInfo) PET_INFO = snap.petInfo;
   if (Array.isArray(snap.pets) && snap.pets.length) ALL_PETS = PREFERRED_PETS.filter(x => snap.pets.includes(x)).concat(snap.pets.filter(x => !PREFERRED_PETS.includes(x)));
   assignPets(members);
   const width = Math.max(360, stage.parentElement.clientWidth - 2); stageW = width;
@@ -872,7 +879,8 @@ async function openAgentModal(name) {
   $('#am-dept').innerHTML = meta.departments.map(d => `<option value="${d.id}">${DEPT_ICON[d.id] || ''} ${esc(d.name)}</option>`).join('');
   $('#am-model').innerHTML = meta.models.map(m => `<option value="${m}">${m}${m === 'inherit' ? '（跟随主会话）' : ''}</option>`).join('');
   $('#am-effort').innerHTML = meta.efforts.map(e => `<option value="${e}">${EFFORT_LABEL[e] || e}</option>`).join('');
-  $('#am-pet').innerHTML = '<option value="">按部门自动分配</option>' + meta.pets.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (meta.petInfo) PET_INFO = meta.petInfo;
+  fillPetSelect(meta.pets);
   $('#am-color').innerHTML = '<option value="">默认</option>' + meta.colors.map(c => `<option value="${c}">${c}</option>`).join('');
   f.reset(); $('#am-msg').textContent = ''; $('#am-msg').className = '';
   f.name.readOnly = !!a; $('#am-title').textContent = a ? `编辑成员 · ${a.display || a.name}` : '新建成员';
@@ -900,6 +908,44 @@ function updatePreview() {
   $('#pv-chip').textContent = `${f.model.value || 'inherit'}${f.effort.value ? ' · ' + f.effort.value : ''}`;
   $('#pv-desc').textContent = f.description.value.trim() || '在下面填写，这里实时预览它在看板上的样子。';
 }
+function fillPetSelect(pets, keep) {
+  const sel = $('#am-pet'), cur = keep ?? sel.value;
+  const custom = pets.filter(p => !(PET_INFO[p] || {}).shipped), shipped = pets.filter(p => (PET_INFO[p] || {}).shipped);
+  const opt = (p) => `<option value="${p}" title="${esc((PET_INFO[p] || {}).credit ? '来源：' + (PET_INFO[p].credit) : '')}">${esc(petLabel(p))}</option>`;
+  sel.innerHTML = '<option value="">按部门自动分配</option>'
+    + (custom.length ? `<optgroup label="导入的形象">${custom.map(opt).join('')}</optgroup>` : '')
+    + (shipped.length ? `<optgroup label="仓库自带">${shipped.map(opt).join('')}</optgroup>` : '');
+  if (cur && pets.includes(cur)) sel.value = cur;
+}
+$('#am-pet-import').addEventListener('click', () => $('#am-pet-file').click());
+$('#am-pet-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const msg = $('#am-msg'); msg.className = ''; msg.textContent = `读取 ${file.name}…`;
+  if (file.size > 12 * 1024 * 1024) { msg.className = 'err'; msg.textContent = '文件超过 12 MB'; return; }
+  const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+  let id = file.name.replace(/\.(zip|webp|png)$/i, '').replace(/[-_ ]?sprite(sheet)?.*$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const isZip = /\.zip$/i.test(file.name);
+  if (!isZip) { const typed = prompt('给这个形象起个标识（小写字母/数字/连字符）', id || 'my-pet'); if (typed == null) { msg.textContent = ''; return; } id = typed.trim(); }
+  const send = (overwrite) => fetch('/api/pets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: isZip ? '' : id, filename: file.name, data: b64, overwrite }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  msg.textContent = '上传中…';
+  let r = await send(false);
+  if (r.error && /已存在/.test(r.error)) { if (!confirm(r.error + '\n\n覆盖它？')) { msg.textContent = ''; return; } r = await send(true); }
+  if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
+  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
+  if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
+  fillPetSelect(r.pets, r.pet.id); updatePreview();
+  msg.textContent = `✓ 已导入形象 ${r.pet.id}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
+});
+$('#am-pet-del').addEventListener('click', async () => {
+  const id = $('#am-pet').value, msg = $('#am-msg'); if (!id) { msg.className = 'err'; msg.textContent = '先在下拉里选一个导入的形象'; return; }
+  if ((PET_INFO[id] || {}).shipped) { msg.className = 'err'; msg.textContent = '仓库自带的形象不能删'; return; }
+  if (!confirm(`删除形象 ${id}？会删掉 sprites/${(PET_INFO[id] || {}).file || id + '.webp'}`)) return;
+  const r = await fetch('/api/pets/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
+  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
+  if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
+  fillPetSelect(r.pets, ''); updatePreview(); msg.className = ''; msg.textContent = `✓ 已删除形象 ${id}`;
+});
 $('#agent-form').addEventListener('input', updatePreview);
 $('#agent-form').addEventListener('change', updatePreview);
 $('#agent-new').addEventListener('click', () => openAgentModal(null));

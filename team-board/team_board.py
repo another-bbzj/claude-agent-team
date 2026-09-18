@@ -138,6 +138,223 @@ def read_agent(name: str):
             'file': str(f), 'builtin': name in BUILTIN_AGENTS}
 
 
+# ---- 形象（雪碧图）管理 ---------------------------------------------------------------------------------
+# 看板用 sprites/ 下的雪碧图：8 列 × ≥9 行，每帧宽高比 192:208（Codex / petdex 的桌宠格式：1536×1872 或 1536×2288，
+# 也接受等比缩放过的），.webp 或 .png。每只可有同名 .json 边车记录名字、简介与出处（导入时自动写）。
+SHIPPED_PETS = {'huhu-plan', 'dada-code', 'bubu-fix', 'huihui-build',                       # cc-haha（MIT）
+                'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'}     # make_pets.py（MIT）
+PET_ID_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}$')
+PET_EXTS = ('webp', 'png')
+PET_MAX_BYTES = 12 * 1024 * 1024
+PET_COLS, PET_FRAME_W, PET_FRAME_H = 8, 192, 208
+SPRITES = HERE / 'sprites'   # 导入脚本 / 测试可改
+
+
+def image_size(data: bytes):
+    """只读文件头拿画布尺寸（不依赖 Pillow）：webp（VP8X / VP8L / VP8）与 png。认不出返回 None。"""
+    if data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR':
+        return 'png', int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big')
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        chunk = data[12:16]
+        if chunk == b'VP8X':
+            return 'webp', int.from_bytes(data[24:27], 'little') + 1, int.from_bytes(data[27:30], 'little') + 1
+        if chunk == b'VP8L':
+            b = int.from_bytes(data[21:25], 'little')
+            return 'webp', (b & 0x3FFF) + 1, ((b >> 14) & 0x3FFF) + 1
+        if chunk == b'VP8 ':
+            return 'webp', int.from_bytes(data[26:28], 'little') & 0x3FFF, int.from_bytes(data[28:30], 'little') & 0x3FFF
+    return None
+
+
+def sheet_grid(w: int, h: int):
+    """校验雪碧图网格：8 列、每帧 192:208、≥9 行（允许整体等比缩放）。返回 (cw, ch, rows) 或 None。"""
+    if w <= 0 or h <= 0 or w % PET_COLS:
+        return None
+    cw = w // PET_COLS
+    ch = cw * PET_FRAME_H / PET_FRAME_W
+    if abs(ch - round(ch)) > 0.01:
+        return None
+    ch = int(round(ch))
+    if h % ch or h // ch < 9:
+        return None
+    return cw, ch, h // ch
+
+
+def slugify_pet_id(s: str) -> str:
+    s = re.sub(r'[^a-z0-9]+', '-', str(s or '').strip().lower()).strip('-')
+    return s[:41].rstrip('-')
+
+
+def pet_meta_path(pet: str) -> Path:
+    return SPRITES / f'{pet}.json'
+
+
+def pet_info() -> dict:
+    """{id: {file, w, h, cw, ch, rows, displayName?, description?, source?, credit?, shipped}}；同名时 webp 优先。"""
+    out = {}
+    for ext in reversed(PET_EXTS):
+        for f in SPRITES.glob(f'*.{ext}'):
+            if not PET_ID_RE.match(f.stem):
+                continue
+            try:
+                with open(f, 'rb') as fh:
+                    head = fh.read(64)
+                info = image_size(head)
+            except OSError:
+                info = None
+            w, h = (info[1], info[2]) if info else (PET_COLS * PET_FRAME_W, 9 * PET_FRAME_H)
+            g = sheet_grid(w, h) or (PET_FRAME_W, PET_FRAME_H, 9)
+            entry = {'file': f.name, 'w': w, 'h': h, 'cw': g[0], 'ch': g[1], 'rows': g[2], 'shipped': f.stem in SHIPPED_PETS}
+            mp = pet_meta_path(f.stem)
+            if mp.exists():
+                try:
+                    meta = json.loads(mp.read_text(encoding='utf-8'))
+                    for k in ('displayName', 'description', 'source', 'credit', 'license'):
+                        if meta.get(k):
+                            entry[k] = str(meta[k])[:300]
+                except Exception:
+                    pass
+            out[f.stem] = entry
+    return out
+
+
+def pet_files() -> dict:
+    return {k: v['file'] for k, v in pet_info().items()}
+
+
+def pet_list() -> list:
+    return sorted(pet_info().keys())
+
+
+def parse_pet_package(data: bytes, hint: str = ''):
+    """把用户给的桌宠文件解析成 (meta, ext, image_bytes)。
+    支持：裸 .webp/.png 雪碧图；Codex / petdex 的 zip 包（pet.json + spritesheet.webp|png，可在子目录里，忽略 __MACOSX）。
+    meta 至少含 id（来自 pet.json 的 id/slug/name/displayName，或文件名）。"""
+    import io as _io
+    import zipfile
+    meta = {}
+    img = None
+    if data[:4] == b'PK\x03\x04':
+        try:
+            zf = zipfile.ZipFile(_io.BytesIO(data))
+        except zipfile.BadZipFile:
+            raise ValueError('zip 包损坏')
+        names = [n for n in zf.namelist() if '__MACOSX' not in n and not n.rsplit('/', 1)[-1].startswith('.')]
+        js = sorted((n for n in names if n.lower().endswith('.json')), key=lambda n: (n.count('/'), 'pet.json' not in n.lower(), n))
+        for n in js:
+            try:
+                j = json.loads(zf.read(n).decode('utf-8-sig'))
+                if isinstance(j, dict) and (j.get('spritesheetPath') or j.get('displayName') or j.get('id') or j.get('name')):
+                    meta = j
+                    break
+            except Exception:
+                continue
+        want = str(meta.get('spritesheetPath') or '').replace('\\', '/').rsplit('/', 1)[-1].lower()
+        imgs = [n for n in names if n.lower().endswith(('.webp', '.png')) and not zf.getinfo(n).is_dir()]
+        pick = next((n for n in imgs if want and n.rsplit('/', 1)[-1].lower() == want), None)
+        if pick is None:
+            pick = next((n for n in imgs if 'sprite' in n.lower()), None) or (max(imgs, key=lambda n: zf.getinfo(n).file_size) if imgs else None)
+        if pick is None:
+            raise ValueError('zip 里没有 .webp/.png 雪碧图（需要 pet.json + spritesheet.webp）')
+        img = zf.read(pick)
+        hint = meta.get('id') or meta.get('slug') or meta.get('name') or meta.get('displayName') or hint
+    else:
+        img = data
+    info = image_size(img)
+    if not info:
+        raise ValueError('只支持 .webp / .png 雪碧图，或含它们的 zip 包')
+    ext, w, h = info
+    g = sheet_grid(w, h)
+    if not g:
+        raise ValueError(f'尺寸 {w}×{h} 不对：需要 8 列 × 至少 9 行、每帧 192:208（标准 1536×1872 或 1536×2288）')
+    meta = dict(meta)
+    meta['id'] = slugify_pet_id(meta.get('id') or meta.get('slug') or hint or meta.get('name') or meta.get('displayName'))
+    meta['_size'] = (w, h, g[2])
+    return meta, ext, img
+
+
+def save_pet(meta: dict, ext: str, img: bytes, overwrite: bool = False, source: str = '', credit: str = '') -> dict:
+    pet = meta.get('id') or ''
+    if not PET_ID_RE.match(pet):
+        raise ValueError('形象标识只能用小写字母、数字、连字符，1-40 位，例如 my-cat')
+    if pet in SHIPPED_PETS:
+        raise ValueError('这个标识是仓库自带形象，换一个名字')
+    existing = pet_info()
+    if pet in existing and not overwrite:
+        raise ValueError(f'形象 {pet} 已存在；勾选覆盖或换个标识')
+    SPRITES.mkdir(exist_ok=True)
+    for old in PET_EXTS:  # 覆盖时把另一种扩展名的旧文件也清掉，避免 webp/png 并存
+        p = SPRITES / f'{pet}.{old}'
+        if p.exists() and old != ext:
+            p.unlink()
+    (SPRITES / f'{pet}.{ext}').write_bytes(img)
+    side = {'id': pet, 'displayName': str(meta.get('displayName') or meta.get('name') or pet)[:80],
+            'description': str(meta.get('description') or '')[:300],
+            'source': source or str(meta.get('source') or ''), 'credit': credit or str(meta.get('credit') or meta.get('author') or meta.get('submittedBy') or ''),
+            'license': str(meta.get('license') or ''), 'importedAt': datetime.now().isoformat(timespec='seconds')}
+    if meta.get('spriteVersionNumber'):
+        side['spriteVersionNumber'] = meta['spriteVersionNumber']
+    pet_meta_path(pet).write_text(json.dumps(side, ensure_ascii=False, indent=2), encoding='utf-8')
+    w, h, rows = meta.get('_size', (0, 0, 0))
+    return {'id': pet, 'file': f'{pet}.{ext}', 'width': w, 'height': h, 'rows': rows, 'displayName': side['displayName']}
+
+
+def write_pet(d: dict) -> dict:
+    """HTTP 导入：{id?, data(base64 或 dataURL), filename?, overwrite?, source?, credit?}。data 可以是雪碧图或 zip 包。"""
+    import base64
+    raw = str(d.get('data', ''))
+    if raw.lstrip().startswith('data:') and ',' in raw[:200]:
+        raw = raw.split(',', 1)[1]
+    try:
+        data = base64.b64decode(raw, validate=False)
+    except Exception:
+        raise ValueError('文件数据不是合法的 base64')
+    if not data or len(data) > PET_MAX_BYTES:
+        raise ValueError(f'文件为空或超过 {PET_MAX_BYTES // 1024 // 1024} MB')
+    hint = str(d.get('filename') or '').rsplit('/', 1)[-1].rsplit('\\', 1)[-1]
+    hint = re.sub(r'\.(zip|webp|png)$', '', hint, flags=re.I)
+    hint = re.sub(r'[-_ ]?sprite(sheet)?.*$', '', hint, flags=re.I) or hint
+    meta, ext, img = parse_pet_package(data, hint)
+    if str(d.get('id', '')).strip():
+        meta['id'] = slugify_pet_id(d['id'])
+    return save_pet(meta, ext, img, overwrite=bool(d.get('overwrite')), source=str(d.get('source', '')), credit=str(d.get('credit', '')))
+
+
+def delete_pet(pet: str):
+    pet = str(pet).strip().lower()
+    files = pet_files()
+    if pet not in files:
+        raise ValueError('形象不存在')
+    if pet in SHIPPED_PETS:
+        raise ValueError('仓库自带的形象不能删')
+    users = [k for k, v in TEAM_CFG.get('agents', {}).items() if v.get('pet') == pet]
+    if users:
+        raise ValueError('还有成员在用这个形象：' + '、'.join(users) + '，先给他们换形象')
+    (SPRITES / files[pet]).unlink()
+    if pet_meta_path(pet).exists():
+        pet_meta_path(pet).unlink()
+
+
+
+AGENT_MANAGED_KEYS = {'name', 'description', 'model', 'effort', 'memory', 'color', 'skills'}
+
+
+def _frontmatter_extras(text: str) -> list:
+    """成员 .md 里表单不管理的 frontmatter 块（tools / permissionMode / maxTurns / hooks …），编辑时原样保留，不丢数据。"""
+    m = re.match(r'^---\s*\n(.*?)\n---\s*\n?', text, re.S)
+    if not m:
+        return []
+    blocks, cur = [], None
+    for line in m.group(1).split('\n'):
+        if line and not line[0].isspace() and ':' in line:
+            key = line.split(':', 1)[0].strip()
+            cur = [key, [line]]
+            blocks.append(cur)
+        elif cur is not None:
+            cur[1].append(line)
+    return [ln for key, lines in blocks if key not in AGENT_MANAGED_KEYS for ln in lines]
+
+
 def write_agent(d: dict):
     name = str(d.get('name', '')).strip()
     if not AGENT_NAME_RE.match(name):
@@ -157,23 +374,26 @@ def write_agent(d: dict):
     display = str(d.get('display', '')).strip() or name
     body = str(d.get('body', '')).strip() or f'你是{display}。按队长的指令工作；只改被指派的文件；完成后汇报 ≤ 200 字（产出 / 偏差 / 风险）。'
     skills = [x.strip() for x in re.split(r'[,，\s]+', str(d.get('skills', ''))) if x.strip()]
+    old_text = agent_file(name).read_text(encoding='utf-8', errors='replace') if agent_file(name).exists() else ''
+    old_fm = _parse_frontmatter(old_text) if old_text else {}
     lines = ['---', f'name: {name}', f'description: {desc}', f'model: {model}']
     if effort:
         lines.append(f'effort: {effort}')
-    lines.append('memory: user')
+    lines.append(f"memory: {old_fm.get('memory') or 'user'}")
     color = str(d.get('color', '')).strip()
     if color in COLORS:
         lines.append(f'color: {color}')
     if skills:
         lines.append('skills:')
         lines += [f'  - {x}' for x in skills]
+    lines += _frontmatter_extras(old_text)
     lines.append('---')
     AGENTS_DIRS[0].mkdir(parents=True, exist_ok=True)
     agent_file(name).write_text('\n'.join(lines) + '\n' + body + '\n', encoding='utf-8')
     entry = {'dept': dept, 'avatar': DEPT_AVATAR.get(dept, 'server-engineer'), 'name': display,
              'role': str(d.get('role', '')).strip() or '自定义成员'}
     pet = str(d.get('pet', '')).strip()
-    if pet and (HERE / 'sprites' / f'{pet}.webp').exists():
+    if pet and pet in pet_files():
         entry['pet'] = pet
     TEAM_CFG['agents'][name] = entry
     save_team_cfg()
@@ -382,6 +602,12 @@ def parse_agent(jsonl: Path, meta: dict, now: float, stale: float, group):
     return _finish_agent(parsed, jsonl, meta, now, stale, group, mtime)
 
 
+def real_model(model) -> bool:
+    """Claude Code 本地合成的消息（中断、错误回执等）model 写成 <synthetic>，不是真的模型调用，
+    不能拿来覆盖成员的模型归属，否则会显示成“未定价”。"""
+    return bool(model) and not str(model).startswith('<')
+
+
 class UsageLedger:
     """按 message.id 去重累计 usage：同一条 API 消息会被写成多行（每个 content block 一行，usage 是当时的快照），
     只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。"""
@@ -453,7 +679,7 @@ def _parse_agent_file(jsonl: Path):
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
             ledger.add(msg)
-            if msg.get('model'):
+            if real_model(msg.get('model')):
                 model = msg['model']
             has_tool = False
             if isinstance(content, list):
@@ -609,7 +835,7 @@ def parse_lead(path: Path, now: float):
                                     item['ms'] = int((ts - item['ts']) * 1000)
             elif et == 'assistant':
                 lead_ledger.add(msg)
-                if msg.get('model'):
+                if real_model(msg.get('model')):
                     lead_model = msg['model']
                 if isinstance(content, list):
                     for c in content:
@@ -934,7 +1160,7 @@ def build_snapshot(args):
               for k, v in agent_defs.items()]
 
     return {
-        'pets': sorted(f.stem for f in (HERE / 'sprites').glob('*.webp')),
+        'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now,
         'session': session_info,
         'sessions': [{'id': s['session'], 'project': s['project'], 'mtime': s['mtime'], 'count': s['count']}
@@ -995,7 +1221,9 @@ class Handler(SimpleHTTPRequestHandler):
             agents = [a for a in (read_agent(k) for k in sorted(load_agent_defs().keys())) if a]
             return self._json({'agents': agents, 'departments': TEAM_CFG['departments'], 'models': MODELS,
                                'efforts': EFFORTS, 'colors': COLORS, 'requiredOpts': REQUIRED_OPTS,
-                               'pets': sorted(f.stem for f in (HERE / 'sprites').glob('*.webp'))})
+                               'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
+        if u.path == '/api/pets':
+            return self._json({'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
         if u.path == '/':
             self.path = '/index.html'
         return super().do_GET()
@@ -1004,6 +1232,8 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         try:
             n = int(self.headers.get('Content-Length') or 0)
+            if n > PET_MAX_BYTES * 2:
+                return self._json({'error': '请求体过大'}, 413)
             payload = json.loads(self.rfile.read(n).decode('utf-8') or '{}')
         except Exception:
             return self._json({'error': '请求体不是合法 JSON'}, 400)
@@ -1021,6 +1251,14 @@ class Handler(SimpleHTTPRequestHandler):
                 out = write_department(payload)
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'department': out, 'departments': TEAM_CFG['departments']})
+            if u.path == '/api/pets':
+                out = write_pet(payload)
+                Handler._cache = (0.0, None)
+                return self._json({'ok': True, 'pet': out, 'pets': pet_list(), 'petInfo': pet_info()})
+            if u.path == '/api/pets/delete':
+                delete_pet(str(payload.get('id', '')))
+                Handler._cache = (0.0, None)
+                return self._json({'ok': True, 'pets': pet_list(), 'petInfo': pet_info()})
             if u.path == '/api/departments/delete':
                 delete_department(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)
