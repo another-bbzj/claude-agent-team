@@ -903,6 +903,8 @@ function renderHeader(snap) {
     <span class="pill ${missing.length ? 'warn' : 'ok'}" title="部门出场情况；收尾后若质量部 / 文档部没出场会提示建议补位，不是错误">${missing.length ? `建议补位：${missing.join('、')}` : `部门 ${present}/${(snap.departments || []).length}`}</span>
     ${mix ? `<span class="pill mono" title="成员用到的模型">${esc(mix)}</span>` : ''}
     ${t.membersCost ? `<span class="pill mono" title="按公开价估算；队长 ${fmtCost(snap.lead.cost)}">≈ ${fmtCost(t.membersCost)} 成员 / ${fmtCost(t.cost)} 合计</span>` : ''}
+    <span class="pill mono" id="pill-version" title="看板版本。点「检查更新」立即比对 GitHub">v${esc(snap.version || '?')}</span>
+    ${!(snap.update && snap.update.hasUpdate) ? `<button class="pill" id="btn-check-update" title="${snap.update && snap.update.remote ? `上次检查：GitHub v${esc(snap.update.remote)}${snap.update.error ? '（检查失败：' + esc(snap.update.error) + '）' : ' · 已是最新'}` : '还没检查过'}">${snap.update && snap.update.error ? '⚠ 检查更新' : '检查更新'}</button>` : ''}
     ${snap.update && snap.update.hasUpdate ? `<button class="pill warn" id="btn-update" title="本机 v${esc(snap.update.local)} → GitHub v${esc(snap.update.remote)}。点击自动下载安装并重启看板；你的配置、形象、改过的成员都保留">⬆ 有新版本 v${esc(snap.update.remote)} · 一键更新</button>` : ''}
     ${t.unpriced ? `<span class="pill warn" title="这些模型不在 team.json 的价格表里，成本未计入：${esc((t.unpricedModels || []).join(', '))}。在 team-board/team.json 的 pricing_usd_per_mtok 里按模型 id（或前缀）加一条即可">⚠ ${t.unpriced} 个模型未定价</span>` : ''}
     ${t.allUsage ? `<span class="pill mono" title="成员 ${fmtTok(t.usage.total)} + 队长 ${fmtTok(t.leadUsage.total)}；输入 ${fmtTok(t.allUsage.in)} · 输出 ${fmtTok(t.allUsage.out)} · 缓存读 ${fmtTok(t.allUsage.cache_read)} · 缓存写 ${fmtTok(t.allUsage.cache_write)}">Σ ${fmtTok(t.allUsage.total)} tok · 缓存命中 ${Math.round(t.allUsage.cacheHit * 100)}%</span>` : ''}`;
@@ -1082,6 +1084,19 @@ $('#d-body').addEventListener('click', async (e) => {
 });
 let petImportTarget = null;
 document.addEventListener('click', async (e) => {
+  const c = e.target.closest('#btn-check-update');
+  if (c) {
+    c.disabled = true; c.textContent = '检查中…';
+    const r = await fetch('/api/update/check?force=1', { cache: 'no-store' }).then(x => x.json()).catch(err => ({ error: String(err) }));
+    // 后台线程检查，稍等再取结果
+    await new Promise(res => setTimeout(res, 2500));
+    const r2 = await fetch('/api/update/check', { cache: 'no-store' }).then(x => x.json()).catch(() => r);
+    c.disabled = false;
+    if (r2.error) { c.textContent = '⚠ 检查失败'; c.title = r2.error; }
+    else if (r2.hasUpdate) { c.textContent = `⬆ 有新版本 v${r2.remote}`; c.className = 'pill warn'; c.id = 'btn-update'; if (prev) prev.update = r2; }
+    else { c.textContent = `✓ 已是最新 v${r2.local}`; setTimeout(() => { c.textContent = '检查更新'; }, 4000); }
+    return;
+  }
   const b = e.target.closest('#btn-update'); if (!b) return;
   if (!confirm(`更新到 v${(prev && prev.update && prev.update.remote) || '最新'}？会下载 GitHub 最新版并重装（约 10-30 秒），看板随后自动重启。你的部门 / 成员 / 形象 / 价格设置都保留。`)) return;
   b.disabled = true; b.textContent = '更新中…';

@@ -79,7 +79,7 @@ def apply(restart: bool = False) -> int:
         return 1
     root = roots[0]
     print(f'安装 v{(root / "VERSION").read_text(encoding="utf-8").strip() if (root / "VERSION").exists() else "?"} …')
-    r = subprocess.run([sys.executable, str(root / 'install.py'), '--no-pets'], cwd=str(root),
+    r = subprocess.run([sys.executable, str(root / 'install.py'), '--no-pets', '--no-restart'], cwd=str(root),   # 重启由本脚本的 --restart 负责
                        env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, capture_output=True, text=True, encoding='utf-8', errors='replace')
     print(r.stdout.strip())
     if r.returncode != 0:

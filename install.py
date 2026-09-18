@@ -19,6 +19,7 @@
   ~/.claude/settings.json -> 追加 SessionStart 钩子，路径按本机自动生成；原文件先备份为 settings.json.bak-<时间>
 """
 import argparse
+import os
 import json
 import shutil
 import sys
@@ -151,6 +152,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--uninstall', action='store_true')
     ap.add_argument('--no-pets', action='store_true', help='不尝试从本机 Codex 导入宠物形象')
+    ap.add_argument('--no-restart', action='store_true', help='装完不重启正在跑的看板服务')
     ap.add_argument('--petdex', action='store_true', help='再从 petdex.dev 社区画廊下载一组桌宠形象到本机（联网）')
     a = ap.parse_args()
     if sys.version_info < (3, 8):
@@ -189,6 +191,14 @@ def main():
     print('  技能  ->', CLAUDE / 'skills', '（agent-team）')
     print('  钩子  -> settings.json SessionStart（已备份原文件）')
     print('现在就想看看板：python', (CLAUDE / 'team-board' / 'ensure.py').as_posix())
+    # 之前启动的看板进程还在跑旧代码（页面新、服务旧会出现“导入形象 not found”），装完就重启它
+    if a.no_restart or os.environ.get('TEAM_BOARD_NO_RESTART'):
+        return
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'ensure.py'), '--restart'], timeout=60)
+    except Exception as e:
+        print('看板重启失败（不影响安装）：', e)
     if not a.no_pets:
         print()
         print('检测本机 Codex 客户端与 ~/.codex/pets、~/.petdex/pets，导入里面的宠物形象（只读你自己的文件，不联网）…')

@@ -18,7 +18,7 @@ class InstallTest(unittest.TestCase):
         (self.home / '.claude').mkdir(parents=True)
         (self.home / '.claude' / 'settings.json').write_text(json.dumps({'model': 'sonnet', 'hooks': {'SessionStart': [{'hooks': [{'type': 'command', 'command': 'echo hi'}]}]}}), encoding='utf-8')
         (self.home / '.claude' / 'CLAUDE.md').write_text('# 我的旧约定\n', encoding='utf-8')
-        self.env = {**os.environ, 'HOME': str(self.home), 'USERPROFILE': str(self.home), 'PYTHONIOENCODING': 'utf-8'}
+        self.env = {**os.environ, 'HOME': str(self.home), 'USERPROFILE': str(self.home), 'PYTHONIOENCODING': 'utf-8', 'TEAM_BOARD_NO_RESTART': '1'}
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)

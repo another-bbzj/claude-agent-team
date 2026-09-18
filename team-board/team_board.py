@@ -223,6 +223,69 @@ def pet_info() -> dict:
     return out
 
 
+def auto_discover_pets(force: bool = False) -> list:
+    """把用户自己放进来的形象自动纳入：sprites/ 里大小写 / 下划线命名的雪碧图（改名成合法 id）、sprites/<目录>/spritesheet.*、
+    ~/.codex/pets/<id>/、~/.petdex/pets/<id>/。启动时跑一次，之后每次打开成员表单 / 形象列表时再扫（只做 stat，很快）。返回新纳入的 id。"""
+    global _discover_at
+    now = time.time()
+    if not force and now - _discover_at < 5:
+        return []
+    _discover_at = now
+    added = []
+    try:
+        SPRITES.mkdir(exist_ok=True)
+        # a) 文件名不合法（大写 / 下划线 / 空格）的裸雪碧图 → 改成合法 id 的副本
+        for f in list(SPRITES.iterdir()):
+            if f.is_file() and f.suffix.lower() in ('.webp', '.png') and '.orig' not in f.name and not PET_ID_RE.match(f.stem):
+                new_id = slugify_pet_id(re.sub(r'[-_ ]?sprite(sheet)?.*$', '', f.stem, flags=re.I) or f.stem)
+                if new_id and not (SPRITES / f'{new_id}{f.suffix.lower()}').exists():
+                    try:
+                        (SPRITES / f'{new_id}{f.suffix.lower()}').write_bytes(f.read_bytes())
+                        added.append(new_id)
+                    except OSError:
+                        pass
+        # b) 目录形式（petdex / Codex 的 pet.json + spritesheet.*）
+        roots = [d for d in SPRITES.iterdir() if d.is_dir()]
+        for base in (Path(os.environ.get('CODEX_HOME') or (Path.home() / '.codex')) / 'pets',
+                     Path(os.environ.get('PETDEX_HOME') or (Path.home() / '.petdex')) / 'pets'):
+            if base.is_dir():
+                roots += [d for d in base.iterdir() if d.is_dir()]
+        existing = pet_info()
+        for d in roots:
+            sheet = next((p for p in sorted(d.iterdir()) if p.is_file() and p.suffix.lower() in ('.webp', '.png')), None)
+            if not sheet:
+                continue
+            meta = {}
+            pj = d / 'pet.json'
+            if pj.is_file():
+                try:
+                    meta = json.loads(pj.read_text(encoding='utf-8-sig'))
+                except Exception:
+                    meta = {}
+            pid = slugify_pet_id(meta.get('id') or meta.get('slug') or meta.get('name') or meta.get('displayName') or d.name)
+            if not pid or pid in existing or pid in SHIPPED_PETS:
+                continue
+            try:
+                m, ext, img = parse_pet_package(sheet.read_bytes(), pid)
+                m['id'] = pid
+                for k in ('displayName', 'description', 'author', 'credit', 'source', 'license', 'spriteVersionNumber'):
+                    if meta.get(k) and not m.get(k):
+                        m[k] = meta[k]
+                save_pet(m, ext, img, overwrite=False, source=str(d), credit=str(m.get('credit') or m.get('author') or ''))
+                added.append(pid)
+            except Exception as e:
+                print(f'[pets] 跳过 {d}: {e}')
+        if added:
+            Handler._cache = (0.0, None)
+            print('[pets] 自动纳入形象：' + '、'.join(added))
+    except Exception as e:
+        print(f'[pets] 自动发现失败: {e}')
+    return added
+
+
+_discover_at = 0.0
+
+
 def pet_files() -> dict:
     return {k: v['file'] for k, v in pet_info().items()}
 
@@ -1346,8 +1409,9 @@ class Handler(SimpleHTTPRequestHandler):
             agents = [a for a in (read_agent(k) for k in sorted(load_agent_defs().keys())) if a]
             return self._json({'agents': agents, 'departments': TEAM_CFG['departments'], 'models': MODELS,
                                'efforts': EFFORTS, 'colors': COLORS, 'requiredOpts': REQUIRED_OPTS,
-                               'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
+                               'pets': (auto_discover_pets() and pet_list()) or pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
         if u.path == '/api/pets':
+            auto_discover_pets()
             return self._json({'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
         if u.path == '/api/update/check':
             q = parse_qs(u.query)
@@ -1439,6 +1503,7 @@ def main():
         print(json.dumps(build_snapshot(args), ensure_ascii=False, indent=1))
         return
     os.environ['TEAM_BOARD_PORT'] = str(args.port)   # 更新脚本重启时用同一个端口
+    threading.Thread(target=auto_discover_pets, args=(True,), daemon=True).start()   # 把文件夹里已有的形象纳入
     srv = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
     print(f'Agent Team Board  ->  http://127.0.0.1:{args.port}/   (Ctrl+C 退出)')
     try:

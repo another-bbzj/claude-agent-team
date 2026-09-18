@@ -520,7 +520,7 @@ class UpdateTest(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix='teamupd-'))
         try:
             (tmp / 'VERSION').write_text('9.9.9\n', encoding='utf-8')
-            env = {**os.environ, 'TEAM_UPDATE_VERSION_URL': (tmp / 'VERSION').as_uri(), 'PYTHONIOENCODING': 'utf-8'}
+            env = {**os.environ, 'TEAM_UPDATE_VERSION_URL': (tmp / 'VERSION').as_uri(), 'PYTHONIOENCODING': 'utf-8', 'TEAM_BOARD_NO_RESTART': '1', 'TEAM_BOARD_PORT': '0'}
             r = subprocess.run([sys.executable, str(ROOT / 'team-board' / 'update.py'), '--json'], env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
             self.assertEqual(r.returncode, 0, r.stderr); info = json.loads(r.stdout)
             self.assertEqual(info['remote'], '9.9.9'); self.assertTrue(info['hasUpdate'])
@@ -609,3 +609,42 @@ class FitPetTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AutoDiscoverAndEnsureTest(unittest.TestCase):
+    """用户自己放进文件夹的形象要被自动纳入；ensure.py 发现在跑的是旧版本要重启。"""
+
+    def setUp(self):
+        self.env = BoardEnv(); self.tb = self.env.load()
+
+    def tearDown(self):
+        self.env.cleanup()
+
+    def _sheet(self, w=1536, h=1872):
+        from PIL import Image  # noqa: F401 -- 只在有 Pillow 时用真图，否则用最小 webp 头
+        return None
+
+    def test_folder_pets_are_discovered(self):
+        sprites = self.env.claude / 'team-board' / 'sprites'
+        header = b'RIFF' + (30).to_bytes(4, 'little') + b'WEBPVP8X' + (10).to_bytes(4, 'little') + bytes([0x10, 0, 0, 0]) + (1535).to_bytes(3, 'little') + (1871).to_bytes(3, 'little') + bytes(8)
+        # a) 大写 / 下划线文件名的裸雪碧图
+        (sprites / 'My_Cat-spritesheet.webp').write_bytes(header)
+        # b) petdex / Codex 风格的目录
+        d = sprites / 'blue-fox'; d.mkdir()
+        (d / 'pet.json').write_text(json.dumps({'id': 'blue-fox', 'displayName': 'Blue Fox', 'author': 'someone'}), encoding='utf-8')
+        (d / 'spritesheet.webp').write_bytes(header)
+        # c) ~/.codex/pets
+        c = self.env.home / '.codex' / 'pets' / 'aemeath-mini'; c.mkdir(parents=True)
+        (c / 'pet.json').write_text(json.dumps({'id': 'aemeath-mini', 'displayName': 'Aemeath Mini'}), encoding='utf-8')
+        (c / 'spritesheet.webp').write_bytes(header)
+        old = os.environ.get('CODEX_HOME'); os.environ['CODEX_HOME'] = str(self.env.home / '.codex')
+        try:
+            added = self.tb.auto_discover_pets(force=True)
+        finally:
+            if old is None: os.environ.pop('CODEX_HOME', None)
+            else: os.environ['CODEX_HOME'] = old
+        self.assertEqual(sorted(added), ['aemeath-mini', 'blue-fox', 'my-cat'])
+        info = self.tb.pet_info()
+        self.assertIn('my-cat', info); self.assertIn('blue-fox', info); self.assertIn('aemeath-mini', info)
+        self.assertEqual(info['blue-fox']['displayName'], 'Blue Fox'); self.assertEqual(info['blue-fox']['credit'], 'someone')
+        self.assertEqual(self.tb.auto_discover_pets(force=True), [], '第二次不重复纳入')
