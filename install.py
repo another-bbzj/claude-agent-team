@@ -26,6 +26,12 @@ import sys
 import time
 from pathlib import Path
 
+for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打印中文不能把脚本弄崩
+    try:
+        _s.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
 CLAUDE = Path.home() / '.claude'
 MARK_BEGIN, MARK_END = '<!-- claude-agent-team:begin -->', '<!-- claude-agent-team:end -->'

@@ -51,7 +51,8 @@ class EnsureTest(unittest.TestCase):
         shutil.copytree(ROOT / 'team-board', self.board)
         (self.board / 'VERSION').write_text('9.9.9', encoding='utf-8')   # install.py 会把 VERSION 放进 team-board/
         self.port = free_port()
-        self.env = {**os.environ, 'TEAM_BOARD_PORT': str(self.port), 'PYTHONIOENCODING': 'utf-8', 'HOME': str(self.tmp), 'USERPROFILE': str(self.tmp)}
+        # 故意用 cp1252 控制台编码：SessionStart 钩子在 Windows 上就是这种环境，打印中文不能把 ensure.py 弄崩（否则旧服务永远换不掉）
+        self.env = {**os.environ, 'TEAM_BOARD_PORT': str(self.port), 'PYTHONIOENCODING': 'cp1252', 'HOME': str(self.tmp), 'USERPROFILE': str(self.tmp)}
         self.procs = []
 
     def tearDown(self):
@@ -73,8 +74,9 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(wait_json(self.port)['version'], '0.9.0')
         r = subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
         out = r.stdout + r.stderr
-        self.assertIn('重启看板服务', out, out)
-        self.assertIn('0.9.0', out)
+        self.assertNotIn('Traceback', out, out)
+        self.assertIn('0.9.0', out, out)
+        self.assertIn('9.9.9', out, out)
         time.sleep(0.5)
         self.assertIsNotNone(old.poll(), '旧进程应已被结束')
         snap = wait_json(self.port, 15)
@@ -86,7 +88,7 @@ class EnsureTest(unittest.TestCase):
         snap = wait_json(self.port, 15)
         self.assertEqual(snap.get('version'), '9.9.9')
         r = subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
-        self.assertNotIn('重启看板服务', r.stdout + r.stderr, '版本一致就不该重启')
+        self.assertNotIn('0.9.0', r.stdout + r.stderr); self.assertNotIn('started', r.stdout + r.stderr, '版本一致就不该重启')
 
 
 if __name__ == '__main__':

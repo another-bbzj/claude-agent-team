@@ -428,6 +428,52 @@ class PetApiTest(unittest.TestCase):
         self.assertNotIn('tmp-pet', tb.pet_list())
         self.assertFalse((self.env.claude / 'team-board' / 'sprites' / 'tmp-pet.json').exists())
 
+    def test_never_rejected_for_name(self):
+        """填中文名 / 空名 / 文件叫 spritesheet.webp 都不能导入失败：中文当显示名，标识自动推或 pet-N。"""
+        tb = self.tb
+        r = tb.write_pet({'id': '菲比', 'filename': 'spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))})
+        self.assertEqual((r['id'], r['displayName']), ('pet-1', '菲比')); self.assertIn('pet-1', r.get('note', ''))
+        r = tb.write_pet({'id': '', 'filename': 'spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))})
+        self.assertEqual(r['id'], 'pet-2')
+        r = tb.write_pet({'id': '', 'displayName': '小黑', 'filename': 'Black Cat-sprite.webp', 'data': self.b64(webp_sheet(1536, 1872))})
+        self.assertEqual((r['id'], r['displayName']), ('black-cat', '小黑'))
+        info = tb.pet_info(); self.assertEqual(info['pet-1']['displayName'], '菲比')
+
+    def test_multi_file_and_local_path(self):
+        """解压后的 pet.json + spritesheet.webp 一起多选；或直接给本机路径（文件夹 / zip / 无后缀 zip / 图片 / pet.json）。"""
+        tb = self.tb
+        pj = json.dumps({'id': 'feibi', 'displayName': '菲比', 'description': 'chibi', 'spritesheetPath': 'spritesheet.webp'})
+        r = tb.write_pet({'files': [{'filename': 'pet.json', 'data': self.b64(pj.encode())}, {'filename': 'spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))}]})
+        self.assertEqual((r['id'], r['displayName'], r['rows']), ('feibi', '菲比', 9))
+        with self.assertRaises(ValueError) as cm:   # 同一个再导一次：明确说已存在，而不是悄悄变成 pet-1
+            tb.write_pet({'files': [{'filename': 'pet.json', 'data': self.b64(pj.encode())}, {'filename': 'spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))}]})
+        self.assertIn('已存在', str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            tb.write_pet({'files': [{'filename': 'pet.json', 'data': self.b64(pj.encode())}]})
+        self.assertIn('雪碧图', str(cm.exception))
+        # 本机路径
+        d = self.env.tmp / 'Downloads' / 'zip'; d.mkdir(parents=True)
+        (d / 'pet.json').write_text(json.dumps({'id': 'zaza', 'displayName': '咋咋'}), encoding='utf-8')
+        (d / 'spritesheet.webp').write_bytes(webp_sheet(1536, 2288))
+        r = tb.write_pet({'path': str(d)}); self.assertEqual((r['id'], r['displayName'], r['rows']), ('zaza', '咋咋', 11))
+        r = tb.write_pet({'path': str(d / 'pet.json'), 'overwrite': True}); self.assertEqual(r['id'], 'zaza')
+        r = tb.write_pet({'path': f'"{d / "spritesheet.webp"}"', 'id': 'zaza-raw'}); self.assertEqual(r['id'], 'zaza-raw')
+        nz = self.env.tmp / 'Downloads' / 'download'   # 浏览器存下来没有 .zip 后缀
+        nz.write_bytes(pet_zip({'kiki/pet.json': json.dumps({'id': 'kiki', 'displayName': 'Kiki'}), 'kiki/spritesheet.webp': webp_sheet(1536, 1872)}))
+        r = tb.write_pet({'path': str(nz)}); self.assertEqual((r['id'], r['displayName']), ('kiki', 'Kiki'))
+        r = tb.write_pet({'filename': 'download', 'data': self.b64(nz.read_bytes()), 'overwrite': True}); self.assertEqual(r['id'], 'kiki')
+        folder = self.env.tmp / 'Downloads' / 'pack'; folder.mkdir(); (folder / 'kiki.zip').write_bytes(nz.read_bytes())
+        r = tb.write_pet({'path': str(folder), 'overwrite': True}); self.assertEqual(r['id'], 'kiki')
+        for bad, word in ((str(self.env.tmp / 'nope'), '不存在'), (str(self.env.tmp), '雪碧图')):
+            with self.assertRaises(ValueError) as cm: tb.write_pet({'path': bad})
+            self.assertIn(word, str(cm.exception))
+        self.assertTrue({'feibi', 'zaza', 'zaza-raw', 'kiki'} <= set(tb.pet_list()))
+        # 删除时连「适配主体」留下的 .orig 备份一起删
+        sp = self.env.claude / 'team-board' / 'sprites'
+        (sp / 'kiki.orig.webp').write_bytes(b'x')
+        tb.delete_pet('kiki'); self.assertFalse((sp / 'kiki.orig.webp').exists())
+
+
 class HttpTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

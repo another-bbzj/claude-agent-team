@@ -286,6 +286,22 @@
   .am-foot #am-msg.err { color: var(--err); }
   .mini-btn.primary { background: var(--brand); color: #fff; }
   .mini-btn.danger { border-color: var(--err); color: var(--err); }
+  .pm-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 16px; }
+  .pm-body label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); }
+  .pm-body label small { color: var(--text-3); font-size: 10.5px; }
+  .pm-body input[type=text] { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  .pm-drop { border: 2px dashed var(--line-2); border-radius: 12px; padding: 16px 14px; text-align: center; font-size: 12.5px; color: var(--text-2); background: var(--bg); line-height: 1.7; }
+  .pm-drop.over { border-color: var(--brand); background: var(--brand-soft); }
+  .pm-drop small { display: block; color: var(--text-3); font-size: 10.5px; line-height: 1.5; }
+  .pm-files { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+  .pm-chip { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+  .pm-chip small { color: var(--text-3); font-family: var(--sans); }
+  .pm-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pm-target { font-size: 11.5px; color: var(--text-3); }
+  .pm-foot { display: flex; align-items: center; gap: 10px; }
+  .pm-foot #pm-msg { flex: 1; font-size: 12px; color: var(--text-2); }
+  .pm-foot #pm-msg.err { color: var(--err); }
+  .pm-foot .pm-ow { font-size: 12px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw); background: var(--bg-2); border-left: 1px solid var(--line); box-shadow: -12px 0 30px rgba(0,0,0,.12); z-index: 40; transform: translateX(105%); transition: transform .25s ease; display: flex; flex-direction: column; }
   .drawer.open { transform: none; }
   .drawer .head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
@@ -404,13 +420,32 @@
       <label>部门 <select name="dept" id="am-dept"></select></label>
       <label>模型 <small>选一个，或直接输入第三方模型 id（deepseek-chat、glm-4.6、openai/gpt-5…）</small><input name="model" id="am-model" list="am-model-list" placeholder="sonnet"><datalist id="am-model-list"></datalist></label>
       <label>思考强度 <select name="effort" id="am-effort"></select></label>
-      <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn" id="am-pet-fit" title="识别主体：把偏小的角色放大、各动作大小拉齐；被裁到格底的动作不放大（需要 Pillow 才会改图，否则只在屏幕上放大）">适配主体</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button><input type="file" id="am-pet-file" accept=".webp,.png,.zip,image/webp,image/png,application/zip" hidden></span></label>
+      <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn" id="am-pet-fit" title="识别主体：把偏小的角色放大、各动作大小拉齐；被裁到格底的动作不放大（需要 Pillow 才会改图，否则只在屏幕上放大）">适配主体</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button></span></label>
       <label>颜色 <select name="color" id="am-color"></select></label>
       <label class="wide">简介 <small>什么时候该用它——Claude 靠这句自动委派，写具体</small><textarea name="description" rows="2" required placeholder="小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露…"></textarea></label>
       <label class="wide">预载技能 <small>逗号分隔，~/.claude/skills 里的名字，可空</small><input name="skills" placeholder="my-domain-skill, security-review"></label>
       <label class="wide">系统提示词 <small>成员开工时读到的正文</small><textarea name="body" rows="9" placeholder="你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单……完成后写交接单，汇报 ≤ 200 字。"></textarea></label>
       <div class="wide am-foot"><span id="am-msg"></span><button type="button" class="mini-btn danger" id="am-delete" hidden>删除</button><button type="submit" class="mini-btn primary">保存到 ~/.claude/agents</button></div>
     </form>
+  </div>
+</div>
+<div class="modal" id="pet-modal" hidden>
+  <div class="modal-card" style="width:min(580px,96vw)">
+    <div class="modal-head"><span>导入形象</span><button class="close" id="pm-close" aria-label="关闭">✕</button></div>
+    <div class="pm-body">
+      <div class="pm-drop" id="pm-drop">把雪碧图 / zip 包拖到这里，或 <button type="button" class="mini-btn" id="pm-pick">选择文件…</button>
+        <small>.webp / .png 雪碧图（8 列 × 9 或 11 行、每帧 192×208），或 Codex · petdex 下载的 zip 包（没有 .zip 后缀也认）。<br>已经解压成 pet.json + spritesheet.webp 的，把两个文件一起选上，名字会自动带过来。</small>
+        <input type="file" id="pm-file" multiple hidden>
+      </div>
+      <div class="pm-files" id="pm-files"></div>
+      <div class="pm-row2">
+        <label>显示名 <small>看板上的名字，中文也行，可空</small><input type="text" id="pm-display" placeholder="菲比"></label>
+        <label>标识 <small>小写字母 / 数字 / 连字符；留空自动生成</small><input type="text" id="pm-id" placeholder="feibi"></label>
+      </div>
+      <label>或者直接填本机路径 <small>解压出来的文件夹、zip、图片、pet.json 都行——看板跑在你自己电脑上，会直接去读</small><input type="text" id="pm-path" placeholder="C:\Users\你\Downloads\feibi　或　~/Downloads/feibi.zip"></label>
+      <div class="pm-target" id="pm-target"></div>
+      <div class="pm-foot"><span id="pm-msg"></span><label class="pm-ow"><input type="checkbox" id="pm-overwrite"> 同名覆盖</label><button type="button" class="mini-btn primary" id="pm-go">导入</button></div>
+    </div>
   </div>
 </div>
 <div class="modal" id="dept-modal" hidden>
@@ -1000,26 +1035,77 @@ function fillPetSelect(pets, keep) {
     + (shipped.length ? `<optgroup label="仓库自带">${shipped.map(opt).join('')}</optgroup>` : '');
   if (cur && pets.includes(cur)) sel.value = cur;
 }
-$('#am-pet-import').addEventListener('click', () => $('#am-pet-file').click());
-$('#am-pet-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
-  const msg = $('#am-msg'); msg.className = ''; msg.textContent = `读取 ${file.name}…`;
-  if (file.size > 12 * 1024 * 1024) { msg.className = 'err'; msg.textContent = '文件超过 12 MB'; return; }
-  const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-  let id = file.name.replace(/\.(zip|webp|png)$/i, '').replace(/[-_ ]?sprite(sheet)?.*$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  const isZip = /\.zip$/i.test(file.name);
-  if (!isZip) { const typed = prompt('给这个形象起个标识（小写字母/数字/连字符）', id || 'my-pet'); if (typed == null) { msg.textContent = ''; return; } id = typed.trim(); }
-  const send = (overwrite) => fetch('/api/pets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: isZip ? '' : id, filename: file.name, data: b64, overwrite }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
-  msg.textContent = '上传中…';
-  let r = await send(false);
-  if (r.error && /已存在/.test(r.error)) { if (!confirm(r.error + '\n\n覆盖它？')) { msg.textContent = ''; return; } r = await send(true); }
-  if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
+// ---- 导入形象对话框：成员表单与人物抽屉共用。不用 prompt / confirm（嵌入式浏览器里可能弹不出来，出错也看不到） ----
+let petImportTarget = null, pmFiles = [];
+const pmSlug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 41);
+const PM_USELESS = /^(sprite|sprites|spritesheet|sheet|pet|image|img|zip|download|downloads)$/i;
+function pmSay(t, err) { const m = $('#pm-msg'); m.className = err ? 'err' : ''; m.textContent = t; }
+function openPetImport(target) {
+  petImportTarget = target || null; pmFiles = [];
+  for (const id of ['pm-file', 'pm-id', 'pm-display', 'pm-path']) $('#' + id).value = '';
+  $('#pm-overwrite').checked = false; $('#pm-go').disabled = false; pmSay('');
+  $('#pm-target').textContent = target ? `导入后直接换到「${target.name}」身上` : '导入后会出现在形象下拉里';
+  renderPmFiles(); $('#pet-modal').hidden = false;
+}
+function renderPmFiles() {
+  $('#pm-files').innerHTML = pmFiles.map(f => `<span class="pm-chip">${esc(f.name)} <small>${Math.max(1, Math.round(f.size / 1024))} KB</small></span>`).join('');
+}
+async function takePmFiles(list) {
+  pmFiles = Array.from(list || []).filter(f => f.size > 0);
+  if (!pmFiles.length) return;
+  const big = pmFiles.find(f => f.size > 12 * 1024 * 1024);
+  if (big) { pmFiles = []; renderPmFiles(); pmSay(`${big.name} 超过 12 MB`, true); return; }
+  renderPmFiles();
+  const js = pmFiles.find(f => /\.json$/i.test(f.name)), img = pmFiles.find(f => !/\.json$/i.test(f.name));
+  let meta = null;
+  if (js) { try { meta = JSON.parse(await js.text()); } catch { pmSay(`${js.name} 不是合法的 JSON`, true); return; } }
+  const fromName = img ? img.name.replace(/\.(zip|webp|png)$/i, '').replace(/[-_ ]?sprite(sheet)?.*$/i, '') : '';
+  if (!$('#pm-id').value) $('#pm-id').value = pmSlug((meta && (meta.id || meta.slug)) || (PM_USELESS.test(fromName) ? '' : fromName));
+  if (!$('#pm-display').value && meta) $('#pm-display').value = meta.displayName || meta.name || '';
+  pmSay(img ? `已选 ${pmFiles.length} 个文件，点「导入」` : '还缺雪碧图（.webp / .png）或 zip 包，再选一个', !img);
+}
+const readB64 = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+async function runPetImport() {
+  const go = $('#pm-go'), id = $('#pm-id').value.trim(), displayName = $('#pm-display').value.trim(), path = $('#pm-path').value.trim(), overwrite = $('#pm-overwrite').checked;
+  let body;
+  if (pmFiles.length) {
+    pmSay('读取文件…');
+    const files = [];
+    try { for (const f of pmFiles) files.push({ filename: f.name, data: await readB64(f) }); } catch (err) { pmSay('读不了文件：' + err, true); return; }
+    body = { files, id, displayName, overwrite };
+  } else if (path) body = { path, id, displayName, overwrite };
+  else { pmSay('先选文件 / 拖文件进来，或填一个本机路径', true); return; }
+  go.disabled = true; pmSay('上传中…');
+  const r = await fetch('/api/pets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(x => x.json()).catch(err => ({ error: String(err) }));
+  go.disabled = false;
+  if (r.error) { pmSay(r.error + (/已存在/.test(r.error) ? '　← 勾上「同名覆盖」再点导入' : ''), true); return; }
   PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
   if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
-  if (petImportTarget) { const t = petImportTarget; petImportTarget = null; await setMemberPet(t, r.pet.id, t.scope); drawerNote = { id: t.id, text: `✓ 已导入并换成 ${r.pet.id}`, until: Date.now() + 8000 }; const dm = $('#d-pet-msg'); if (dm) dm.textContent = drawerNote.text; return; }
-  fillPetSelect(r.pets, r.pet.id); updatePreview();
-  msg.textContent = `✓ 已导入形象 ${r.pet.id}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
-});
+  const label = r.pet.displayName && r.pet.displayName !== r.pet.id ? `${r.pet.displayName}（${r.pet.id}）` : r.pet.id;
+  if (petImportTarget) {
+    const t = petImportTarget; petImportTarget = null;
+    await setMemberPet(t, r.pet.id, t.scope);
+    drawerNote = { id: t.id, text: `✓ 已导入并换成 ${label}`, until: Date.now() + 8000 }; const dm = $('#d-pet-msg'); if (dm) dm.textContent = drawerNote.text;
+  } else if (!$('#agent-modal').hidden) {
+    fillPetSelect(r.pets, r.pet.id); updatePreview();
+    const m = $('#am-msg'); m.className = ''; m.textContent = `✓ 已导入形象 ${label}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
+  }
+  pmSay(`✓ 已导入 ${label}${r.pet.note ? '，' + r.pet.note : ''}`);
+  setTimeout(() => { $('#pet-modal').hidden = true; }, 900);
+}
+$('#am-pet-import').addEventListener('click', () => openPetImport(null));
+$('#pm-pick').addEventListener('click', () => $('#pm-file').click());
+$('#pm-file').addEventListener('change', (e) => { takePmFiles(e.target.files); e.target.value = ''; });
+$('#pm-go').addEventListener('click', runPetImport);
+$('#pm-close').addEventListener('click', () => { $('#pet-modal').hidden = true; });
+$('#pet-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#pet-modal').hidden = true; });
+$('#pm-path').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runPetImport(); } });
+{
+  const dz = $('#pm-drop');
+  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('over'); }));
+  dz.addEventListener('drop', (e) => takePmFiles(e.dataTransfer.files));
+}
 $('#am-pet-fit').addEventListener('click', async () => {
   const id = $('#am-pet').value, msg = $('#am-msg'); if (!id) { msg.className = 'err'; msg.textContent = '先在下拉里选一个形象'; return; }
   msg.className = ''; msg.textContent = '识别主体中…';
@@ -1080,9 +1166,8 @@ $('#d-body').addEventListener('click', async (e) => {
   const m = selectedId === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === selectedId); if (!m) return;
   const b = e.target.closest('[data-petscope]');
   if (b) { await setMemberPet(m, $('#d-pet').value, b.dataset.petscope); return; }
-  if (e.target.closest('#d-pet-import')) { petImportTarget = { id: m.id, agentType: m.agentType, scope: m.id === '__lead' ? 'lead' : 'member' }; $('#am-pet-file').click(); }
+  if (e.target.closest('#d-pet-import')) openPetImport({ id: m.id, agentType: m.agentType, scope: m.id === '__lead' ? 'lead' : 'member', name: m.name || m.id });
 });
-let petImportTarget = null;
 document.addEventListener('click', async (e) => {
   const c = e.target.closest('#btn-check-update');
   if (c) {
@@ -1107,7 +1192,7 @@ document.addEventListener('click', async (e) => {
 });
 document.addEventListener('pointerdown', (e) => {
   const dr = $('#drawer'); if (!dr.classList.contains('open')) return;
-  if (dr.contains(e.target) || e.target.closest('.person, .task, .msg, .ra, .modal, #am-pet-file')) return;   // 点人物 / 卡片是切换，不是关闭
+  if (dr.contains(e.target) || e.target.closest('.person, .task, .msg, .ra, .modal, #pm-file')) return;   // 点人物 / 卡片是切换，不是关闭
   selectedId = null; dr.classList.remove('open'); if (prev) layout(prev);
 });
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });

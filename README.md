@@ -237,7 +237,7 @@ skills:
 | 想要 | 怎么做 |
 |---|---|
 | 给正在工作的成员换个形象 | 点它 → 抽屉顶部「形象」→ 选一个 → **只改这位** / **改 xxx 角色**（以后都用）/ **导入…**（直接用桌宠文件）。舞台立刻换，队长也能换 |
-| 建成员时选 / 导入形象 | 成员表单 → 形象旁 **「导入形象…」** → zip / webp / png，预览立刻换；「删」删除导入的形象 |
+| 建成员时选 / 导入形象 | 成员表单 → 形象旁 **「导入形象…」**：把 zip / webp / png **拖进去**或选择文件（解压出来的 `pet.json + spritesheet.webp` 一起多选，名字自动带上），或者直接**填本机路径**（下载下来的文件夹 / zip / 图片都行）。显示名随便起，中文也行；标识留空自动生成。预览立刻换；「删」删除导入的形象 |
 | 从 petdex 批量拿 | `python ~/.claude/team-board/fetch_petdex.py --starter`（16 只挑好的）· `fetch_petdex.py boba glitchcat` · `fetch_petdex.py --list --search cat` |
 | 用自己电脑上已有的 | `python ~/.claude/team-board/import_codex_pets.py`：自动导入本机 Codex 内置 9 只、`~/.codex/pets/`（Codex 里创建 / 领养的）、`~/.petdex/pets/`；也可直接传 zip / 目录 / 雪碧图路径 |
 
@@ -293,6 +293,9 @@ python -m unittest discover -s tests -v
 
 **Q：`git pull && python install.py` 之后，导入形象提示 `not found` / 顶栏没有版本号和「检查更新」/ 文件夹里的形象没出现？**
 之前启动的看板进程还在跑旧代码（页面已经是新的，服务还是旧的）。1.3.2 起：`install.py` 装完会自动重启看板；`ensure.py`（SessionStart 钩子）每次都会比对在跑的服务版本和本机 `VERSION`，不一致就自动换掉——所以以后不会再遇到。现在手动跑一次 `python ~/.claude/team-board/ensure.py --restart` 即可。顶栏常驻 `v1.x.x` 版本号和「检查更新」按钮，有新版本会变成「⬆ 一键更新」。
+
+**Q：导入形象没反应 / 起了个中文名说「标识只能用小写字母」/ 下载下来的 zip 没有 .zip 后缀选不到？**
+1.3.3 起这些都不会再挡住你：导入走一个专门的对话框（不再靠浏览器的 `prompt` 弹窗——嵌入式浏览器里它弹不出来，之前抽屉里导入出错也没地方显示），成功 / 失败都写在对话框里；中文名记成显示名、标识自动从文件名或 `pet.json` 推，推不出就 `pet-1`；文件按内容识别不看后缀；还可以直接填本机路径（比如 `C:\Users\你\Downloads\zip`），看板自己去读。
 
 **Q：我把桌宠文件直接放进 `sprites/`（或 `~/.codex/pets/`、`~/.petdex/pets/`）了，怎么让看板认到？**
 不用做什么：服务启动时和每次打开成员表单 / 形象列表时会自动扫描——大写、下划线、`xxx-spritesheet.webp` 这类文件名会复制成合法 id（`My_Cat-spritesheet.webp` → `my-cat`），`pet.json + spritesheet.webp` 的目录会连名字、作者一起纳入。

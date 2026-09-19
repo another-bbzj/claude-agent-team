@@ -25,6 +25,12 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打印中文不能把脚本弄崩
+    try:
+        _s.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
 PROJECTS = Path.home() / '.claude' / 'projects'
 
@@ -384,10 +390,53 @@ def fit_pet_file(pet: str, fix_cropped: bool = False):
         return {'error': f'{type(e).__name__}: {e}'}
 
 
-def write_pet(d: dict) -> dict:
-    """HTTP 导入：{id?, data(base64 或 dataURL), filename?, overwrite?, source?, credit?}。data 可以是雪碧图或 zip 包。"""
+USELESS_HINTS = {'sprite', 'sprites', 'spritesheet', 'sheet', 'pet', 'image', 'img', 'zip', 'download', 'downloads'}
+
+
+def resolve_pet_id(typed: str, hints=(), overwrite: bool = False):
+    """决定导入形象的标识：用户填的合法就用；填了中文 / 空 → 依次从 pet.json 的 id、文件名推；都推不出就 pet-1、pet-2…。
+    只在「合法但撞了自带形象」时报错；任何名字都不会让导入失败。返回 (id, 自动改名说明或 '')。"""
+    typed = str(typed or '').strip()
+    slug = slugify_pet_id(typed)
+    if slug and PET_ID_RE.match(slug):
+        if slug in SHIPPED_PETS:
+            raise ValueError(f'{slug} 是仓库自带形象的标识，换一个（或留空自动生成）')
+        return slug, ('' if slug == typed else f'标识已改成 {slug}')
+    existing = set(pet_info())
+    for h in hints:
+        hs = slugify_pet_id(h)
+        if not hs or not PET_ID_RE.match(hs) or hs in USELESS_HINTS or hs in SHIPPED_PETS:
+            continue
+        if hs in existing and not overwrite:
+            raise ValueError(f'形象 {hs} 已存在；勾选「同名覆盖」，或自己填一个别的标识')
+        return hs, f'标识自动取为 {hs}'
+    n = 1
+    while f'pet-{n}' in existing:
+        n += 1
+    return f'pet-{n}', f'标识自动取为 pet-{n}'
+
+
+def _finish_import(meta: dict, ext: str, img: bytes, d: dict, hints=(), source: str = '') -> dict:
+    """导入的收尾：定标识 / 显示名 → save_pet。d 是 HTTP 请求体（id、displayName、overwrite、source、credit）。"""
+    typed = str(d.get('id', '')).strip()
+    overwrite = bool(d.get('overwrite'))
+    pid, note = resolve_pet_id(typed, [meta.get('id'), meta.get('slug'), *hints, meta.get('name'), meta.get('displayName')], overwrite)
+    meta = dict(meta)
+    meta['id'] = pid
+    display = str(d.get('displayName', '')).strip()
+    if not display and typed and slugify_pet_id(typed) != pid:
+        display = typed        # 填的是「菲比」这种非 ASCII 的名字：当显示名，标识另取
+    if display:
+        meta['displayName'] = display
+    out = save_pet(meta, ext, img, overwrite=overwrite, source=source or str(d.get('source', '')), credit=str(d.get('credit', '')))
+    if note:
+        out['note'] = note
+    return out
+
+
+def _decode_b64(raw) -> bytes:
     import base64
-    raw = str(d.get('data', ''))
+    raw = str(raw or '')
     if raw.lstrip().startswith('data:') and ',' in raw[:200]:
         raw = raw.split(',', 1)[1]
     try:
@@ -396,13 +445,105 @@ def write_pet(d: dict) -> dict:
         raise ValueError('文件数据不是合法的 base64')
     if not data or len(data) > PET_MAX_BYTES:
         raise ValueError(f'文件为空或超过 {PET_MAX_BYTES // 1024 // 1024} MB')
-    hint = str(d.get('filename') or '').rsplit('/', 1)[-1].rsplit('\\', 1)[-1]
-    hint = re.sub(r'\.(zip|webp|png)$', '', hint, flags=re.I)
-    hint = re.sub(r'[-_ ]?sprite(sheet)?.*$', '', hint, flags=re.I) or hint
-    meta, ext, img = parse_pet_package(data, hint)
-    if str(d.get('id', '')).strip():
-        meta['id'] = slugify_pet_id(d['id'])
-    return save_pet(meta, ext, img, overwrite=bool(d.get('overwrite')), source=str(d.get('source', '')), credit=str(d.get('credit', '')))
+    return data
+
+
+def _hint_from_name(name: str) -> str:
+    h = str(name or '').replace('\\', '/').rsplit('/', 1)[-1]
+    h = re.sub(r'\.(zip|webp|png|json)$', '', h, flags=re.I)
+    h = re.sub(r'[-_ ]?sprite(sheet)?.*$', '', h, flags=re.I) or h
+    return h
+
+
+def _merge_meta(meta: dict, extra: dict) -> dict:
+    """pet.json 里的字段补进解析结果（zip 里自带的优先）。"""
+    meta = dict(meta)
+    for k in ('id', 'slug'):          # pet.json 说的标识比文件名推出来的准
+        if extra.get(k):
+            meta[k] = extra[k]
+    for k in ('name', 'displayName', 'description', 'author', 'credit', 'source', 'license', 'spriteVersionNumber', 'submittedBy'):
+        if extra.get(k) and not meta.get(k):
+            meta[k] = extra[k]
+    return meta
+
+
+def write_pet(d: dict) -> dict:
+    """HTTP 导入。三种给法（都不看扩展名，看文件头，所以下载下来叫 zip 没后缀也行）：
+      - {data, filename?}                    一个文件：雪碧图 .webp/.png，或 Codex / petdex 的 zip 包
+      - {files: [{filename, data}, ...]}     一次多选：解压出来的 pet.json + spritesheet.webp 一起选
+      - {path}                               本机路径：文件夹 / zip / 图片 / pet.json（看板只监听本机，直接读）
+    可选 id、displayName、overwrite、source、credit。id 填中文也行——记成显示名，标识自动推。"""
+    if str(d.get('path', '')).strip():
+        return import_pet_path(str(d['path']), d)
+    files = d.get('files') if isinstance(d.get('files'), list) else []
+    if not files and d.get('data'):
+        files = [{'filename': d.get('filename') or '', 'data': d['data']}]
+    if not files:
+        raise ValueError('没有收到文件')
+    blobs = [(str(f.get('filename') or ''), _decode_b64(f.get('data'))) for f in files if isinstance(f, dict)]
+    extra, pack = {}, None
+    for name, blob in blobs:
+        head = blob.lstrip()[:1]
+        if name.lower().endswith('.json') or head == b'{':
+            try:
+                j = json.loads(blob.decode('utf-8-sig'))
+            except Exception:
+                raise ValueError(f'{name or "pet.json"} 不是合法的 JSON')
+            if isinstance(j, dict):
+                extra.update(j)
+        elif pack is None or (blob[:4] == b'PK\x03\x04' and pack[1][:4] != b'PK\x03\x04'):
+            pack = (name, blob)
+    if pack is None:
+        raise ValueError('选的文件里没有雪碧图（.webp / .png）或 zip 包')
+    hint = _hint_from_name(pack[0])
+    meta, ext, img = parse_pet_package(pack[1], hint)
+    meta = _merge_meta(meta, extra)
+    return _finish_import(meta, ext, img, d, hints=[hint])
+
+
+def _is_zip(f: Path) -> bool:
+    try:
+        with f.open('rb') as fh:
+            return fh.read(4) == b'PK\x03\x04'
+    except OSError:
+        return False
+
+
+def import_pet_path(path: str, d: dict = None) -> dict:
+    """从本机路径导入：文件夹（pet.json + spritesheet.*，或里面唯一的 zip）、zip、图片、pet.json。"""
+    d = d or {}
+    raw = str(path).strip().strip('"\'')
+    p = Path(os.path.expanduser(raw))
+    if not p.exists():
+        raise ValueError('路径不存在：' + raw)
+    extra = {}
+    if p.is_file() and p.name.lower().endswith('.json'):
+        p = p.parent
+    if p.is_dir():
+        files = [f for f in p.iterdir() if f.is_file() and '.orig' not in f.name]
+        sheets = [f for f in files if f.suffix.lower() in ('.webp', '.png')]
+        zips = [f for f in files if f.suffix.lower() == '.zip' or (f.suffix == '' and _is_zip(f))]
+        pick = (next((f for f in sheets if 'sprite' in f.name.lower()), None) or (max(sheets, key=lambda f: f.stat().st_size) if sheets else None)
+                or (max(zips, key=lambda f: f.stat().st_size) if zips else None))
+        if pick is None:
+            raise ValueError(f'{raw} 里没有 .webp / .png 雪碧图，也没有 zip 包')
+        pj = p / 'pet.json'
+        if pj.is_file():
+            try:
+                j = json.loads(pj.read_text(encoding='utf-8-sig'))
+                if isinstance(j, dict):
+                    extra = j
+            except Exception:
+                pass
+        hints = [_hint_from_name(pick.name), p.name]
+    else:
+        pick = p
+        hints = [_hint_from_name(p.name), p.parent.name]
+    if pick.stat().st_size > PET_MAX_BYTES:
+        raise ValueError(f'{pick.name} 超过 {PET_MAX_BYTES // 1024 // 1024} MB')
+    meta, ext, img = parse_pet_package(pick.read_bytes(), hints[0])
+    meta = _merge_meta(meta, extra)
+    return _finish_import(meta, ext, img, d, hints=hints, source=str(d.get('source') or p))
 
 
 def set_member_pet(d: dict) -> dict:
@@ -462,6 +603,10 @@ def delete_pet(pet: str):
     (SPRITES / files[pet]).unlink()
     if pet_meta_path(pet).exists():
         pet_meta_path(pet).unlink()
+    for ext in PET_EXTS:   # 适配主体留下的原图备份
+        b = SPRITES / f'{pet}.orig.{ext}'
+        if b.exists():
+            b.unlink()
 
 
 
@@ -1443,7 +1588,7 @@ class Handler(SimpleHTTPRequestHandler):
                 out = write_department(payload)
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'department': out, 'departments': TEAM_CFG['departments']})
-            if u.path == '/api/pets':
+            if u.path in ('/api/pets', '/api/pets/import'):
                 out = write_pet(payload)
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'pet': out, 'pets': pet_list(), 'petInfo': pet_info()})

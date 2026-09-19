@@ -17,6 +17,12 @@ import time
 import urllib.request
 from pathlib import Path
 
+for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打印中文不能把脚本弄崩
+    try:
+        _s.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
 PORT = int(os.environ.get('TEAM_BOARD_PORT', '7788'))
 
