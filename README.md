@@ -7,7 +7,7 @@
 一支常驻的、分部门的 Agent 团队 · 一套成员之间的办公协议 · 一块浏览器里的实时指挥室看板
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.4.0-8A2BE2)
+![version](https://img.shields.io/badge/version-1.4.1-8A2BE2)
 ![python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -45,7 +45,7 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 | 成本 | 全用最强模型 | 按活分档（调研 haiku · 写代码 sonnet · 审查 opus），省 token 规则写进技能 |
 | 形象 | — | 每人一只不重复的桌宠；Codex / petdex 的 4800+ 只随便导，正在工作的也能当场换 |
 
-> **零依赖**：只需要 Python 3.8+ 标准库。看板只读你本机 `~/.claude/projects/` 里的转录文件，不调用任何 API、不联网（检查更新、下载形象 / 立绘除外，且都是你主动触发）。
+> **零依赖**：只需要 Python 3.8+ 标准库。看板只读你本机 `~/.claude/projects/` 里的转录文件，不调用任何 API、不联网（检查更新、下载形象除外，且都是你主动触发）。
 
 ---
 
@@ -217,7 +217,7 @@ python $MSG log [-n 20]                                       # 本项目最近�
 
 ## 🎨 背景板 / 外观
 
-看板背后可以铺一张立绘（推荐明日方舟的「黍」）、你自己的图片，或者直接用 **Wallpaper Engine** 里的壁纸（视频壁纸会动），再调成半透明毛玻璃的效果。点顶栏的 **⚙ 外观** 打开配置面板：
+看板背后可以铺你自己的图片，或者直接用 **Wallpaper Engine** 里的壁纸（视频壁纸会动），再调成半透明毛玻璃的效果。顶栏的 **◐ 透明度** 随手调背景和面板的透明度；点 **⚙ 外观** 打开完整的中文配置面板：
 
 ![外观设置](docs/img/06-look.png)
 
@@ -225,7 +225,6 @@ python $MSG log [-n 20]                                       # 本项目最近�
 
 | 来源 | 说明 | 能做什么 |
 |---|---|---|
-| **预设** | 「黍」（明日方舟 © Hypergryph，图源 PRTS）透明立绘。点「↓ 下载 黍 立绘」下载到本机；勾「精二立绘」换精二。命令行：`python ~/.claude/team-board/fetch_backdrop.py [shu --elite 2]` | 一键启用 |
 | **Wallpaper Engine** | 自动找到本机所有 Steam 库里的创意工坊订阅与自建工程（找不到可设环境变量 `WALLPAPER_ENGINE_DIRS`）。**视频**壁纸直接播放原文件（不复制，可拖动进度）；**3D 场景**网页无法渲染，只能用预览图；**网页**壁纸带视频的按视频处理 | 带缩略图的网格 + 搜索，点一下即应用；标签页隐藏时视频自动暂停，系统开了「减少动态效果」也会暂停 |
 | **当前桌面** | 读 Windows 当前桌面壁纸。Wallpaper Engine 会把正在用的壁纸（包括 3D 场景）存成一张全分辨率快照——想用某个 3D 场景的高清图，先在 WE 里设为桌面，再点这里 | 一键复制为背景（仅 Windows） |
 | **上传 / 本机路径** | 任意 PNG / WebP / JPG（≤ 15 MB） | 拖入或浏览 |
@@ -246,18 +245,18 @@ python $MSG log [-n 20]                                       # 本项目最近�
 
 | 参数 | 范围 | 效果 |
 |---|---|---|
-| 透明度 | 0–100% | 整体透明度 |
+| 透明度 | 0–100% | 背景整体透明度（顶栏 ◐ 也能调） |
 | 模糊 | 0–20 px | 背景高斯模糊 |
 | 饱和度 | 0–200% | 0 = 黑白，200% = 更鲜艳 |
 | 遮罩 | fade-left / fade-right / fade-bottom / vignette / none | 边界渐隐效果 |
 | 混合 | normal / luminosity / screen / multiply / soft-light | 图层混合模式 |
-| 面板 | 30–100% | 数据面板的不透明度：调低后面板变成毛玻璃，壁纸透出更多 |
+| 面板 | 20–100% | 数据面板的不透明度：调低后面板变成毛玻璃，壁纸透出更多（顶栏 ◐ 也能调） |
 | 压暗 | 0–90% | 叠一层黑（深色主题）/ 白（浅色主题），让花哨的壁纸不抢内容 |
 
 ### 版权说明
 
-- 「黍」立绘版权归鹰角网络（Hypergryph），图源 PRTS Wiki；Wallpaper Engine 壁纸版权归各创意工坊作者。
-- 仓库**不附带任何立绘或壁纸**：立绘只下载到你本机的 `~/.claude/team-board/backdrops/`（gitignore，`install.py` 更新时不覆盖也不外传）；WE 视频壁纸直接从 Steam 目录读取，不复制；仅供你个人看板装饰。窄屏下背景板自动变淡。
+- Wallpaper Engine 壁纸版权归各创意工坊作者；你上传的图片归你自己。
+- 仓库**不附带任何图片或壁纸**：上传 / 复制的图只存在你本机的 `~/.claude/team-board/backdrops/`（gitignore，`install.py` 更新时不覆盖也不外传）；WE 视频壁纸直接从 Steam 目录读取，不复制；仅供你个人看板装饰。窄屏下背景板自动变淡。
 
 ---
 
@@ -368,7 +367,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-75 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 预设 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+76 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
 
 ---
 
@@ -435,7 +434,7 @@ python -m unittest discover -s tests -v
 
 <details><summary><b>卸载会删掉什么</b></summary>
 
-`python install.py --uninstall` 删除 `~/.claude/team-board/` 整个目录——包括消息总线记录 `bus/` 和下载的立绘 `backdrops/`；`settings.json` 与 `CLAUDE.md` 只移除本工具加入的部分。更新（重装）不会动这两个目录。
+`python install.py --uninstall` 删除 `~/.claude/team-board/` 整个目录——包括消息总线记录 `bus/` 和背景图 `backdrops/`；`settings.json` 与 `CLAUDE.md` 只移除本工具加入的部分。更新（重装）不会动这两个目录。
 </details>
 
 <details><summary><b>token / 成本数字和服务商后台对不上</b></summary>
@@ -457,7 +456,7 @@ python -m unittest discover -s tests -v
 team-board/        看板及后端服务
   team_board.py              HTTP 服务（标准库）· 转录解析 · 消息总线 / 背景板 API
   msg.py                     零依赖 CLI：send / inbox / who / log（成员通信）
-  fetch_backdrop.py          下载立绘（黍 · PRTS）到 backdrops/
+  backdrop_store.py          背景板图片与配置的本地存储
   wallpapers.py              扫描 Steam 库 Wallpaper Engine 壁纸、当前桌面快照
   index.html                 单文件前端（明日方舟风格 UI）
   team.json                  部门 / 成员登记 / 形象 / 价格
@@ -467,7 +466,7 @@ team-board/        看板及后端服务
   fetch_petdex.py            从 petdex 下载形象
   make_pets.py               程序化绘制自带形象
   bus/                       消息总线数据（gitignore）
-  backdrops/                 下载的立绘 / 壁纸（gitignore）
+  backdrops/                 背景图与背景板配置（gitignore）
   sprites/                   形象（仓库只带 13 只自带的；导入的留在本机）
 agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式）
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则

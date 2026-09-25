@@ -1478,11 +1478,12 @@ def bus_log(project: str = '', limit: int = 200, session: str = '') -> dict:
     return {'messages': list(reversed(msgs[-max(1, min(int(limit or 200), 2000)):]))}
 
 
-# ---- 背景板（立绘 / Wallpaper Engine 壁纸）：backdrops/backdrop.json + 本机图片；
-# v1 字段（file/credit/opacity/side/enabled）逻辑在 fetch_backdrop.py；v2 尺寸/透明化/壁纸字段在这里管理
-# （fetch_backdrop.clean_config 只认 v1 字段，写回会把 v2 字段丢掉，所以这里绕开它直接读写 backdrop.json）。
+# ---- 背景板（Wallpaper Engine 壁纸 / 当前桌面 / 上传图）：backdrops/backdrop.json + 本机图片；
+# 内置立绘预设已移除（v1.4.1），不再联网下载任何图片。
+# v1 字段（file/credit/opacity/side/enabled）逻辑在 backdrop_store.py；v2 尺寸/透明化/壁纸字段在这里管理
+# （backdrop_store.clean_config 只认 v1 字段，写回会把 v2 字段丢掉，所以这里绕开它直接读写 backdrop.json）。
 BACKDROPS = HERE / 'backdrops'   # 测试可改
-_fb_mod = None
+_bs_mod = None
 _wp_mod = None
 
 BACKDROP_DEFAULTS_V2 = {
@@ -1496,22 +1497,22 @@ BACKDROP_ENUMS = {
     'blend': ('normal', 'luminosity', 'screen', 'multiply', 'soft-light'),
 }
 BACKDROP_RANGES = {'scale': (10, 400), 'x': (0, 100), 'y': (0, 100),
-                    'blur': (0, 20), 'dim': (0, 0.9), 'saturate': (0, 2), 'panelAlpha': (0.3, 1)}
+                    'blur': (0, 20), 'dim': (0, 0.9), 'saturate': (0, 2), 'panelAlpha': (0.2, 1)}
 
 
 class BackdropFetchError(Exception):
     """预设下载失败（网络 / 站点）：接口回 502。"""
 
 
-def _fb():
-    """按文件路径加载本目录的 fetch_backdrop.py（不走 sys.modules 缓存，免得测试里串到别的副本）。"""
-    global _fb_mod
-    if _fb_mod is None:
+def _bs():
+    """按文件路径加载本目录的 backdrop_store.py（不走 sys.modules 缓存，免得测试里串到别的副本）。"""
+    global _bs_mod
+    if _bs_mod is None:
         import importlib.util
-        spec = importlib.util.spec_from_file_location('fetch_backdrop_' + str(abs(hash(str(HERE)))), HERE / 'fetch_backdrop.py')
-        _fb_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_fb_mod)
-    return _fb_mod
+        spec = importlib.util.spec_from_file_location('backdrop_store_' + str(abs(hash(str(HERE)))), HERE / 'backdrop_store.py')
+        _bs_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_bs_mod)
+    return _bs_mod
 
 
 def _wp():
@@ -1563,71 +1564,64 @@ def _clean_backdrop_v2(raw: dict, base: dict) -> dict:
 
 
 def backdrop_state(presets: bool = True) -> dict:
-    fb = _fb()
+    bs = _bs()
     raw = _read_backdrop_raw(BACKDROPS)
-    base = fb.clean_config(raw)
+    base = bs.clean_config(raw)
     v2 = _clean_backdrop_v2(raw, base)
     url = ''
     if v2['kind'] == 'video' and v2['wallpaperId'] and _wp().resolve_media(v2['wallpaperId'], 'media'):
         url = f"/api/wallpapers/{v2['wallpaperId']}/media"
     elif base['file'] and (BACKDROPS / base['file']).is_file():
         url = f"/backdrops/{base['file']}?v={int((BACKDROPS / base['file']).stat().st_mtime)}"
-    # 注意：不用 base['enabled']——fb.clean_config 要求 file 非空才算 enabled，而 video 壁纸不落 file（引用外部源）
+    # 注意：不用 base['enabled']——bs.clean_config 要求 file 非空才算 enabled，而 video 壁纸不落 file（引用外部源）
     out = {'enabled': bool(raw.get('enabled')) and bool(url), 'url': url, 'credit': base['credit'],
            'opacity': base['opacity'], 'side': base['side'], **v2}
     out.pop('wallpaperId', None)   # 内部字段（引用外部视频用），前端不需要
     if presets:
-        out['presets'] = fb.preset_list()
+        out['presets'] = []   # v1.4.1：内置立绘预设已移除，恒为空数组（字段保留只为兼容旧前端）
     return out
 
 
 def write_backdrop(d: dict) -> dict:
     """POST /api/backdrop：
-    换图：{preset[,elite]} / {data[,name]} / {path} / {wallpaper:<id>}（WE 壁纸） / {desktop:true}（当前桌面快照）
+    换图：{data[,name]} / {path} / {wallpaper:<id>}（WE 壁纸） / {desktop:true}（当前桌面快照）
     改设置：{opacity, side, enabled, credit} 及 v2 字段（kind/source/title/fit/scale/x/y/area/blur/dim/saturate/mask/blend/panelAlpha）
-    关闭：{clear:true}（删图）。以上可与设置组合。"""
-    fb = _fb()
+    关闭：{clear:true}（删图）。以上可与设置组合。
+    v1.4.1：{preset} 已移除（不再内置任何立绘预设），一律 400；旧配置里 source:'preset' 的图片本身不受影响，仍会正常显示。"""
+    bs = _bs()
     raw = _read_backdrop_raw(BACKDROPS)
 
     if d.get('clear'):
         f = str(raw.get('file') or '')
-        if fb.FILE_RE.match(f) and (BACKDROPS / f).is_file():
+        if bs.FILE_RE.match(f) and (BACKDROPS / f).is_file():
             (BACKDROPS / f).unlink()
         raw.update({'file': '', 'enabled': False, 'credit': '', 'kind': 'image', 'source': '', 'wallpaperId': '', 'title': ''})
-        _write_backdrop_raw({**fb.clean_config(raw), **_clean_backdrop_v2(raw, fb.clean_config(raw))}, BACKDROPS)
+        _write_backdrop_raw({**bs.clean_config(raw), **_clean_backdrop_v2(raw, bs.clean_config(raw))}, BACKDROPS)
         return backdrop_state()
 
     if d.get('preset'):
-        try:
-            cfg = fb.fetch_preset(str(d['preset']), d.get('elite') or 1, BACKDROPS)
-        except ValueError:
-            raise
-        except Exception as e:
-            raise BackdropFetchError(f'下载立绘失败（检查网络 / 代理）：{type(e).__name__}: {e}')
-        raw.update(cfg)
-        raw.update({'kind': 'image', 'source': 'preset', 'wallpaperId': '',
-                    'title': fb.PRESETS.get(str(d['preset']), {}).get('name', '')})
+        raise ValueError('内置立绘预设已移除，请用 Wallpaper Engine / 当前桌面 / 上传')
     elif d.get('data'):
         b64 = str(d['data'])
         if b64.lstrip().startswith('data:') and ',' in b64[:200]:
             b64 = b64.split(',', 1)[1]
-        if len(b64) > fb.MAX_BYTES * 4 // 3 + 16:
+        if len(b64) > bs.MAX_BYTES * 4 // 3 + 16:
             raise ValueError('图片超过 15 MB')
         import base64
         try:
             data = base64.b64decode(b64, validate=False)
         except Exception:
             raise ValueError('图片数据不是合法的 base64')
-        cfg = fb.save_image(data, 'custom', BACKDROPS, credit=str(d.get('credit') or d.get('name') or '本机图片'))
+        cfg = bs.save_image(data, 'custom', BACKDROPS, credit=str(d.get('credit') or d.get('name') or '本机图片'))
         raw.update(cfg)
         raw.update({'kind': 'image', 'source': 'upload', 'wallpaperId': '', 'title': str(d.get('name') or '')})
     elif str(d.get('path') or '').strip():
         p = Path(os.path.expanduser(str(d['path']).strip().strip('"\'')))
         if not p.is_file():
             raise ValueError('文件不存在：' + str(p))
-        if p.stat().st_size > fb.MAX_BYTES:
+        if p.stat().st_size > bs.MAX_BYTES:
             raise ValueError('图片超过 15 MB')
-        cfg = fb.save_image(p.read_bytes(), 'custom', BACKDROPS, credit=str(d.get('credit') or p.name))
+        cfg = bs.save_image(p.read_bytes(), 'custom', BACKDROPS, credit=str(d.get('credit') or p.name))
         raw.update(cfg)
         raw.update({'kind': 'image', 'source': 'path', 'wallpaperId': '', 'title': p.name})
     elif str(d.get('wallpaper') or '').strip():
@@ -1644,14 +1638,14 @@ def write_backdrop(d: dict) -> dict:
             if not src or not src.is_file():
                 raise ValueError('该壁纸没有可用的预览图（3D 场景 / web 壁纸只能用预览，可先设为桌面壁纸再用「当前桌面」拿高清图）')
             stem = 'we-' + (re.sub(r'[^a-z0-9]+', '', wid.lower())[:24] or 'wp')
-            cfg = fb.save_image(src.read_bytes(), stem, BACKDROPS, credit=item['title'])
+            cfg = bs.save_image(src.read_bytes(), stem, BACKDROPS, credit=item['title'])
             raw.update(cfg)
             raw.update({'kind': 'image', 'source': 'wallpaper', 'wallpaperId': '', 'title': item['title']})
     elif d.get('desktop'):
         src = _wp().desktop_wallpaper_path()
         if not src:
             raise ValueError('没有可用的桌面壁纸快照（非 Windows，或 Wallpaper Engine 未写入）')
-        cfg = fb.save_image(src.read_bytes(), 'desktop', BACKDROPS, credit='当前桌面壁纸')
+        cfg = bs.save_image(src.read_bytes(), 'desktop', BACKDROPS, credit='当前桌面壁纸')
         raw.update(cfg)
         raw.update({'kind': 'image', 'source': 'desktop', 'wallpaperId': '', 'title': '当前桌面壁纸'})
 
@@ -1677,12 +1671,12 @@ def write_backdrop(d: dict) -> dict:
                 raise ValueError(f'{k} 必须是数字')
     raw.update(v2keys)
 
-    base = fb.clean_config(raw)
+    base = bs.clean_config(raw)
     v2 = _clean_backdrop_v2(raw, base)
     has_source = bool(base['file'] or v2['wallpaperId'])
     if raw.get('enabled') and not has_source:
-        raise ValueError('还没有背景图：先下载预设、上传，或选一个壁纸')
-    # base['enabled']（fetch_backdrop.clean_config 算的）要求 file 非空，video 壁纸没有 file 会被它强制关掉，
+        raise ValueError('还没有背景图：先上传，或选一个壁纸 / 当前桌面')
+    # base['enabled']（backdrop_store.clean_config 算的）要求 file 非空，video 壁纸没有 file 会被它强制关掉，
     # 这里用真正的意图值覆盖回去，backdrop_state 读的也是这个 raw 值而不是 base['enabled']。
     final = {**base, **v2, 'enabled': bool(raw.get('enabled')) and has_source}
     _write_backdrop_raw(final, BACKDROPS)

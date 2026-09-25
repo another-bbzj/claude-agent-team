@@ -2,7 +2,7 @@
 消息总线（bus）+ 背景板（backdrop）+ msg.py CLI 测试。
 运行：python -m unittest discover -s tests -v   （仓库根目录，标准库即可）
 
-fetch_backdrop 的联网预设一律 monkeypatch，绝不真实联网。
+v1.4.1：内置立绘预设已移除，不再联网；背景板换图走 data/path/wallpaper/desktop。
 """
 import base64
 import importlib.util
@@ -104,15 +104,6 @@ class BusEnv:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
-def stub_fetch_preset(fb_mod):
-    """monkeypatch fetch_backdrop.fetch_preset：不联网，直接落一张假图。"""
-    def _stub(name='shu', elite=1, root=None):
-        if name not in fb_mod.PRESETS:
-            raise ValueError('未知的预设：' + name)
-        return fb_mod.save_image(PNG_1PX, name, root, credit=fb_mod.PRESETS[name]['credit'])
-    fb_mod.fetch_preset = _stub
-
-
 class BusCoreTest(unittest.TestCase):
     """不起 HTTP 服务，直接调用模块函数：同义词规范化、send/inbox 游标、peek/all、400 校验。"""
 
@@ -197,7 +188,6 @@ class BusHttpTest(unittest.TestCase):
         cls.srv = ThreadingHTTPServer(('127.0.0.1', 0), cls.tb.Handler)
         cls.port = cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
-        stub_fetch_preset(cls.tb._fb())
 
     @classmethod
     def tearDownClass(cls):
@@ -260,7 +250,7 @@ class BusHttpTest(unittest.TestCase):
         st, out = self.get('/api/backdrop')
         self.assertEqual(st, 200)
         self.assertFalse(out['enabled'])
-        self.assertIn('presets', out)
+        self.assertEqual(out['presets'], [], 'v1.4.1：内置预设已移除，presets 恒为空数组')
 
         data_b64 = base64.b64encode(PNG_1PX).decode()
         st, out = self.post('/api/backdrop', {'data': data_b64, 'name': '本机测试图'})
@@ -273,20 +263,49 @@ class BusHttpTest(unittest.TestCase):
         self.assertAlmostEqual(out['opacity'], 0.4, places=2)
         self.assertEqual(out['side'], 'left')
 
-        st, out = self.post('/api/backdrop', {'preset': 'shu'})
+        # 透明度边界：0 = 完全透明但保留配置（原下限 0.1 放开到 0）
+        st, out = self.post('/api/backdrop', {'opacity': 0})
         self.assertEqual(st, 200, out)
-        self.assertTrue(out['enabled'])
-        self.assertIn('shu', out['url'])
+        self.assertAlmostEqual(out['opacity'], 0, places=2)
+        self.assertTrue(out['enabled'], '透明度 0 不等于关闭背景')
+
+        # panelAlpha 边界：0.2（原下限 0.3 放开到 0.2）
+        st, out = self.post('/api/backdrop', {'panelAlpha': 0.2})
+        self.assertEqual(st, 200, out)
+        self.assertAlmostEqual(out['panelAlpha'], 0.2, places=2)
+        st, out = self.post('/api/backdrop', {'panelAlpha': 0.1})
+        self.assertEqual(st, 200, out)
+        self.assertAlmostEqual(out['panelAlpha'], 0.2, places=2, msg='低于下限被夹到 0.2')
 
         st, out = self.post('/api/backdrop', {'clear': True})
         self.assertEqual(st, 200, out)
         self.assertFalse(out['enabled'])
         self.assertEqual(out['url'], '')
 
-    def test_backdrop_unknown_preset_400(self):
-        st, out = self.post('/api/backdrop', {'preset': 'nope'})
+    def test_backdrop_preset_removed_400(self):
+        st, out = self.post('/api/backdrop', {'preset': 'shu'})
         self.assertEqual(st, 400, out)
         self.assertIn('error', out)
+        self.assertIn('预设已移除', out['error'])
+        # 未知预设名也是同一条 400，不联网也不区分名字
+        st, out = self.post('/api/backdrop', {'preset': 'nope'})
+        self.assertEqual(st, 400, out)
+        self.assertIn('预设已移除', out['error'])
+
+    def test_backdrop_legacy_preset_source_compat(self):
+        """旧 backdrop.json 里 source:'preset' 的配置照常显示（图片来源换成本机图，字段本身不受影响）。"""
+        tb = self.tb
+        bs = tb._bs()
+        img_cfg = bs.save_image(PNG_1PX, 'legacy', tb.BACKDROPS, credit='旧立绘')
+        raw = tb._read_backdrop_raw(tb.BACKDROPS)
+        raw.update({'source': 'preset', 'title': '黍（明日方舟）', 'kind': 'image', 'wallpaperId': ''})
+        tb._write_backdrop_raw({**img_cfg, **raw}, tb.BACKDROPS)
+        st, out = self.get('/api/backdrop')
+        self.assertEqual(st, 200, out)
+        self.assertTrue(out['enabled'])
+        self.assertTrue(out['url'])
+        self.assertEqual(out['source'], 'preset')
+        self.post('/api/backdrop', {'clear': True})
 
     def test_backdrop_bad_side_400(self):
         st, out = self.post('/api/backdrop', {'side': 'up'})

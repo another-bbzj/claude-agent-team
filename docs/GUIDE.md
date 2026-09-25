@@ -131,42 +131,41 @@ skills:
 
 ![外观设置](img/06-look.png)
 
-点顶栏的 **⚙ 外观** 打开面板。
+点顶栏的 **⚙ 外观** 打开面板（全中文）。只想调透明度的话，点顶栏的 **◐ 透明度**：弹出两条滑块「背景透明度 0–100%」「面板透明度 20–100%」，实时生效，和外观面板同步，`Esc` 或点别处关闭（背景板开启时才显示这个按钮）。
 
 ### 来源页签
 
 | 页签 | 用途 |
 |---|---|
-| **预设** | 仓库自带立绘；目前有黍（下载后存入 `team-board/backdrops/`）；点击直接使用 |
 | **Wallpaper Engine** | 列出你所有 Steam 库里订阅 / 自建的 WE 壁纸（视频、3D 场景、网页三类）；缩略图网格显示，标题+类型角标；搜索框实时过滤 |
 | **当前桌面** | Windows 专用；读当前桌面壁纸（适合 WE 的 3D 场景：在 WE 里设为桌面后再点这里，得到高清截图）；非 Windows 自动隐藏 |
-| **上传** | 选本机图片（png / webp / jpg，≤ 15 MB）或输入本地路径（如 `C:\Users\你\Pictures\shu.png`）；拖进面板也行 |
+| **上传** | 选本机图片（png / webp / jpg，≤ 15 MB）或输入本地路径（如 `C:\Users\你\Pictures\wallpaper.png`）；拖进面板也行 |
 
 ### 调整参数
 
 | 参数 | 说明 | 备注 |
 |---|---|---|
-| **Fit** | 完整显示（contain）/ 铺满裁切（cover）/ 自由摆放（custom） | 自由摆放时显示 Scale 滑块 |
-| **Scale** | 缩放百分比（10–400%） | 仅自由摆放时可用；拖动 / 滚轮快速调整 |
-| **X, Y** | 水平 / 竖直位置（0–100%） | 中点位置，拖动移动 |
-| **Area** | 整页 / 仅舞台 | 仅舞台：背景板只显示在舞台区域，跟随舞台缩放和滚动 |
-| **Opacity** | 透明度（0.1–1）| 整体透明度 |
-| **Blur** | 模糊（0–20px） | CSS 高斯模糊 |
-| **Dim** | 变暗（0–90%） | 覆盖一层暗色 |
-| **Saturate** | 饱和度（0–200%） | 彩色 / 灰度 / 超饱和 |
-| **Mask** | 边缘渐隐：无/左淡出/右淡出/四周/底部 | 与通讯、成员卡片融合 |
-| **Blend** | 混合模式：正常/luminosity/screen/multiply/soft-light | CSS mix-blend-mode |
-| **Panel** | 面板透明度（30–100%） | 越低毛玻璃感越强；自动给面板加 backdrop-filter blur |
+| **适配** | 完整显示 / 铺满裁切 / 自由摆放 | 自由摆放时显示「缩放」滑块 |
+| **缩放** | 缩放百分比（10–400%） | 仅自由摆放时可用；拖动 / 滚轮快速调整 |
+| **水平位置 / 垂直位置** | 0–100% | 中点位置，拖动移动 |
+| **范围** | 整页 / 仅舞台 | 仅舞台：背景板只显示在舞台区域，跟随舞台缩放和滚动 |
+| **透明度** | 0–100% | 背景整体透明度（顶栏「◐ 透明度」也能随手调） |
+| **模糊** | 0–20px | CSS 高斯模糊 |
+| **压暗** | 0–90% | 覆盖一层暗色 |
+| **饱和度** | 0–200% | 彩色 / 灰度 / 超饱和 |
+| **遮罩** | 边缘渐隐：无/左淡出/右淡出/四周/底部 | 与通讯、成员卡片融合 |
+| **混合** | 混合模式：正常/luminosity/screen/multiply/soft-light | CSS mix-blend-mode |
+| **面板** | 面板透明度（20–100%） | 越低毛玻璃感越强；自动给面板加 backdrop-filter blur |
 
 ### 在页面上调整
 
 点 **⤢ 在页面上调整**，进入交互模式：
-- **拖动**：移动背景板（改 X/Y）
-- **滚轮**：缩放（仅自由摆放；改 Scale）
+- **拖动**：移动背景板（改水平 / 垂直位置）
+- **滚轮**：缩放（仅自由摆放）
 - **双击**：复位到默认值
 - **Esc 或再点按钮**：退出调整
 
-底部提示条实时显示当前 X/Y/Scale。
+底部提示条实时显示当前位置与缩放。
 
 ---
 
@@ -208,7 +207,7 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 | `POST /api/departments` | 新建或更新部门（`{"id","name","icon","required"}`） |
 | `POST /api/departments/delete` | 删除部门（`{"id": ...}`） |
 | `GET /api/backdrop` | 读当前背景板配置（v2 字段：fit/scale/x/y/area/opacity/blur/dim/saturate/mask/blend/panelAlpha） |
-| `POST /api/backdrop` | 写背景板配置（支持 `{wallpaper:<id>}` 引用 WE 壁纸，或 `{preset:'shu'}` 用预设立绘，或 `{desktop:true}` 用桌面壁纸） |
+| `POST /api/backdrop` | 写背景板配置（支持 `{wallpaper:<id>}` 引用 WE 壁纸，或 `{desktop:true}` 用桌面壁纸） |
 | `GET /api/wallpapers` | 列出可用壁纸（Wallpaper Engine 库扫描结果：scene / video / web，每项含 id、title、kind、preview）；`found` 字段表示扫描状态 |
 | `GET /api/wallpapers/desktop` | 桌面壁纸（Windows 专用；返回 `{available: true/false, path?, screenshot?}`） |
 | `GET /api/wallpapers/<id>/preview` | 预览图（透明背景，json 配置用的图） |

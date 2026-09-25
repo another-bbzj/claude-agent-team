@@ -10,7 +10,7 @@
 <style>
   /* ============================================================
      RHODES ISLAND · TACTICAL TERMINAL
-     配色取自「黍」立绘：月白 #eceae3 · 靛蓝 #23307a/#3a4fb8 · 麦金 #c8a64b · 青玉 #5aa38a · 赭红 #a8452e
+     罗德岛终端配色：月白 #eceae3 · 靛蓝 #23307a/#3a4fb8 · 麦金 #c8a64b · 青玉 #5aa38a · 赭红 #a8452e
      ============================================================ */
   :root {
     /* 浅色：白色终端 */
@@ -444,7 +444,7 @@
   /* ---------- 弹窗 / 抽屉 ---------- */
   .modal[hidden] { display: none; }
   .modal { position: fixed; inset: 0; background: color-mix(in srgb, #03050a 55%, transparent); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade .2s ease both; }
-  .modal-card { --cut: 16px; position: relative; background: var(--bg-2); border: 1px solid var(--line-2); width: min(760px, 96vw); max-height: 92vh; overflow-y: auto; box-shadow: var(--shadow); animation: pop .28s var(--ease) both;
+  .modal-card { --cut: 16px; position: relative; background: var(--bg-2); border: 1px solid var(--line-2); width: min(760px, 96vw); max-height: 92vh; overflow-y: auto; overflow-x: hidden; box-shadow: var(--shadow); animation: pop .28s var(--ease) both;
     clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
   .modal-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-weight: 700; background: var(--bg-2); flex-wrap: wrap; }
   .modal-head::before { content: ""; width: 4px; align-self: stretch; background: var(--gold); margin: 2px 0; }
@@ -508,6 +508,7 @@
   .lk-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); }
   .lk-row[hidden] { display: none; }
   .lk-row > .en { width: 78px; flex: none; }
+  .lk-row > .cn { width: 78px; flex: none; font-family: var(--mono); font-size: 12px; color: var(--text-3); font-weight: 500; }
   .lk-row .mini-btn { margin: 0; }
   .lk-row input[type=range] { flex: 1; min-width: 120px; accent-color: var(--gold); }
   .lk-row .v { font: 11px var(--mono); color: var(--text); width: 36px; text-align: right; }
@@ -535,7 +536,16 @@
   .we-item:hover { border-color: var(--gold); }
   .we-item.sel { outline: 2px solid var(--gold); outline-offset: -2px; }
   .we-empty { grid-column: 1/-1; font-size: 11.5px; color: var(--text-3); padding: 14px 4px; text-align: center; font-family: var(--mono); }
-  @media (max-width: 560px) { .lk-body { grid-template-columns: 1fr; } .lk-preview { max-height: 200px; aspect-ratio: auto; height: 200px; } }
+  @media (max-width: 560px) { .lk-body { grid-template-columns: 1fr; } .lk-preview { max-height: 200px; aspect-ratio: auto; height: 200px; } .seg { flex-wrap: wrap; } .seg button { padding: 3px 8px; font-size: 11px; } .lk-row { gap: 6px 10px; } }
+
+  .quick-op { position: relative; }
+  .quick-op-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 220px; max-width: calc(100vw - 24px); background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 14px 32px rgba(0,0,0,.28); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+  .quick-op-pop[hidden] { display: none; }
+  .quick-op-pop label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--text-2); }
+  .quick-op-pop label .row2 { display: flex; align-items: center; gap: 8px; }
+  .quick-op-pop input[type=range] { flex: 1; min-width: 0; accent-color: var(--gold); }
+  .quick-op-pop .v { font: 11px var(--mono); color: var(--text); width: 34px; text-align: right; flex: none; }
+  @media (max-width: 400px) { .quick-op-pop { right: -8px; width: min(220px, calc(100vw - 16px)); } }
 
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(470px, 94vw); background: color-mix(in srgb, var(--bg-2) 96%, transparent); border-left: 1px solid var(--line-2); box-shadow: -18px 0 40px rgba(0,0,0,.22); z-index: 40; transform: translateX(105%); transition: transform .32s var(--ease); display: flex; flex-direction: column; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   .drawer::before { content: ""; position: absolute; left: -1px; top: 0; height: 120px; width: 2px; background: var(--gold); }
@@ -666,6 +676,13 @@
     <span class="pill mono" id="session-pill">—</span>
     <select id="session-select" title="选择要观察的会话"></select>
     <button class="pill" id="look-btn" title="外观：背景板立绘、透明度、位置">⚙ 外观</button>
+    <div class="quick-op" id="bdq" hidden>
+      <button class="pill" id="bdq-btn" type="button" title="随手调整背景 / 面板透明度" aria-haspopup="true" aria-expanded="false">◐ 透明度</button>
+      <div class="quick-op-pop" id="bdq-pop" hidden role="dialog" aria-label="透明度">
+        <label>背景透明度<span class="row2"><input type="range" id="bdq-opacity" min="0" max="1" step="0.05" value="0.9"><span class="v" id="bdq-opacity-v">90%</span></span></label>
+        <label>面板透明度<span class="row2"><input type="range" id="bdq-panel" min="0.2" max="1" step="0.05" value="1"><span class="v" id="bdq-panel-v">100%</span></span></label>
+      </div>
+    </div>
     <span class="theme" id="theme" title="主题"><button data-t="auto">自动</button><button data-t="light">☀ 浅色</button><button data-t="dark">☾ 深色</button></span>
   </div>
 </header>
@@ -779,19 +796,16 @@
   </div>
 </div>
 <div class="modal" id="look-modal" hidden>
-  <div class="modal-card" style="width:min(760px,96vw)">
-    <div class="modal-head"><span>外观设置</span><span class="en">Appearance · Backdrop</span><button class="close" id="lk-close" aria-label="关闭">✕</button></div>
+  <div class="modal-card" style="width:min(760px,calc(100vw - 40px))">
+    <div class="modal-head"><span>外观设置</span><button class="close" id="lk-close" aria-label="关闭">✕</button></div>
     <div class="lk-body">
-      <div class="lk-preview" id="lk-preview"><div class="none">NO BACKDROP<br>未设置立绘</div></div>
+      <div class="lk-preview" id="lk-preview"><div class="none">无背景板<br>未设置立绘</div></div>
       <div class="lk-ctl">
-        <div class="lk-row"><span class="en">Backdrop</span><button type="button" class="switch" id="lk-enabled" role="switch" aria-checked="false" title="背景板开关"></button><span id="lk-state">关闭</span>
+        <div class="lk-row"><span class="cn">背景板</span><button type="button" class="switch" id="lk-enabled" role="switch" aria-checked="false" title="背景板开关"></button><span id="lk-state">关闭</span>
           <button type="button" class="mini-btn gold" id="lk-adjust" style="margin-left:auto" title="拖动移动、滚轮缩放、双击复位">⤢ 在页面上调整</button></div>
-        <div class="lk-row"><span class="en">Source</span><span class="seg" id="lk-src">
-          <button type="button" data-src="preset" class="on">预设</button><button type="button" data-src="we">Wallpaper Engine</button><button type="button" data-src="desktop">当前桌面</button><button type="button" data-src="upload">上传</button>
+        <div class="lk-row"><span class="cn">来源</span><span class="seg" id="lk-src">
+          <button type="button" data-src="we">Wallpaper Engine</button><button type="button" data-src="desktop">当前桌面</button><button type="button" data-src="upload">上传</button>
         </span></div>
-        <div class="lk-src-pane" id="lk-pane-preset">
-          <div class="lk-row"><span class="en">Preset</span><span id="lk-presets"><button type="button" class="mini-btn gold" data-preset="shu">↓ 下载 黍 立绘</button></span></div>
-        </div>
         <div class="lk-src-pane" id="lk-pane-we" hidden>
           <div class="lk-row"><input class="field" id="lk-we-q" placeholder="搜索壁纸标题…" style="flex:1"><button type="button" class="mini-btn" id="lk-we-reload">↻ 刷新</button></div>
           <div class="we-grid" id="lk-we-grid"></div>
@@ -801,31 +815,31 @@
           <div class="lk-note" style="border:0;padding:0">适合 WE 的 3D 场景壁纸：在 WE 里把它设为桌面后再点这里，拿到的是当前桌面的高清截图。</div>
         </div>
         <div class="lk-src-pane" id="lk-pane-upload" hidden>
-          <div class="lk-row"><span class="en">Upload</span><button type="button" class="mini-btn" id="lk-pick">选择图片…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg" hidden><small style="color:var(--text-3)">png / webp / jpg · ≤ 15 MB · 也可拖进来</small></div>
-          <div class="lk-row"><span class="en">Local path</span><input class="field" id="lk-path" placeholder="C:\Users\你\Pictures\shu.png"><button type="button" class="mini-btn" id="lk-path-go">导入</button></div>
+          <div class="lk-row"><span class="cn">上传</span><button type="button" class="mini-btn" id="lk-pick">选择图片…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg" hidden><small style="color:var(--text-3)">png / webp / jpg · ≤ 15 MB · 也可拖进来</small></div>
+          <div class="lk-row"><span class="cn">本机路径</span><input class="field" id="lk-path" placeholder="C:\Users\你\Pictures\bg.png"><button type="button" class="mini-btn" id="lk-path-go">导入</button></div>
         </div>
         <div class="lk-hr"></div>
-        <div class="lk-row"><span class="en">Fit</span><span class="seg" id="lk-fit"><button type="button" data-fit="contain" class="on">完整显示</button><button type="button" data-fit="cover">铺满裁切</button><button type="button" data-fit="custom">自由摆放</button></span></div>
-        <div class="lk-row" id="lk-scale-row" hidden><span class="en">Scale</span><input type="range" id="lk-scale" min="10" max="400" step="1" value="100"><span class="v" id="lk-scale-v">100%</span></div>
-        <div class="lk-row"><span class="en">X</span><input type="range" id="lk-x" min="0" max="100" step="1" value="50"><span class="v" id="lk-x-v">50%</span></div>
-        <div class="lk-row"><span class="en">Y</span><input type="range" id="lk-y" min="0" max="100" step="1" value="50"><span class="v" id="lk-y-v">50%</span></div>
-        <div class="lk-row"><span class="en">Area</span><span class="seg" id="lk-area"><button type="button" data-area="page" class="on">整页</button><button type="button" data-area="stage">仅舞台</button></span></div>
+        <div class="lk-row"><span class="cn">适配</span><span class="seg" id="lk-fit"><button type="button" data-fit="contain" class="on">完整显示</button><button type="button" data-fit="cover">铺满裁切</button><button type="button" data-fit="custom">自由摆放</button></span></div>
+        <div class="lk-row" id="lk-scale-row" hidden><span class="cn">缩放</span><input type="range" id="lk-scale" min="10" max="400" step="1" value="100"><span class="v" id="lk-scale-v">100%</span></div>
+        <div class="lk-row"><span class="cn">水平位置</span><input type="range" id="lk-x" min="0" max="100" step="1" value="50"><span class="v" id="lk-x-v">50%</span></div>
+        <div class="lk-row"><span class="cn">垂直位置</span><input type="range" id="lk-y" min="0" max="100" step="1" value="50"><span class="v" id="lk-y-v">50%</span></div>
+        <div class="lk-row"><span class="cn">范围</span><span class="seg" id="lk-area"><button type="button" data-area="page" class="on">整页</button><button type="button" data-area="stage">仅舞台</button></span></div>
         <div class="lk-hr"></div>
-        <div class="lk-row"><span class="en">Opacity</span><input type="range" id="lk-opacity" min="0.1" max="1" step="0.05" value="0.9"><span class="v" id="lk-opacity-v">90%</span></div>
-        <div class="lk-row"><span class="en">Blur</span><input type="range" id="lk-blur" min="0" max="20" step="1" value="0"><span class="v" id="lk-blur-v">0px</span></div>
-        <div class="lk-row"><span class="en">Dim</span><input type="range" id="lk-dim" min="0" max="0.9" step="0.05" value="0"><span class="v" id="lk-dim-v">0%</span></div>
-        <div class="lk-row"><span class="en">Saturate</span><input type="range" id="lk-sat" min="0" max="2" step="0.05" value="1"><span class="v" id="lk-sat-v">100%</span></div>
-        <div class="lk-row"><span class="en">Mask</span><span class="seg" id="lk-mask">
+        <div class="lk-row"><span class="cn">透明度</span><input type="range" id="lk-opacity" min="0" max="1" step="0.05" value="0.9"><span class="v" id="lk-opacity-v">90%</span></div>
+        <div class="lk-row"><span class="cn">模糊</span><input type="range" id="lk-blur" min="0" max="20" step="1" value="0"><span class="v" id="lk-blur-v">0px</span></div>
+        <div class="lk-row"><span class="cn">压暗</span><input type="range" id="lk-dim" min="0" max="0.9" step="0.05" value="0"><span class="v" id="lk-dim-v">0%</span></div>
+        <div class="lk-row"><span class="cn">饱和度</span><input type="range" id="lk-sat" min="0" max="2" step="0.05" value="1"><span class="v" id="lk-sat-v">100%</span></div>
+        <div class="lk-row"><span class="cn">遮罩</span><span class="seg" id="lk-mask">
           <button type="button" data-mask="none">无</button><button type="button" data-mask="fade-left" class="on">左淡出</button><button type="button" data-mask="fade-right">右淡出</button><button type="button" data-mask="vignette">四周</button><button type="button" data-mask="fade-bottom">底部</button>
         </span></div>
-        <div class="lk-row"><span class="en">Blend</span><select class="field" id="lk-blend" style="flex:0 0 150px">
+        <div class="lk-row"><span class="cn">混合</span><select class="field" id="lk-blend" style="flex:0 0 150px">
           <option value="normal">正常</option><option value="luminosity">luminosity</option><option value="screen">screen</option><option value="multiply">multiply</option><option value="soft-light">soft-light</option>
         </select></div>
-        <div class="lk-row"><span class="en">Panel</span><input type="range" id="lk-panel" min="0.3" max="1" step="0.05" value="1"><span class="v" id="lk-panel-v">100%</span><small style="color:var(--text-3)">面板透明度，越低毛玻璃感越强</small></div>
-        <div class="lk-row" id="lk-video-row" hidden><span class="en">Video</span><button type="button" class="mini-btn" id="lk-video-pause">⏸ 暂停动态壁纸</button></div>
+        <div class="lk-row"><span class="cn">面板</span><input type="range" id="lk-panel" min="0.2" max="1" step="0.05" value="1"><span class="v" id="lk-panel-v">100%</span><small style="color:var(--text-3)">面板透明度，越低毛玻璃感越强</small></div>
+        <div class="lk-row" id="lk-video-row" hidden><span class="cn">视频</span><button type="button" class="mini-btn" id="lk-video-pause">⏸ 暂停动态壁纸</button></div>
         <div class="lk-row"><button type="button" class="mini-btn danger" id="lk-clear">关闭并删除图片</button></div>
         <div id="lk-msg"></div>
-        <div class="lk-note">立绘 / 壁纸只下载或复制到你本机的 <code>team-board/backdrops/</code>（不进仓库）。黍 · 明日方舟 © Hypergryph，图源 PRTS Wiki；Wallpaper Engine 内容版权归各创作者所有，仅本机预览用。窄屏下背景板会自动变淡。</div>
+        <div class="lk-note">图片 / 壁纸只下载或复制到你本机的 <code>team-board/backdrops/</code>（不进仓库）。Wallpaper Engine 内容版权归各创作者所有，仅本机预览用。窄屏下背景板会自动变淡。</div>
       </div>
     </div>
   </div>
@@ -1000,7 +1014,7 @@ class Sprite {
 (function loop(now) { for (const s of sprites) s.tick(now); requestAnimationFrame(loop); })(performance.now());
 
 /* ---------- 布局与渲染 ---------- */
-const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 262, DEPT_GAP = 16, ROW_GAP = 26, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170;
+const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 262, DEPT_GAP = 16, ROW_GAP = 26, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170, MROW_GAP = 18;
 let prev = null, selectedId = null, selectedSession = '', flights = 0, firstLoad = true;
 const personEls = new Map(), deptEls = new Map(), taskEls = new Map(), seenFeed = new Set(), seenComms = new Set();
 let positions = new Map(), leadPos = { x: 0, foot: LEAD_FOOT }, deptPos = new Map(), stageW = 0, spineX = 0, row0BusY = 0;
@@ -1093,9 +1107,8 @@ function layout(snap) {
   if (snap.petInfo) PET_INFO = snap.petInfo;
   if (Array.isArray(snap.pets) && snap.pets.length) ALL_PETS = PREFERRED_PETS.filter(x => snap.pets.includes(x)).concat(snap.pets.filter(x => !PREFERRED_PETS.includes(x)));
   assignPets(members, (snap.lead && snap.lead.pet) || '');
-  // 一个部门比屏幕还宽（窄屏 + 人多）时，舞台加宽、由外层横向滚动，而不是把成员裁掉
-  const needW = Math.max(0, ...(snap.departments || []).filter(d => d.id !== 'hq').map(d => { const k = d.members.filter(id => members.some(m => m.id === id)).length; return k ? k * SLOT + PPAD * 2 : EMPTY_W; })) + PAD * 2;
-  const width = Math.max(360, stage.parentElement.clientWidth - 2, needW); stageW = width;
+  // 舞台宽度以可视区为准，绝不超（不横向溢出）；一个部门人多到一行放不下时，在部门面板内部换行成多排，而不是把面板撑宽
+  const width = Math.max(360, stage.parentElement.clientWidth - 2); stageW = width;
   stage.style.width = width + 'px';
   { const host = stage.parentElement; if (width > host.clientWidth + 4 && host.dataset.cw !== String(width)) { host.dataset.cw = String(width); host.scrollLeft = (width - host.clientWidth) / 2; } }
   const leadX = width / 2;
@@ -1114,9 +1127,18 @@ function layout(snap) {
   leadPos = { x: leadX, foot: LEAD_FOOT };
   $('#beacon').style.left = leadX + 'px';
 
-  // 部门面板：指挥部只放队长（不画面板），其余部门按顺序排成行，超宽换行
+  // 部门面板：指挥部只放队长（不画面板），其余部门按顺序排成行，超宽换行；单个部门人数多到一行放不下时，面板内部按列数换行成多排（不撑宽面板、不缩小卡片）
   const depts = (snap.departments || []).filter(d => d.id !== 'hq');
-  const items = depts.map(d => { const ms = d.members.map(id => members.find(m => m.id === id)).filter(Boolean); const w = ms.length ? ms.length * SLOT + PPAD * 2 : EMPTY_W; return { d, ms, w, h: ms.length ? DEPT_HEAD + MEMBER_H : DEPT_HEAD + 96 }; });
+  const maxDeptW = Math.max(SLOT + PPAD * 2, width - PAD * 2);   // 一个部门单独占一行时的最大可用宽度
+  const maxCols = Math.max(1, Math.floor((maxDeptW - PPAD * 2) / SLOT));
+  const items = depts.map(d => {
+    const ms = d.members.map(id => members.find(m => m.id === id)).filter(Boolean);
+    const cols = ms.length ? Math.min(ms.length, maxCols) : 0;
+    const memberRows = ms.length ? Math.ceil(ms.length / cols) : 0;
+    const w = ms.length ? cols * SLOT + PPAD * 2 : EMPTY_W;
+    const h = ms.length ? DEPT_HEAD + memberRows * MEMBER_H + (memberRows - 1) * MROW_GAP : DEPT_HEAD + 96;
+    return { d, ms, w, h, cols };
+  });
   const rows = []; let cur = [], curW = 0;
   for (const it of items) { if (cur.length && curW + DEPT_GAP + it.w > width - PAD * 2) { rows.push(cur); cur = []; curW = 0; } cur.push(it); curW += (cur.length > 1 ? DEPT_GAP : 0) + it.w; }
   if (cur.length) rows.push(cur);
@@ -1128,7 +1150,8 @@ function layout(snap) {
       const el = ensureDept(it.d); el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = it.w + 'px'; el.style.height = rowH + 'px';
       deptPos.set(it.d.id, { x, y, w: it.w, h: rowH, cx: x + it.w / 2, row: rows.indexOf(row), busY: y - 14 });
       it.ms.forEach((m, i) => {
-        const cx = x + PPAD + SLOT / 2 + i * SLOT, top = y + DEPT_HEAD + 8;
+        const col = i % it.cols, rowI = Math.floor(i / it.cols);
+        const cx = x + PPAD + SLOT / 2 + col * SLOT, top = y + DEPT_HEAD + 8 + rowI * (MEMBER_H + MROW_GAP);
         positions.set(m.id, { cx, top, dept: it.d.id });
         const pel = ensurePerson(m, false, snap);
         pel.style.left = (cx - 95) + 'px'; pel.style.top = top + 'px';
@@ -1804,6 +1827,7 @@ document.addEventListener('click', (e) => { if (e.target.closest('#btn-unread'))
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
+    if (!$('#bdq-pop').hidden) { closeQuickOp(); e.preventDefault(); return; }
     const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
     if (open) { open.hidden = true; e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
@@ -1816,11 +1840,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ---------- 背景板 v2（立绘 / 视频 / WE 壁纸）与外观设置 ---------- */
-const BD_MISSING = '看板后端还没有背景板接口（/api/backdrop）。可先手动放图：team-board/backdrops/ 里放 shu.png + backdrop.json，或运行 python team-board/fetch_backdrop.py';
-const BD_DEFAULTS = { enabled: false, url: '', credit: '', title: '', kind: 'image', source: 'preset',
+const BD_MISSING = '看板后端还没有背景板接口（/api/backdrop）。可先手动放图：team-board/backdrops/ 里放图片 + backdrop.json';
+const BD_DEFAULTS = { enabled: false, url: '', credit: '', title: '', kind: 'image', source: 'upload',
   fit: 'contain', scale: 100, x: 50, y: 50, area: 'page',
   opacity: 0.9, blur: 0, dim: 0, saturate: 1, mask: 'fade-left', blend: 'normal', panelAlpha: 1 };
-let BD = { ...BD_DEFAULTS }, bdApi = null, bdHold = 0, bdPresets = null, bdAdjusting = false;
+let BD = { ...BD_DEFAULTS }, bdApi = null, bdHold = 0, bdAdjusting = false, lkSrcInited = false;
 let bdWallpapers = null, bdWpApi = null, bdDesktopAvailable = null;
 const bdLocal = () => { try { return JSON.parse(localStorage.getItem('team-board-backdrop') || '{}') || {}; } catch (_) { return {}; } };
 const bdSaveLocal = (o) => { try { localStorage.setItem('team-board-backdrop', JSON.stringify({ ...bdLocal(), ...o })); } catch (_) {} };
@@ -1839,14 +1863,14 @@ function applyBackdrop(bd, force) {
   layer.dataset.fit = ['contain', 'cover', 'custom'].includes(BD.fit) ? BD.fit : 'contain';
   layer.dataset.mask = BD.mask || 'none';
   layer.dataset.area = BD.area === 'stage' ? 'stage' : 'page';
-  layer.style.setProperty('--bd-op', String(Math.max(0.05, Math.min(1, +BD.opacity || 0.9))));
+  layer.style.setProperty('--bd-op', String(Math.max(0, Math.min(1, BD.opacity ?? 0.9))));
   layer.style.setProperty('--bd-blur', Math.max(0, Math.min(20, +BD.blur || 0)) + 'px');
   layer.style.setProperty('--bd-sat', String(Math.max(0, Math.min(2, BD.saturate ?? 1))));
   layer.style.setProperty('--bd-dim', String(Math.max(0, Math.min(0.9, BD.dim || 0))));
   layer.style.setProperty('--bd-blend', BD.blend || 'normal');
   layer.style.setProperty('--bd-x', (BD.x ?? 50) + '%'); layer.style.setProperty('--bd-y', (BD.y ?? 50) + '%');
   layer.style.setProperty('--bd-scale', Math.max(10, Math.min(400, BD.scale || 100)) + '%');
-  document.documentElement.style.setProperty('--panel-alpha', String(Math.max(0.3, Math.min(1, BD.panelAlpha ?? 1))));
+  document.documentElement.style.setProperty('--panel-alpha', String(Math.max(0.2, Math.min(1, BD.panelAlpha ?? 1))));
   document.body.classList.toggle('bd-glass', (BD.panelAlpha ?? 1) < 0.98);
   const isVideo = on && BD.kind === 'video';
   img.hidden = isVideo; video.hidden = !isVideo;
@@ -1863,8 +1887,25 @@ function applyBackdrop(bd, force) {
   $('#lk-video-row').hidden = !isVideo;
   $('#bd-credit').textContent = on ? (BD.title || BD.credit || '') : '';
   bdSyncArea();
+  renderQuickOp(on);
   if (!$('#look-modal').hidden) renderLook();
 }
+function renderQuickOp(on) {
+  $('#bdq').hidden = !on;
+  if (!on && !$('#bdq-pop').hidden) closeQuickOp();
+  const op = Math.round((BD.opacity ?? 0.9) * 100), pa = Math.round((BD.panelAlpha ?? 1) * 100);
+  $('#bdq-opacity').value = String(BD.opacity ?? 0.9); $('#bdq-opacity-v').textContent = op + '%';
+  $('#bdq-panel').value = String(BD.panelAlpha ?? 1); $('#bdq-panel-v').textContent = pa + '%';
+}
+function closeQuickOp() { $('#bdq-pop').hidden = true; $('#bdq-btn').setAttribute('aria-expanded', 'false'); }
+$('#bdq-btn').addEventListener('click', () => {
+  const willOpen = $('#bdq-pop').hidden;
+  if (willOpen) { renderQuickOp(true); $('#bdq-pop').hidden = false; $('#bdq-btn').setAttribute('aria-expanded', 'true'); $('#bdq-opacity').focus(); }
+  else closeQuickOp();
+});
+document.addEventListener('click', (e) => { if (!$('#bdq-pop').hidden && !e.target.closest('#bdq')) closeQuickOp(); });
+$('#bdq-opacity').addEventListener('input', (e) => { $('#bdq-opacity-v').textContent = Math.round(e.target.value * 100) + '%'; bdSetting({ opacity: +e.target.value }); });
+$('#bdq-panel').addEventListener('input', (e) => { $('#bdq-panel-v').textContent = Math.round(e.target.value * 100) + '%'; bdSetting({ panelAlpha: +e.target.value }); });
 function bdVideoAutoplay() {
   const v = $('#bd-video'); if (v.hidden) return;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1890,7 +1931,7 @@ function bdSyncArea() {
 }
 ['scroll', 'resize'].forEach(ev => addEventListener(ev, () => { if (bdAreaRAF) return; bdAreaRAF = requestAnimationFrame(() => { bdAreaRAF = 0; bdSyncArea(); }); }, { passive: true }));
 async function probeBackdrop() {   // 旧后端 snapshot 里没有 backdrop：先试 /api/backdrop，再试静态 backdrops/backdrop.json
-  try { const r = await fetch('/api/backdrop', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); bdApi = true; bdPresets = j.presets || null; applyBackdrop(j, true); return; } } catch (_) {}
+  try { const r = await fetch('/api/backdrop', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); bdApi = true; applyBackdrop(j, true); return; } } catch (_) {}
   bdApi = false;
   try {
     const r = await fetch('backdrops/backdrop.json', { cache: 'no-store' });
@@ -1909,9 +1950,9 @@ function renderLook() {
     pv.dataset.key = key;
     pv.innerHTML = has
       ? (BD.kind === 'video' ? `<video src="${esc(BD.url)}" muted loop autoplay playsinline></video>` : `<img src="${esc(BD.url)}" alt="">`) + ((BD.title || BD.credit) ? `<div class="cr">${esc(BD.title || BD.credit)}</div>` : '')
-      : '<div class="none">NO BACKDROP<br>未设置背景板<br><small>无背景板时显示罗德岛几何底纹</small></div>';
+      : '<div class="none">无背景板<br>未设置背景板<br><small>无背景板时显示罗德岛几何底纹</small></div>';
   }
-  const op = Math.round((+BD.opacity || 0.9) * 100); $('#lk-opacity').value = String(op / 100); $('#lk-opacity-v').textContent = op + '%';
+  const op = Math.round((BD.opacity ?? 0.9) * 100); $('#lk-opacity').value = String(op / 100); $('#lk-opacity-v').textContent = op + '%';
   $('#lk-blur').value = String(BD.blur || 0); $('#lk-blur-v').textContent = (BD.blur || 0) + 'px';
   $('#lk-dim').value = String(BD.dim || 0); $('#lk-dim-v').textContent = Math.round((BD.dim || 0) * 100) + '%';
   $('#lk-sat').value = String(BD.saturate ?? 1); $('#lk-sat-v').textContent = Math.round((BD.saturate ?? 1) * 100) + '%';
@@ -1925,15 +1966,10 @@ function renderLook() {
   $('#lk-mask').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mask === (BD.mask || 'none')));
   $('#lk-scale-row').hidden = BD.fit !== 'custom';
   $('#lk-adjust').classList.toggle('on', bdAdjusting);
-  if (bdPresets && bdPresets.length && !$('#lk-presets').dataset.done) {
-    $('#lk-presets').dataset.done = '1';
-    $('#lk-presets').innerHTML = bdPresets.map(p => `<button type="button" class="mini-btn gold" data-preset="${esc(p.id)}" title="从 PRTS Wiki 下载到本机 team-board/backdrops/">↓ 下载 ${esc(String(p.name || p.id).replace(/[（(].*?[）)]/g, ''))} 立绘</button>`).join(' ')
-      + ' <label style="font-size:12px;display:inline-flex;gap:4px;align-items:center;margin-left:6px"><input type="checkbox" id="lk-elite2"> 精二立绘</label>';
-  }
 }
 function lkSetSource(src) {
   $('#lk-src').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.src === src));
-  ['preset', 'we', 'desktop', 'upload'].forEach(s => { const p = $('#lk-pane-' + s); if (p) p.hidden = s !== src; });
+  ['we', 'desktop', 'upload'].forEach(s => { const p = $('#lk-pane-' + s); if (p) p.hidden = s !== src; });
   if (src === 'we' && !bdWallpapers) bdFetchWallpapers();
 }
 const WP_KIND = { video: 'VIDEO', scene: 'SCENE', web: 'WEB', image: 'IMAGE' };
@@ -1952,29 +1988,34 @@ function bdRenderWallpapers() {
 function bdApplyDesktopAvail() {
   const btn = $('#lk-src [data-src="desktop"]');
   if (btn) btn.hidden = bdDesktopAvailable === false;
-  if (bdDesktopAvailable === false && $('#lk-src').querySelector('[data-src="desktop"]').classList.contains('on')) lkSetSource('preset');
+  if (bdDesktopAvailable === false && $('#lk-src').querySelector('[data-src="desktop"]').classList.contains('on')) lkSetSource('upload');
 }
 async function bdFetchWallpapers(force) {
   if (bdWallpapers && !force) { bdRenderWallpapers(); return; }
   $('#lk-we-grid').innerHTML = '<div class="we-empty">扫描中…</div>';
   try {
     const r = await fetch('/api/wallpapers', { cache: 'no-store' });
-    if (r.status === 404) { bdWpApi = false; bdDesktopAvailable = false; bdApplyDesktopAvail(); bdRenderWallpapers(); return; }
+    if (r.status === 404) { bdWpApi = false; bdDesktopAvailable = false; bdApplyDesktopAvail(); bdRenderWallpapers(); bdFallbackFromWe(); return; }
     const j = await r.json(); bdWpApi = true; bdWallpapers = j.items || []; bdDesktopAvailable = !!(j.desktop && j.desktop.available); bdApplyDesktopAvail(); bdRenderWallpapers();
-  } catch (_) { bdWpApi = false; bdDesktopAvailable = false; bdApplyDesktopAvail(); bdRenderWallpapers(); }
+    if (j.found === false || !bdWallpapers.length) bdFallbackFromWe();
+  } catch (_) { bdWpApi = false; bdDesktopAvailable = false; bdApplyDesktopAvail(); bdRenderWallpapers(); bdFallbackFromWe(); }
+}
+function bdFallbackFromWe() {   // 默认页签是 Wallpaper Engine，没扫到内容时自动切到「上传」（仅限还停在自动选中的 WE 页签时）
+  if ($('#lk-src [data-src="we"]')?.classList.contains('on')) lkSetSource('upload');
 }
 async function openLook() {
   $('#look-modal').hidden = false; lkSay(''); renderLook();
+  if (!lkSrcInited) { lkSrcInited = true; lkSetSource('we'); }
   if (bdDesktopAvailable === null) fetch('/api/wallpapers', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { if (j) { bdDesktopAvailable = !!(j.desktop && j.desktop.available); bdApplyDesktopAvail(); } }).catch(() => {});
   if (bdApi !== false) {
-    try { const r = await fetch('/api/backdrop', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); bdApi = true; bdPresets = j.presets || bdPresets; applyBackdrop(j, true); renderLook(); } else if (r.status === 404) { bdApi = false; lkSay('提示：后端暂无背景板接口，所有调整只在本机浏览器生效；下载 / 上传需要新版 team_board.py。'); } } catch (_) {}
+    try { const r = await fetch('/api/backdrop', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); bdApi = true; applyBackdrop(j, true); renderLook(); } else if (r.status === 404) { bdApi = false; lkSay('提示：后端暂无背景板接口，所有调整只在本机浏览器生效；下载 / 上传需要新版 team_board.py。'); } } catch (_) {}
   }
 }
 async function bdSend(body, busy) {
   lkSay(busy || '保存中…');
   const r = await postJSON('/api/backdrop', body, BD_MISSING);
   if (r.error) { if (r.missing) bdApi = false; lkSay(r.error, 'err'); return null; }
-  bdApi = true; if (r.presets) bdPresets = r.presets; bdHold = 0; applyBackdrop(r, true); renderLook(); return r;
+  bdApi = true; bdHold = 0; applyBackdrop(r, true); renderLook(); return r;
 }
 let bdTimer = 0;
 function bdSetting(patch) {   // 尺寸/位置/透明度等：先本地立即生效（实时预览），停手 300ms 后再（防抖）写回服务端
@@ -2004,14 +2045,6 @@ $('#look-modal').addEventListener('click', async (e) => {
     const r = await bdSend({ desktop: true, enabled: true }, '正在读取当前桌面壁纸…');
     btn.disabled = false;
     if (r) { lkSay('✓ 已使用当前桌面壁纸', 'ok'); } else if (bdWpApi !== false && !BD.url) { lkSay('读取失败：本机可能没有可用的桌面壁纸截图', 'err'); }
-    return;
-  }
-  const pb = e.target.closest('[data-preset]');
-  if (pb) {
-    pb.disabled = true; const t0 = pb.textContent; pb.textContent = '下载中…';
-    const r = await bdSend({ preset: pb.dataset.preset, elite: $('#lk-elite2')?.checked ? 2 : 1, enabled: true }, '正在从 PRTS 下载立绘（网络慢时可能要 45–90 秒，请稍候）…');
-    pb.disabled = false; pb.textContent = t0;
-    if (r) { lkSay('✓ 立绘已下载到本机并启用', 'ok'); toast('立绘已就位', 'gold', 'BACKDROP'); }
     return;
   }
   if (e.target.closest('#lk-enabled')) { if (!BD.url) { lkSay('还没有背景板：先选一张', 'err'); return; } bdSetting({ enabled: !BD.enabled }); return; }

@@ -269,7 +269,7 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(out['x'], 0, '越界夹到下限')
         self.assertEqual(out['blur'], 20)
         self.assertEqual(out['dim'], 0.9)
-        self.assertEqual(out['panelAlpha'], 0.3)
+        self.assertEqual(out['panelAlpha'], 0.2)   # v1.4.1：下限由 0.3 放开到 0.2
         self.assertEqual(out['mask'], 'vignette')
         self.assertEqual(out['blend'], 'screen')
         self.assertEqual(out['area'], 'stage')

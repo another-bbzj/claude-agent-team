@@ -192,6 +192,7 @@ def main():
     new_manifest = {}
     kept = []
     copy_tree(HERE / 'team-board', CLAUDE / 'team-board', manifest, new_manifest, 'team-board', False, kept)
+    (CLAUDE / 'team-board' / 'fetch_backdrop.py').unlink(missing_ok=True)   # v1.4.1：内置立绘预设已移除，删掉旧版本残留的文件
     merge_team_json(HERE / 'team-board' / 'team.json', CLAUDE / 'team-board' / 'team.json', manifest, new_manifest)
     copy_tree(HERE / 'agents', CLAUDE / 'agents', manifest, new_manifest, 'agents', True, kept)
     copy_tree(HERE / 'skills', CLAUDE / 'skills', manifest, new_manifest, 'skills', True, kept)

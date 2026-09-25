@@ -61,8 +61,7 @@ def steam_library_dirs():
 
     extra = os.environ.get('WALLPAPER_ENGINE_DIRS', '').strip()
     if extra:
-        seps = ';' if ';' in extra else ':'
-        roots += [Path(p) for p in extra.split(seps) if p.strip()]
+        roots += [Path(p) for p in extra.split(os.pathsep) if p.strip()]   # Windows 用 ;，其他系统用 :（按 ':' 切会把 C:\ 盘符切断）
 
     out, seen = [], set()
     for base in roots:
