@@ -418,8 +418,5 @@
     }
   },
   "pricing_note": "公开标价（USD / 百万 token），2026-09-17 整理；按模型 id 最长前缀匹配。DeepSeek 为标准时段价（非高峰减半）；OpenAI/DeepSeek/Qwen 等无单独缓存写入费，cache_write 按输入价计。改价格直接编辑本文件，页面即时生效。第三方 API（ANTHROPIC_BASE_URL 转发到 DeepSeek / GLM / Kimi / Qwen / OpenAI / Gemini / Grok / Llama 等）返回的模型 id 也按同样规则匹配；provider 前缀（openai/、deepseek/）会被忽略。",
-  "pricing_updated": "2026-09-17",
-  "member_pets": {
-    "aac108e250cb677e4": "dada-code"
-  }
+  "pricing_updated": "2026-09-17"
 }
