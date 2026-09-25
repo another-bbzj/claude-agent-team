@@ -2066,12 +2066,17 @@ async function bdSend(body, busy, failTag) {
   bdApi = true; bdHold = 0; applyBackdrop(r, true); renderLook(); return r;
 }
 let bdTimer = 0;
+let bdPending = {};
 function bdSetting(patch) {   // 尺寸/位置/透明度等：先本地立即生效（实时预览），停手 300ms 后再（防抖）写回服务端
   bdHold = Date.now() + 4000; Object.assign(BD, patch); applyBackdrop({}, true); renderLook();
+  // 防抖期间的改动要累积起来一起存：以前只存最后一次，先拖「面板」再马上拖「背景」，面板的改动就丢了，
+  // 4 秒后轮询拿回服务端旧值，界面又变回不透明
+  Object.assign(bdPending, patch);
   clearTimeout(bdTimer);
   bdTimer = setTimeout(async () => {
-    if (bdApi === false) { bdSaveLocal(patch); lkSay('✓ 已应用（仅本机浏览器；后端暂无背景板接口）', 'ok'); return; }
-    const r = await bdSend(patch); if (r) lkSay('✓ 已保存', 'ok'); else if (bdApi === false) { bdSaveLocal(patch); }
+    const all = bdPending; bdPending = {};
+    if (bdApi === false) { bdSaveLocal(all); lkSay('✓ 已应用（仅本机浏览器；后端暂无背景板接口）', 'ok'); return; }
+    const r = await bdSend(all); if (r) lkSay('✓ 已保存', 'ok'); else if (bdApi === false) { bdSaveLocal(all); }
   }, 300);
 }
 $('#look-btn').addEventListener('click', openLook);
