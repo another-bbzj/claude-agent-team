@@ -197,7 +197,7 @@
       linear-gradient(to top right, transparent calc(50% - .6px), var(--line-2) calc(50% - .6px), var(--line-2) calc(50% + .6px), transparent calc(50% + .6px)) bottom left / var(--cut) var(--cut) no-repeat border-box,
       linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 16px 16px,
       linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 16px 16px,
-      color-mix(in srgb, var(--bg-2) calc(var(--panel-a) - 10%), transparent); }
+      var(--panel); }   /* 与部门汇总等面板同一种材质：跟随「面板透明度」滑块 */
   section.stage::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 120px; pointer-events: none; z-index: 2;
     background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brand) 7%, transparent) 70%, color-mix(in srgb, var(--brand) 16%, transparent) 99%, transparent);
     animation: sweep 9s linear infinite; opacity: .35; }
