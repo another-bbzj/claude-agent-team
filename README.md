@@ -7,7 +7,7 @@
 一支常驻的、分部门的 Agent 团队 · 一套成员之间的办公协议 · 一块浏览器里的实时指挥室看板
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.4.2-8A2BE2)
+![version](https://img.shields.io/badge/version-1.5.0-8A2BE2)
 ![python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -70,7 +70,7 @@ python install.py
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
 | `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份） |
 
-可选参数：`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 16 只挑好的桌宠；`--no-pets` 跳过本机 Codex 宠物导入。
+可选参数：`--game-pets` 顺便下载 **游戏角色包**（阿米娅、芙宁娜、流萤、三月七……20 只）并分配给各岗位；`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 16 只挑好的桌宠；`--no-pets` 跳过本机 Codex 宠物导入。
 
 </details>
 
@@ -111,6 +111,8 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 点任何一位（含队长）打开**详情抽屉**：换形象、**✉ 直接给它发消息**、任务指令、模型与 token 明细（输入 / 输出 / 缓存读 / 缓存写 / 命中率）、写过的文件、通信记录、交付回报、完整动作时间线。
 
 ![成员详情抽屉](docs/img/07-drawer.png)
+
+**交互质感**：每个按键点击时从指针处扩散波纹，按下时内层从左擦入并露出英文副标签，悬停时一次终端式闪烁 + 边角括号张开 + 扫光 + 跟随指针的高光；弹窗 / 抽屉从你点的那个按钮展开。只在交互时出现，系统开了「减少动态效果」或用触屏时自动收敛。
 
 动画含义：读文件 / 搜索 = 审视 · 写代码 / 跑命令 = 奔跑 · 交付 = 跳跃 · 停滞 = 打瞌睡 zZ · 出错 = 倒地（卡片上写明原因：token 上限 / 用量上限 / 网络断开）。`Esc` 关闭抽屉和弹窗。
 
@@ -320,6 +322,7 @@ skills:
 |---|---|
 | 给正在工作的成员换个形象 | 点它 → 抽屉顶部「形象」→ 选一个 → **只改这位** / **改 xxx 角色**（以后都用）/ **导入…**（直接用桌宠文件）。舞台立刻换，队长也能换 |
 | 建成员时选 / 导入形象 | 成员表单 → 形象旁 **「导入形象…」**：把 zip / webp / png **拖进去**或选择文件（解压出来的 `pet.json + spritesheet.webp` 一起多选，名字自动带上），或者直接**填本机路径**（下载下来的文件夹 / zip / 图片都行）。显示名随便起，中文也行；标识留空自动生成。预览立刻换；「删」删除导入的形象 |
+| 换一批游戏角色 | ROSTER 面板 → **🎮 游戏角色包**：20 只社区制作的热门游戏角色像素 Q 版（明日方舟 阿米娅 / 能天使、原神 芙宁娜 / 纳西妲 / 派蒙 / 刻晴 / 胡桃、星穹铁道 流萤 / 三月七 / 黄泉、英雄联盟 金克丝 / 阿狸、空洞骑士、塞尔达、林克、卡比、初音未来、皮卡丘、史蒂夫、雨宫莲），网格里直接看动起来的样子，一键「下载并分配给各岗位」（队长 = 阿米娅；你自己改过形象的岗位不动）。命令行：`python ~/.claude/team-board/fetch_petdex.py --pack games --assign`（`--assign-all` 强制覆盖）|
 | 从 petdex 批量拿 | `python ~/.claude/team-board/fetch_petdex.py --starter`（16 只挑好的）· `fetch_petdex.py boba glitchcat` · `fetch_petdex.py --list --search cat` |
 | 用自己电脑上已有的 | `python ~/.claude/team-board/import_codex_pets.py`：自动导入本机 Codex 内置 9 只、`~/.codex/pets/`（Codex 里创建 / 领养的）、`~/.petdex/pets/`；也可直接传 zip / 目录 / 雪碧图路径 |
 
@@ -327,7 +330,7 @@ skills:
 
 **主体自动适配**：自制 / 下载的形象常常主体偏小，或各动作大小不一（idle 坐着很小、跑起来很大、某几帧被生成器裁到格底）。看板会**识别每个动作的主体**（不透明像素的质量与包围盒），行间按 `sqrt(最大质量 / 本行质量)` 归一、整体偏小再全局放大，播放到哪个动作就用哪个倍率——在屏幕上放大，不裁切，翅膀再宽也不会被格子切掉；刻意画小的姿势（趴下、缩成一团）质量不变，不会被硬拉高。想把放大写进图片本身：成员表单 → 形象旁 **「适配主体」**，或 `python ~/.claude/team-board/fit_pet.py <id>`（需要 `pip install pillow`；格子里放得下的部分直接改图并留 `.orig` 备份，放不下的写进 `<id>.json` 的 `fitRows`；`--restore <id>` 还原；`--fix-cropped` 用 idle 帧顶替被裁掉身体的动作）。导入 / 上传时会自动跑一次。
 
-> **为什么仓库不直接附带这些形象**：Codex 内置的 9 只版权归 OpenAI；petdex 上的形象由各自作者上传、没有统一授权（很多是二创），标注出处并不等于获得再分发许可。所以脚本只把它们下载到**你自己的电脑**并记下作者——既能用上成千上万的形象，又不侵犯作者权利。
+> **为什么仓库不直接附带这些形象**：游戏角色版权归各游戏厂商，像素形象由 petdex 作者制作；Codex 内置的 9 只版权归 OpenAI；petdex 上的形象由各自作者上传、没有统一授权（很多是二创），标注出处并不等于获得再分发许可。所以脚本只把它们下载到**你自己的电脑**并记下作者——既能用上成千上万的形象，又不侵犯作者权利。
 
 ---
 
@@ -367,7 +370,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-86 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+98 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、游戏角色包（整包下载 / 跳过已有 / 单个失败 / 只分配未改过的岗位）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
 
 ---
 
