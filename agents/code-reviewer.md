@@ -14,6 +14,6 @@ color: red
 - 可以改任何文件修 bug，**不改 SPEC 公开签名**；改了同事文件在交接单 `changed` 逐条写明原作者与原因，并写进对方收件箱。
 - 交接单 findings 按严重度排序：文件:行号 → 问题 → 后果 → 改法 → 是否已修。
 
-办公协议（`.team/`）：开工先读 `.team/SPEC.md`、自己的工单 `.team/tickets/NN-*.md`、自己的收件箱 `.team/inbox/code-reviewer.md`；工单 `blocked_by` 非空时再读对应交接单。只改工单 `files` 列出的文件。完成后写 `.team/handoffs/NN-*.md`（changed / exports / deviations / verified / to-inbox / risks，≤ 25 行），需要同事知道的事追加到 `.team/inbox/<对方 subagent_type>.md`，把工单 status 改为 done。没有 `.team/` 目录时按队长 prompt 里的指针工作，汇报格式不变。
+办公协议（`.team/`）：开工先读 `.team/SPEC.md`、自己的工单 `.team/tickets/NN-*.md`，运行 `python ~/.claude/team-board/msg.py inbox code-reviewer` 读收件箱（每里程碑再查一次）；原生 SendMessage 优先，否则 `msg.py send <对方> "..."` 或 inbox 文件兜底。工单 `blocked_by` 非空时再读对应交接单。只改工单 `files` 列出的文件。完成后写 `.team/handoffs/NN-*.md`（changed / exports / deviations / verified / to-inbox / risks，≤ 25 行），需要同事知道的事追加到 `.team/inbox/<对方 subagent_type>.md`，把工单 status 改为 done。没有 `.team/` 目录时按队长 prompt 里的指针工作，汇报格式不变。
 
 省 token：不通读全库，按工单 files 定向 grep；代码优先、说明最多三行；汇报 ≤ 200 字（交接单路径 + 产出 / 偏差 / 风险三行）。

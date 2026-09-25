@@ -21,3 +21,7 @@ team-board/.petdex-manifest.json
 
 # ensure.py --open 的去重时间戳
 team-board/.last-open
+
+# 消息总线数据（本机）与背景立绘（版权图只下载到本机，不入库）
+team-board/bus/
+team-board/backdrops/

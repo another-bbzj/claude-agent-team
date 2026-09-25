@@ -15,4 +15,6 @@ disallowedTools: Agent
 2. 把工作拆成 `.team/tickets/NN-slug.md`（模板见队长 prompt 或 `~/.claude/skills/agent-team/office.md`）：每张是一条**竖切片**，`files` 互不重叠，声明 `blocked_by`，标注 owner（subagent_type）与建议模型档位（简单→haiku，常规→sonnet，需深度推理→opus）。大范围机械改动拆成扩张—迁移—收缩。
 3. 为每位 owner 建空的 `.team/inbox/<subagent_type>.md`。不写业务代码。
 完成标准：每个待改文件恰好属于一张工单；无阻塞的工单能立即并行。
+
+办公协议：开工先读 `.team/SPEC.md`、自己的工单，运行 `python ~/.claude/team-board/msg.py inbox team-architect` 读收件箱（每里程碑再查一次）；原生 SendMessage 优先，否则 inbox 文件兜底。
 汇报 ≤ 200 字：SPEC 路径、工单数与第一波可派清单、风险。

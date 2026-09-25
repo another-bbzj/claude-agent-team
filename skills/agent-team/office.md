@@ -1,6 +1,11 @@
-# `.team/` 办公目录（成员之间唯一的交流渠道）
+# `.team/` 办公目录（成员之间的交流渠道）
 
-桌面版子代理没有私信工具，所以团队像真实办公室一样靠**文件**交流：工单板、每人一个收件箱、交接单。看板会把「写别人的收件箱」画成私信，「读别人写的文件」画成交接。
+成员之间通过以下三种方式交流，优先级从高到低：
+1. **原生 `SendMessage`**：Claude Code 原生私信工具（若环境支持）。
+2. **`msg.py` 消息总线**：零依赖 CLI，任何能跑 Bash 的场景都行；看板上的「通讯频道」汇聚所有消息。
+3. **`.team/inbox/` 文件**：队长负责转达；看板把「写别人的收件箱」画成留言。
+
+同时还有工单板、每人一个收件箱、交接单。看板会把「写别人的收件箱」画成私信，「读别人写的文件」画成交接。
 
 ```
 <project>/.team/
@@ -52,6 +57,11 @@ risks: <遗留风险，按严重度排序>
 你是 <部门>·<角色>。项目：<path>。
 先读 .team/SPEC.md、.team/tickets/NN-slug.md、.team/inbox/<你的 subagent_type>.md。
 只改工单 files 列出的文件。上游：<成员名> 已交付 .team/handoffs/MM-xxx.md（需要就读它）。
+
+成员通信：原生 SendMessage > msg.py CLI > inbox 文件。
+msg.py 用法：python msg.py send <to> "<text>" [--from <me>]
+环境变量 TEAM_AGENT_NAME 自动作为 --from 的缺省值（若不设就缺省 unknown）。
+
 完成后：写 .team/handoffs/NN-slug.md；把需要同事知道的事追加到 .team/inbox/<对方>.md；把工单 status 改为 done。
 汇报 ≤ 200 字：交接单路径 + 三行要点（产出 / 偏差 / 风险）。
 ```

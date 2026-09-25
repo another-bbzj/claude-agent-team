@@ -7,7 +7,7 @@
 一支常驻的、分部门的 Agent 团队 · 一套成员之间的办公协议 · 一块浏览器里的实时指挥室看板
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.3.0-8A2BE2)
+![version](https://img.shields.io/badge/version-1.4.0-8A2BE2)
 ![python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -40,12 +40,12 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 | | 没有它 | 有它 |
 |---|---|---|
 | 分工 | 每次临时描述一遍"你是后端、你是测试" | 8 位常驻成员各带名字、职责、模型档位，说「用 agent team」就自动上岗 |
-| 协作 | 子代理之间没法私信，接口靠猜 | 工单 / 收件箱 / 交接单的办公协议，接缝问题在看板上画成飞线 |
-| 可见性 | 看不到，等结果 | 实时看板：动画形象、当前工具、进度、token、成本、部门汇总、通信回放 |
+| 协作 | 子代理之间没法私信，接口靠猜 | 消息总线 `msg.py` 让成员随时互发消息，工单 / 收件箱 / 交接单兜底；你也能在看板上直接给任何成员发话 |
+| 可见性 | 看不到，等结果 | 明日方舟风格的实时指挥室：动画形象、当前工具、进度、token、成本、部门汇总、聊天式通讯频道、通信回放 |
 | 成本 | 全用最强模型 | 按活分档（调研 haiku · 写代码 sonnet · 审查 opus），省 token 规则写进技能 |
 | 形象 | — | 每人一只不重复的桌宠；Codex / petdex 的 4800+ 只随便导，正在工作的也能当场换 |
 
-> **零依赖**：只需要 Python 3.8+ 标准库。看板只读你本机 `~/.claude/projects/` 里的转录文件，不调用任何 API、不联网（更新和下载形象除外，且都是你主动触发）。
+> **零依赖**：只需要 Python 3.8+ 标准库。看板只读你本机 `~/.claude/projects/` 里的转录文件，不调用任何 API、不联网（检查更新、下载形象 / 立绘除外，且都是你主动触发）。
 
 ---
 
@@ -94,20 +94,25 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 
 ![部门汇总与成本](docs/img/02-stats.png)
 
+![通讯频道、任务卡片、动作流](docs/img/03-lower.png)
+
 打开看板自上而下（每个面板、每个按钮的逐项说明见 **[docs/GUIDE.md](docs/GUIDE.md)**）：
 
 | 区域 | 内容 |
 |---|---|
-| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· 进行中 / 已完成人数 · 部门出场情况 · 模型构成 · 估算成本 · 全队 token 与缓存命中率 · 有新版本时的一键更新 · 会话切换 · 主题 |
-| **FORMATION 舞台** | 队长在上，各部门面板分组；每位成员：动画形象、名牌、`模型 · 强度 · 成本`、当前工具、进度条、用时。飞线：派工 / 回报 / 留言 / 交接 / 转达。「▶ 回放通信」回看本次全部交互 |
-| **DEPARTMENTS 部门汇总** | 每个部门的人数、进行 / 完成 / 失败、工具次数、tokens、缓存命中、累计用时、模型、成本；下方是部门间对比条 |
-| **COST 成本排行** | 成员按估算成本排序，颜色区分 opus / sonnet / haiku |
-| **TASKS · COMMS · ACTIVITY** | 每张工单的负责人与交付摘要 · 派工 / 回报 / 留言 / 交接 / 转达的正文 · 所有成员的工具调用时间线 |
+| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· 「✉ N 条给你」未读 · 进行中 / 已完成人数 · 部门出场情况 · 模型构成 · 估算成本 · 全队 token 与缓存命中率 · 版本 / 一键更新 · 会话切换 · ⚙ 外观 · 主题（自动 / 浅色 / 深色） |
+| **01 部门与队形** | 顶部是「你」（DOCTOR），队长在下，各部门面板分组；每位成员：动画形象、名牌、`模型 · 强度 · 成本`、当前工具、进度条、用时、未读角标 ✉。飞线：派工 / 回报 / 队长转达 / 文件交接 / 成员私信 / 总线消息。「▶ 回放通信」（快捷键 `R`）回看本次全部交互 |
+| **02 部门汇总** | 每个部门的人数、进行 / 完成 / 失败、工具次数、tokens、缓存命中、累计用时、模型、成本；下方是部门间对比条 |
+| **03 成本排行** | 成员按估算成本排序，颜色区分 opus / sonnet / haiku |
+| **04 通讯频道** | 聊天式时间线（你发的在右侧），按 全部 / 总线 / 派工·回报 / 私信·交接 / 与我相关 筛选；底部常驻输入框，选收件人（全员 / 队长 / 任一成员）后 Enter 发送、Shift+Enter 换行，快捷键 `/` 聚焦 |
+| **05 任务卡片 · 06 动作流** | 每张工单的负责人与交付摘要 · 所有成员的工具调用时间线 |
 | **ROSTER 常驻成员** | 所有成员定义；＋ 新建成员、⚙ 部门管理 |
 
-点任何一位（含队长）打开**详情抽屉**：换形象、任务指令、模型与 token 明细（输入 / 输出 / 缓存读 / 缓存写 / 命中率）、写过的文件、通信记录、交付回报、完整动作时间线。
+点任何一位（含队长）打开**详情抽屉**：换形象、**✉ 直接给它发消息**、任务指令、模型与 token 明细（输入 / 输出 / 缓存读 / 缓存写 / 命中率）、写过的文件、通信记录、交付回报、完整动作时间线。
 
-动画含义：读文件 / 搜索 = 审视 · 写代码 / 跑命令 = 奔跑 · 交付 = 跳跃 · 停滞 = 打瞌睡 zZ · 出错 = 倒地。
+![成员详情抽屉](docs/img/07-drawer.png)
+
+动画含义：读文件 / 搜索 = 审视 · 写代码 / 跑命令 = 奔跑 · 交付 = 跳跃 · 停滞 = 打瞌睡 zZ · 出错 = 倒地（卡片上写明原因：token 上限 / 用量上限 / 网络断开）。`Esc` 关闭抽屉和弹窗。
 
 ---
 
@@ -139,7 +144,7 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 
 **4 · 派工。** 没有依赖的工单同时派出（后台并行）。看板上：队长头顶飞出「派工」小球落到成员身上，成员开始奔跑，卡片显示它此刻在调用什么工具。
 
-**5 · 成员交流。** 阿服写完数据层，把接口签名写进 `inbox/frontend-dev.md`；小界开工先读收件箱。看板画成一条「留言」飞线。
+**5 · 成员交流。** 阿服写完数据层，`msg.py send frontend-dev "createStore(storage) 已导出"` 直接告诉小界（同时落进 `inbox/frontend-dev.md`）；小界在里程碑处 `msg.py inbox frontend-dev` 查收，有疑问当场回。看板上画成一条麦金色「总线消息」飞线，通讯频道里像聊天一样可读。你也可以随时在看板上插话，消息会送进对应成员的收件箱。
 
 **6 · 收尾检查。** ≥ 2 人写了代码 → 派测测（测试）+ 老审（联调审查）；交付给人用 → 派文文（文档）。这是**建议不是硬门禁**：每个任务出场的部门本来就不同，用不到的部门不必凑人；空着的部门只显示「按需出场」，全员交付后质量部 / 文档部没来才用黄色提示「建议补位」。常驻成员里没有合适的人，队长直接派 `general-purpose`，标题写成「部门名·任务」，看板照样归进那个部门——需要的话还会先建一个新部门。1–3 人的小团队同样正常显示。
 
@@ -157,8 +162,8 @@ flowchart LR
     L -->|SPEC.md + 工单| T[(.team/)]
     L -->|派工：只给路径指针| A[阿服 · 后端]
     L -->|派工| B[小界 · 前端]
-    A -->|inbox/frontend-dev.md 留言| T
-    T -->|开工先读收件箱| B
+    A <-->|msg.py 消息总线 · 随时互发| B
+    U -.->|看板上直接发消息| B
     A -->|handoffs/01.md 交接单| T
     B -->|handoffs/02.md| T
     T -->|只读 偏差 / 风险 / 留言| L
@@ -167,14 +172,92 @@ flowchart LR
     T -. 看板只读转录 .-> D[🖥 指挥室看板]
 ```
 
-Claude Code 桌面版的子代理之间没有"私信"工具，所以团队像真实办公室一样靠**文件**交流（规则在 `skills/agent-team/office.md`）：
+团队像真实办公室一样协作（规则在 `skills/agent-team/office.md`）——即时的话走[消息总线](#-成员之间通信)，需要留档的走**文件**：
 
 - **工单**是一条竖切片（穿过所需的每一层，单独可演示），大小能装进一个新上下文窗口；`files` 互不重叠，声明 `blocked_by`。
 - **收件箱**追加式留言：接口签名、路径:行号、需要对方做的事。收件人开工第一步读它。
 - **交接单** ≤ 25 行：改了什么、导出了什么、与契约的偏差、验证过什么、给谁留了言、遗留风险。
 - **队长**只读交接单的三个字段（偏差 / 风险 / 留言），需要裁决的写进 `decisions.md`，阻塞解除的工单立即派出。
 
-看板把这些文件动作画成飞线：写别人收件箱 = 留言，读别人写的文件 = 交接，派工指令里点名"某某已交付…" = 转达。
+看板把这些动作画成飞线：总线消息 / SendMessage = 私信，写别人收件箱 = 留言，读别人写的文件 = 交接，派工指令里点名"某某已交付…" = 转达。
+
+---
+
+## 💬 成员之间通信
+
+看板上的「通讯频道」COMMS 面板是聊天式时间线，汇聚成员的所有交流。通信优先级：
+
+| 方式 | 用途 | 代码例 |
+|---|---|---|
+| ① **原生 SendMessage** | Claude Code 的 agent teams 环境里成员有这个工具时优先用；看板解析转录画出私信线 | `SendMessage(to="frontend-dev", message="…")` |
+| ② **消息总线 msg.py** | 零依赖 CLI，任何能跑 Bash 的成员都能用；消息进看板、同时落进对方收件箱 | `python ~/.claude/team-board/msg.py send frontend-dev "接口已完成"` |
+| ③ **.team/inbox 文件** | 兜底：看板没开时 msg.py 自动退化成直接追加收件箱文件 | 追加到 `.team/inbox/<subagent_type>.md` |
+
+成员的系统提示词里已经写好约定：开工先 `msg.py inbox <自己>`，每个里程碑再查一次；队长在两波派工之间查收发给 `lead` 的消息（包括你在看板上发的）。
+
+**msg.py 的四个命令**（装好后在 `~/.claude/team-board/msg.py`）：
+
+```bash
+MSG=~/.claude/team-board/msg.py
+python $MSG send <to> "<text>" [--from <me>] [--reply <id>]   # 发消息；text 写 - 则从标准输入读（长文 / 含引号时用）
+python $MSG inbox <me> [--peek] [--all]                       # 查收：默认只给未读并标记已读；--peek 只看；--all 全部历史
+python $MSG who                                               # 当前会话：队长 + 各成员的显示名 / subagent_type / 状态 / 未读数
+python $MSG log [-n 20]                                       # 本项目最近的消息
+```
+
+- `<to>` 和 `<me>` 支持多种形式：`subagent_type`（如 `backend-dev`）、成员显示名、`lead`（队长）、`user`（人类）、`all`（全员广播）。  
+- `--from` 缺省取环境变量 `TEAM_AGENT_NAME`，再缺省 `unknown`；端口取 `TEAM_BOARD_PORT`（默认 7788）。  
+- 消息按**项目**隔离：项目由当前目录决定（在 `.team/` 等子目录里运行也会向上找到所属项目），不同项目的团队互不串台。  
+- 看板没在跑时，`send` 直接追加到最近的 `.team/inbox/<to>.md`，`inbox` 打印该文件。  
+- 总线只接受本机请求；其他网页发来的跨站 POST 一律拒绝（防止网页借看板给你的代理注入指令）。
+
+**在看板上的表现**：通讯频道里每条消息显示发送人头像、名字、类型、时间和正文，可按类型筛选；舞台上画麦金色飞线（发给「全员」的会给每个在场成员各飞一条）；成员卡显示未读角标；顶栏显示「✉ N 条给你」；收到发给「你」的消息、有新成员出场或成员交付时右下角弹出提示。
+
+---
+
+## 🎨 背景板 / 外观
+
+看板背后可以铺一张立绘（推荐明日方舟的「黍」）、你自己的图片，或者直接用 **Wallpaper Engine** 里的壁纸（视频壁纸会动），再调成半透明毛玻璃的效果。点顶栏的 **⚙ 外观** 打开配置面板：
+
+![外观设置](docs/img/06-look.png)
+
+### 来源与使用
+
+| 来源 | 说明 | 能做什么 |
+|---|---|---|
+| **预设** | 「黍」（明日方舟 © Hypergryph，图源 PRTS）透明立绘。点「↓ 下载 黍 立绘」下载到本机；勾「精二立绘」换精二。命令行：`python ~/.claude/team-board/fetch_backdrop.py [shu --elite 2]` | 一键启用 |
+| **Wallpaper Engine** | 自动找到本机所有 Steam 库里的创意工坊订阅与自建工程（找不到可设环境变量 `WALLPAPER_ENGINE_DIRS`）。**视频**壁纸直接播放原文件（不复制，可拖动进度）；**3D 场景**网页无法渲染，只能用预览图；**网页**壁纸带视频的按视频处理 | 带缩略图的网格 + 搜索，点一下即应用；标签页隐藏时视频自动暂停，系统开了「减少动态效果」也会暂停 |
+| **当前桌面** | 读 Windows 当前桌面壁纸。Wallpaper Engine 会把正在用的壁纸（包括 3D 场景）存成一张全分辨率快照——想用某个 3D 场景的高清图，先在 WE 里设为桌面，再点这里 | 一键复制为背景（仅 Windows） |
+| **上传 / 本机路径** | 任意 PNG / WebP / JPG（≤ 15 MB） | 拖入或浏览 |
+
+### 尺寸与位置
+
+配置面板提供 **三种 fit 模式**：
+
+- **完整显示**（contain，默认）：整张图都能看到，不裁切。
+- **铺满裁切**（cover）：填满区域，多出的部分裁掉。
+- **自由摆放**（custom）：缩放 10–400%。
+
+三种模式都能用 X / Y 滑块调位置，「范围」可选**整页**或**仅舞台**。最顺手的是右上角 **「⤢ 在页面上调整」**：直接在页面上**拖动**移动、**滚轮**缩放、**双击**复位，所见即所得，`Esc` 或「完成」退出。
+
+### 透明化与效果
+
+拖滑块时页面实时变化，停手约 0.3 秒后自动保存，刷新后保持：
+
+| 参数 | 范围 | 效果 |
+|---|---|---|
+| 透明度 | 0–100% | 整体透明度 |
+| 模糊 | 0–20 px | 背景高斯模糊 |
+| 饱和度 | 0–200% | 0 = 黑白，200% = 更鲜艳 |
+| 遮罩 | fade-left / fade-right / fade-bottom / vignette / none | 边界渐隐效果 |
+| 混合 | normal / luminosity / screen / multiply / soft-light | 图层混合模式 |
+| 面板 | 30–100% | 数据面板的不透明度：调低后面板变成毛玻璃，壁纸透出更多 |
+| 压暗 | 0–90% | 叠一层黑（深色主题）/ 白（浅色主题），让花哨的壁纸不抢内容 |
+
+### 版权说明
+
+- 「黍」立绘版权归鹰角网络（Hypergryph），图源 PRTS Wiki；Wallpaper Engine 壁纸版权归各创意工坊作者。
+- 仓库**不附带任何立绘或壁纸**：立绘只下载到你本机的 `~/.claude/team-board/backdrops/`（gitignore，`install.py` 更新时不覆盖也不外传）；WE 视频壁纸直接从 Steam 目录读取，不复制；仅供你个人看板装饰。窄屏下背景板自动变淡。
 
 ---
 
@@ -285,7 +368,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-21 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+75 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 预设 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
 
 ---
 
@@ -336,6 +419,25 @@ python -m unittest discover -s tests -v
 不会。看板读的是转录文件，压缩只影响模型看到的上下文，文件里的历史都在；成员、通信、token 统计照常。
 </details>
 
+<details><summary><b>子代理之间怎么通信（我听说子代理没有私信工具）</b></summary>
+
+原生 `SendMessage` 能用最好，但不是所有环境都支持。备选方案：
+1. 成员在 `.team/inbox/` 里写留言（队长负责转达）。
+2. **用 `msg.py` 零依赖 CLI 走消息总线（推荐）**：`python ~/.claude/team-board/msg.py send backend-dev "数据库已完成"`，任何能跑 Bash 的环境都行。
+3. 看板上的「通讯频道」汇聚这些消息，你也能在那里直接回复。详见 [💬 成员之间通信](#-成员之间通信)。
+</details>
+
+<details><summary><b>Wallpaper Engine 页签是空的 / 3D 场景壁纸很糊</b></summary>
+
+- 空的：看板没找到 Steam 库。把壁纸目录（`…/steamapps/workshop/content/431960` 或其所在的 Steam 库）写进环境变量 `WALLPAPER_ENGINE_DIRS`（多个用 `;` 分隔），重启看板。
+- 糊：3D 场景（scene）是 WE 的私有格式，网页只能拿到预览图。先在 Wallpaper Engine 里把它设为桌面，再在外观面板用「当前桌面」拿全分辨率快照。视频壁纸不受影响。
+</details>
+
+<details><summary><b>卸载会删掉什么</b></summary>
+
+`python install.py --uninstall` 删除 `~/.claude/team-board/` 整个目录——包括消息总线记录 `bus/` 和下载的立绘 `backdrops/`；`settings.json` 与 `CLAUDE.md` 只移除本工具加入的部分。更新（重装）不会动这两个目录。
+</details>
+
 <details><summary><b>token / 成本数字和服务商后台对不上</b></summary>
 
 - 看板的「合计」= 输入 + 输出 + 缓存读 + 缓存写，其中缓存读通常占 90% 以上；服务商后台可能只显示输入 + 输出——对比时看同一口径。
@@ -352,15 +454,26 @@ python -m unittest discover -s tests -v
 ## 🗂 目录结构
 
 ```
-team-board/        看板：team_board.py（标准库 HTTP + 转录解析）· index.html（单文件前端）· ensure.py（钩子入口）
-                   team.json（部门 / 成员登记 / 形象 / 价格）· update.py（检查 / 一键更新）
-                   import_codex_pets.py（导入本机 Codex / petdex 宠物或任意桌宠文件）· fit_pet.py（识别主体并适配大小）· fetch_petdex.py（从 petdex 下载）
-                   make_pets.py（程序化绘制自带形象）· sprites/（形象）
-agents/            8 位通用常驻成员定义
+team-board/        看板及后端服务
+  team_board.py              HTTP 服务（标准库）· 转录解析 · 消息总线 / 背景板 API
+  msg.py                     零依赖 CLI：send / inbox / who / log（成员通信）
+  fetch_backdrop.py          下载立绘（黍 · PRTS）到 backdrops/
+  wallpapers.py              扫描 Steam 库 Wallpaper Engine 壁纸、当前桌面快照
+  index.html                 单文件前端（明日方舟风格 UI）
+  team.json                  部门 / 成员登记 / 形象 / 价格
+  ensure.py / update.py      钩子入口 / 检查更新
+  import_codex_pets.py       导入本机 Codex / petdex 宠物或任意桌宠文件
+  fit_pet.py                 识别主体并自动适配大小
+  fetch_petdex.py            从 petdex 下载形象
+  make_pets.py               程序化绘制自带形象
+  bus/                       消息总线数据（gitignore）
+  backdrops/                 下载的立绘 / 壁纸（gitignore）
+  sprites/                   形象（仓库只带 13 只自带的；导入的留在本机）
+agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式）
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              图文操作手册 GUIDE.md 与截图
-tests/             自动化测试
-tools/             发布工具（dist-hashes.json 生成：更新时据此判断用户是否改过文件）
+tests/             自动化测试（msg.py / 消息总线 / 背景板 API / Wallpaper Engine 壁纸）
+tools/             发布工具（dist-hashes.json 生成）
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```

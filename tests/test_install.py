@@ -80,5 +80,38 @@ class InstallTest(unittest.TestCase):
         self.assertFalse((c / 'agents' / 'backend-dev.md').exists())
 
 
+    def test_local_board_data_not_distributed(self):
+        """仓库里的本机数据（bus/ 消息、backdrops/ 立绘、server.log）不拷进 ~/.claude；已装机上的这些数据重装不被覆盖；卸载一并删除。"""
+        repo = self.tmp / 'repo'
+        repo.mkdir()
+        for name in ('install.py', 'CLAUDE.global.md', 'VERSION', 'dist-hashes.json'):
+            if (ROOT / name).exists():
+                shutil.copy2(ROOT / name, repo / name)
+        for d in ('agents', 'skills'):
+            shutil.copytree(ROOT / d, repo / d)
+        shutil.copytree(ROOT / 'team-board', repo / 'team-board', ignore=shutil.ignore_patterns('bus', 'backdrops', '__pycache__'))
+        tb = repo / 'team-board'
+        (tb / 'bus').mkdir()
+        (tb / 'bus' / 'messages.jsonl').write_text('{"id":"m-1","text":"开发机的私人消息"}\n', encoding='utf-8')
+        (tb / 'backdrops').mkdir()
+        (tb / 'backdrops' / 'shu.png').write_bytes(b'\x89PNG\r\n\x1a\nfake')
+        (tb / 'server.log').write_text('log', encoding='utf-8')
+        c = self.home / '.claude'
+        (c / 'team-board' / 'bus').mkdir(parents=True)
+        (c / 'team-board' / 'bus' / 'messages.jsonl').write_text('{"id":"m-2","text":"装机上的消息"}\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(repo / 'install.py'), '--no-pets'], env=self.env, capture_output=True, text=True, encoding='utf-8', cwd=str(repo))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((c / 'team-board' / 'team_board.py').exists())
+        self.assertFalse((c / 'team-board' / 'backdrops').exists(), '立绘有版权，不随安装分发')
+        self.assertFalse((c / 'team-board' / 'server.log').exists())
+        self.assertIn('装机上的消息', (c / 'team-board' / 'bus' / 'messages.jsonl').read_text(encoding='utf-8'))
+        self.assertNotIn('开发机的私人消息', (c / 'team-board' / 'bus' / 'messages.jsonl').read_text(encoding='utf-8'))
+        manifest = json.loads((c / 'team-board' / '.installed.json').read_text(encoding='utf-8'))
+        self.assertFalse([k for k in manifest if k.startswith(('team-board/bus/', 'team-board/backdrops/'))])
+        r = subprocess.run([sys.executable, str(repo / 'install.py'), '--uninstall'], env=self.env, capture_output=True, text=True, encoding='utf-8', cwd=str(repo))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse((c / 'team-board').exists(), '卸载删除整个 team-board/（含 bus/ 与 backdrops/）')
+
+
 if __name__ == '__main__':
     unittest.main()

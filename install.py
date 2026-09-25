@@ -12,7 +12,8 @@
   · sprites/ 里导入的形象一律保留
 
 做了什么：
-  team-board/  -> ~/.claude/team-board/          （已存在的 sprites/ 会保留，不会删你本地导入的宠物）
+  team-board/  -> ~/.claude/team-board/          （已存在的 sprites/ 会保留，不会删你本地导入的宠物；
+                                                 本机数据 bus/ 消息、backdrops/ 立绘、server.log 等不从仓库拷，也不覆盖）
   agents/*.md  -> ~/.claude/agents/
   skills/*     -> ~/.claude/skills/
   CLAUDE.global.md 的内容 -> 追加到 ~/.claude/CLAUDE.md（用标记包裹，可重复运行、可卸载）
@@ -43,6 +44,15 @@ except Exception:
     DIST_HASHES = {}
 
 
+# 看板运行时的本机数据：用户消息（隐私）、下载的立绘（版权图）、日志 / 时间戳。开发机仓库里有也不拷进 ~/.claude
+BOARD_LOCAL_DIRS = ('bus/', 'backdrops/')
+BOARD_LOCAL_FILES = ('server.log', '.last-open', '.installed.json')
+
+
+def is_board_local(rel: str) -> bool:
+    return rel.startswith(BOARD_LOCAL_DIRS) or rel in BOARD_LOCAL_FILES
+
+
 def sha(path: Path) -> str:
     import hashlib
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -66,6 +76,8 @@ def copy_tree(src: Path, dst: Path, manifest: dict, new_manifest: dict, key: str
         target = dst / rel
         if key == 'team-board' and rel == 'team.json':
             continue  # 下面合并
+        if key == 'team-board' and is_board_local(rel):
+            continue  # 本机数据，不随安装分发
         if key == 'team-board' and rel.startswith('sprites/') and target.exists() and sha(target) != sha(f):
             new_manifest[f'{key}/{rel}'] = sha(f)
             continue  # 用户自己放的同名形象不动
@@ -171,8 +183,10 @@ def main():
             (CLAUDE / 'agents' / name.name).unlink(missing_ok=True)
         for sk in (HERE / 'skills').iterdir():
             shutil.rmtree(CLAUDE / 'skills' / sk.name, ignore_errors=True)
+        # 整个 team-board/ 一起删，包括 bus/（消息记录）与 backdrops/（下载的立绘）：卸载就不在 ~/.claude 里留下
+        # 用户隐私与版权图；项目里 .team/inbox/*.md 的消息副本不受影响
         shutil.rmtree(CLAUDE / 'team-board', ignore_errors=True)
-        print('已卸载（settings.json 与 CLAUDE.md 只移除了本工具加入的部分）')
+        print('已卸载（settings.json 与 CLAUDE.md 只移除了本工具加入的部分；看板的消息记录 bus/ 与立绘 backdrops/ 一并删除）')
         return
     manifest = load_manifest()
     new_manifest = {}
@@ -209,9 +223,10 @@ def main():
         print()
         print('检测本机 Codex 客户端与 ~/.codex/pets、~/.petdex/pets，导入里面的宠物形象（只读你自己的文件，不联网）…')
         import subprocess
-        r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'import_codex_pets.py')], capture_output=True, text=True)
+        # 子脚本输出 UTF-8；不指定编码时 Windows 按 cp1252/GBK 解码中文会失败，stdout 变成 None
+        r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'import_codex_pets.py')], capture_output=True, text=True, encoding='utf-8', errors='replace')
         if r.returncode == 0:
-            print(r.stdout.strip().splitlines()[-1])
+            print(((r.stdout or '').strip().splitlines() or ['  完成'])[-1])
         else:
             print('  没找到 Codex 或本机桌宠，跳过（看板用自带的 13 只形象；以后再运行 team-board/import_codex_pets.py 即可）')
     if a.petdex:

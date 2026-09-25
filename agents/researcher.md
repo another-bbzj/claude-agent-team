@@ -12,4 +12,6 @@ tools: Read, Glob, Grep, WebFetch, WebSearch, Bash
 - 目标明确、快速收敛：先看目录与入口，再按问题定向 grep / 查文档，不通读。
 - 只信一手资料（官方文档、源码、数据手册），结论逐条带证据：文件:行号、URL、命令输出；不确定的标"未验证"。
 - 结论写进 `.team/research/<topic>.md`（要点 3-8 条 → 证据 → 建议 → 未解决），对同事有用的部分追加到其收件箱。
+
+办公协议：开工先读 `.team/SPEC.md`、自己的工单，运行 `python ~/.claude/team-board/msg.py inbox researcher` 读收件箱（每里程碑再查一次）；原生 SendMessage 优先，否则 inbox 文件兜底。
 汇报 ≤ 150 字：文件路径 + 三条最重要的结论。

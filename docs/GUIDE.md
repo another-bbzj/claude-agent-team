@@ -39,12 +39,12 @@
 
 ## 3. 任务、通信、动作、成员名单
 
-![任务与通信](img/03-lower.png)
+![通讯频道、任务卡片、动作流](img/03-lower.png)
 
 | 面板 | 内容 |
 |---|---|
 | **TASKS 任务卡片** | 每位成员一张：形象、名字、部门、状态、任务标题（就是派工时的 description）、交付摘要或指令摘要、`agentType · 模型 · 成本 · 工具数 · 用时`。点击打开详情 |
-| **COMMS 通信流** | 按时间倒序：`谁 → 谁 · 时间 · 类型`（派工 / 回报 / 私信 / 交接 / 转达 / 中断）+ 正文。派工正文 = 任务标题，回报正文 = 成员最后一段汇报，私信 = 写进收件箱的留言 |
+| **COMMS 通信流** | 派工 / 回报 / 私信 / 交接 / 转达 / 消息总线。过滤器：全部、总线（msg.py）、派工/回报、私信/交接、与我相关。直接在下方发送框给队长 / 成员 / 全员发消息（Enter 发送，Shift+Enter 换行，/ 聚焦）；消息写进 `.team/inbox/` 并在看板显示 |
 | **ACTIVITY 动作流** | 所有成员（含队长）的工具调用时间线：时间、谁、`工具 · 参数摘要`；未完成的带旋转圈，出错的红色 |
 | **ROSTER 常驻成员** | `~/.claude/agents/` 里的全部成员定义：形象、显示名、标识、部门·岗位、`模型 · 强度`；正在会话里出场的高亮；★ 标记自定义成员。右上角 `＋ 新建成员`、`⚙ 部门管理` |
 
@@ -127,7 +127,50 @@ skills:
 
 ---
 
-## 7. 形象素材
+## 7. 外观面板（背景板 v2）
+
+![外观设置](img/06-look.png)
+
+点顶栏的 **⚙ 外观** 打开面板。
+
+### 来源页签
+
+| 页签 | 用途 |
+|---|---|
+| **预设** | 仓库自带立绘；目前有黍（下载后存入 `team-board/backdrops/`）；点击直接使用 |
+| **Wallpaper Engine** | 列出你所有 Steam 库里订阅 / 自建的 WE 壁纸（视频、3D 场景、网页三类）；缩略图网格显示，标题+类型角标；搜索框实时过滤 |
+| **当前桌面** | Windows 专用；读当前桌面壁纸（适合 WE 的 3D 场景：在 WE 里设为桌面后再点这里，得到高清截图）；非 Windows 自动隐藏 |
+| **上传** | 选本机图片（png / webp / jpg，≤ 15 MB）或输入本地路径（如 `C:\Users\你\Pictures\shu.png`）；拖进面板也行 |
+
+### 调整参数
+
+| 参数 | 说明 | 备注 |
+|---|---|---|
+| **Fit** | 完整显示（contain）/ 铺满裁切（cover）/ 自由摆放（custom） | 自由摆放时显示 Scale 滑块 |
+| **Scale** | 缩放百分比（10–400%） | 仅自由摆放时可用；拖动 / 滚轮快速调整 |
+| **X, Y** | 水平 / 竖直位置（0–100%） | 中点位置，拖动移动 |
+| **Area** | 整页 / 仅舞台 | 仅舞台：背景板只显示在舞台区域，跟随舞台缩放和滚动 |
+| **Opacity** | 透明度（0.1–1）| 整体透明度 |
+| **Blur** | 模糊（0–20px） | CSS 高斯模糊 |
+| **Dim** | 变暗（0–90%） | 覆盖一层暗色 |
+| **Saturate** | 饱和度（0–200%） | 彩色 / 灰度 / 超饱和 |
+| **Mask** | 边缘渐隐：无/左淡出/右淡出/四周/底部 | 与通讯、成员卡片融合 |
+| **Blend** | 混合模式：正常/luminosity/screen/multiply/soft-light | CSS mix-blend-mode |
+| **Panel** | 面板透明度（30–100%） | 越低毛玻璃感越强；自动给面板加 backdrop-filter blur |
+
+### 在页面上调整
+
+点 **⤢ 在页面上调整**，进入交互模式：
+- **拖动**：移动背景板（改 X/Y）
+- **滚轮**：缩放（仅自由摆放；改 Scale）
+- **双击**：复位到默认值
+- **Esc 或再点按钮**：退出调整
+
+底部提示条实时显示当前 X/Y/Scale。
+
+---
+
+## 8. 形象素材
 
 - 仓库自带 13 只：4 只机器人（cc-haha，MIT）+ 9 只程序化绘制的角色（`make_pets.py`，MIT）。开箱每个岗位一只，不重复。改配色 / 形状 / 特征：编辑 `make_pets.py` 里的 `CHARS`，`python make_pets.py` 重新生成。
 - 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物，并顺带导入 `~/.codex/pets/`（Codex 里创建 / 领养的）与 `~/.petdex/pets/` 里的桌宠（`install.py` 会自动尝试）。素材归各自作者，只留本机。
@@ -139,7 +182,7 @@ skills:
 
 ---
 
-## 8. 命令行与接口
+## 9. 命令行与接口
 
 ```bash
 python ~/.claude/team-board/ensure.py                 # 没在运行就后台启动（钩子用的就是它）
@@ -164,5 +207,11 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 | `POST /api/agents/delete` | 删除成员（`{"name": ...}`） |
 | `POST /api/departments` | 新建或更新部门（`{"id","name","icon","required"}`） |
 | `POST /api/departments/delete` | 删除部门（`{"id": ...}`） |
+| `GET /api/backdrop` | 读当前背景板配置（v2 字段：fit/scale/x/y/area/opacity/blur/dim/saturate/mask/blend/panelAlpha） |
+| `POST /api/backdrop` | 写背景板配置（支持 `{wallpaper:<id>}` 引用 WE 壁纸，或 `{preset:'shu'}` 用预设立绘，或 `{desktop:true}` 用桌面壁纸） |
+| `GET /api/wallpapers` | 列出可用壁纸（Wallpaper Engine 库扫描结果：scene / video / web，每项含 id、title、kind、preview）；`found` 字段表示扫描状态 |
+| `GET /api/wallpapers/desktop` | 桌面壁纸（Windows 专用；返回 `{available: true/false, path?, screenshot?}`） |
+| `GET /api/wallpapers/<id>/preview` | 预览图（透明背景，json 配置用的图） |
+| `GET /api/wallpapers/<id>/media` | 媒体文件（video 返回 mp4，scene 返回 exe 启动参数，支持 Range 206 分块）；白名单仅允许登记的壁纸 id，非法路径 404 |
 
 服务只绑定 127.0.0.1，不联网。
