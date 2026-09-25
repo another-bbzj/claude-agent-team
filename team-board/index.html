@@ -1595,13 +1595,16 @@ async function refreshPackList() {
 }
 async function refreshPetInfo() { try { const r = await fetch('/api/pets').then(x => x.json()); PET_INFO = r.petInfo || PET_INFO; } catch (_) {} }
 async function openPackModal() {
-  $('#pack-modal').hidden = false; expandCard($('#pack-modal .modal-card'));
   $('#pack-msg').textContent = ''; $('#pack-msg').className = '';
-  renderPackGrid();
+  // 先把数据（真实 sheet/installed）和角色名都拿到、把 20 格渲染进 DOM，modal-card 才是最终高度；
+  // 再 hidden=false + expandCard 去量它——顺序反了的话，展开圆算的是内容还没塞进去时的小尺寸，
+  // 之后再塞入更高的内容（尤其是从占位文字换成真实雪碧图，行更高），多出来的部分会被圆形裁切区挡住，
+  // 看起来就是"卡片显示不完整"。
   await Promise.all([refreshPackList(), refreshPetInfo(), packRoleNames ? null : (async () => {
     try { const meta = await fetch('/api/agents').then(r => r.json()); packRoleNames = {}; (meta.agents || []).forEach(a => packRoleNames[a.name] = a.display || a.name); } catch (_) { packRoleNames = {}; }
   })()]);
   renderPackGrid();
+  $('#pack-modal').hidden = false; expandCard($('#pack-modal .modal-card'));
 }
 async function runPack(assign) {
   const btns = [$('#pack-dl-only'), $('#pack-dl-assign')]; btns.forEach(b => b.disabled = true);
@@ -2578,7 +2581,9 @@ function expandCard(card, origin) {
   if (reducedMotion()) return;
   const o = origin || popOrigin(), r = card.getBoundingClientRect();
   const lx = o.x - r.left, ly = o.y - r.top;
-  const er = Math.ceil(Math.hypot(Math.max(lx, r.width - lx), Math.max(ly, r.height - ly)));
+  // 半径按"卡片或整个视口，取大的"算：很多弹窗是先展开、内容后到（外观面板的壁纸网格、角色包、成员表单预览），
+  // 只按打开瞬间的卡片尺寸算，圆会盖不住后来长高的部分，底下几行看着像被切掉
+  const er = Math.ceil(Math.hypot(Math.max(lx, r.width - lx, innerWidth - lx), Math.max(ly, r.height - ly, innerHeight - ly, card.scrollHeight - ly)));
   card.style.setProperty('--ex', lx + 'px'); card.style.setProperty('--ey', ly + 'px'); card.style.setProperty('--er', er + 'px');
   card.classList.add('pop-pt');
   requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('pop-go')));
