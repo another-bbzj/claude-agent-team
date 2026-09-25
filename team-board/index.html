@@ -81,7 +81,7 @@
     background: repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   ::selection { background: color-mix(in srgb, var(--gold) 40%, transparent); }
-  :focus-visible { outline: 1.5px solid var(--gold); outline-offset: 2px; }
+  :focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-2), 0 0 0 4px var(--gold), 0 0 0 5.5px color-mix(in srgb, var(--gold) 35%, transparent); }
   * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 
   /* ---------- 通用：标签 / 按钮 / 斜切 ---------- */
@@ -112,8 +112,14 @@
   .mini-btn.danger { --c: var(--err); }
   .mini-btn.ghost { --c: var(--text-2); }
   .field, header select, .am-grid input, .am-grid select, .am-grid textarea, .pm-body input[type=text], .dm-row input, .dm-row select, .drawer .petpick select {
-    font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 0; border: 1px solid var(--line); background: var(--card); color: var(--text); min-width: 0; transition: border-color .15s, box-shadow .15s; }
-  .field:focus, header select:focus, .am-grid input:focus, .am-grid select:focus, .am-grid textarea:focus, .pm-body input[type=text]:focus, .dm-row input:focus, .dm-row select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+    font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 0; border: 1px solid var(--line-2); background: var(--card-solid); color: var(--text); min-width: 0; transition: border-color .15s, box-shadow .15s; color-scheme: light dark; }
+  .field:focus, header select:focus, .am-grid input:focus, .am-grid select:focus, .am-grid textarea:focus, .pm-body input[type=text]:focus, .dm-row input:focus, .dm-row select:focus, .drawer .petpick select:focus, .pm-body select:focus, .pm-body textarea:focus {
+    outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 14px -4px var(--gold); }
+  .field::placeholder, .am-grid input::placeholder, .am-grid textarea::placeholder, .pm-body input::placeholder, .dm-row input::placeholder { color: var(--text-3); opacity: 1; }
+  /* 原生 select 展开列表：强制深底浅字 / 浅底深字，避免系统默认与自定义底色对比不足 */
+  select, .am-grid select, .dm-row select, .drawer .petpick select, header select, .pm-body select { background-color: var(--card-solid); color: var(--text); }
+  select option, datalist option { background-color: var(--card-solid); color: var(--text); }
+  select option:checked, select option:hover { background-color: var(--gold-soft); color: var(--text); }
 
   /* ---------- 背景板 v2（立绘 / 视频 / WE 壁纸 / 罗德岛几何） ---------- */
   #backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
@@ -162,7 +168,7 @@
   .theme button { padding: 3px 10px; font-size: 12px; color: var(--text-2); transition: background-color .15s, color .15s; }
   .theme button + button { border-left: 1px solid var(--line); }
   .theme button:hover { color: var(--text); }
-  .theme button.on { background: var(--plate); color: var(--plate-text); }
+  .theme button.on { color: var(--plate-text); }
   #look-btn { font-size: 12px; }
 
   .mission { position: relative; z-index: 2; padding: 7px 22px 7px 22px; font-size: 12.5px; color: var(--text-2); background: color-mix(in srgb, var(--bg-2) 70%, transparent); border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: baseline; }
@@ -379,7 +385,7 @@
   /* 通讯频道：聊天式 */
   .chan .filters { display: flex; gap: 4px; flex-wrap: wrap; margin: -4px 0 8px; }
   .chan .filters button { font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border: 1px solid var(--line); color: var(--text-3); letter-spacing: .04em; transition: all .15s; }
-  .chan .filters button.on { color: var(--plate-text); background: var(--plate); border-color: var(--plate); }
+  .chan .filters button.on { color: var(--plate-text); border-color: var(--plate); }
   .chan .filters button:hover:not(.on) { color: var(--text); border-color: var(--line-2); }
   .comms { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 12px 2px; font-size: 12px; }
   .comms .empty { color: var(--text-3); font-size: 12px; margin: auto; text-align: center; line-height: 1.8; font-family: var(--mono); letter-spacing: .04em; }
@@ -458,6 +464,13 @@
   .am-grid .pet-row select { flex: 1; min-width: 120px; }
   .am-grid .pet-row .mini-btn { margin: 0; white-space: nowrap; }
   .am-grid textarea { resize: vertical; font-family: var(--sans); }
+  .am-sec { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 6px 0 -2px; font: 700 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .am-sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .am-grid .wide:first-of-type ~ .am-sec:first-of-type { margin-top: 2px; }
+  .sr-field { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+  .segfield { flex-wrap: wrap; }
+  .segfield button { padding: 4px 10px; font-size: 11.5px; }
+  .pv-stage { border-radius: 2px; background: radial-gradient(closest-side, color-mix(in srgb, var(--card-solid) 92%, transparent), transparent), linear-gradient(var(--grid) 1px, transparent 1px) 0 0/10px 10px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/10px 10px; }
   .drawer .petpick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
   .drawer .petpick select { flex: 1; min-width: 140px; font-size: 12px; padding: 4px 8px; }
   .drawer .petpick .mini-btn { margin: 0; font-size: 11.5px; }
@@ -498,6 +511,26 @@
   .pm-foot .pm-ow { font-size: 12px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   @media (max-width: 560px) { .am-grid, .pm-row2 { grid-template-columns: 1fr; } }
 
+  /* 游戏角色包 */
+  .pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 8px; padding: 2px 2px 4px; }
+  .pack-item { position: relative; border: 1px solid var(--line); background: var(--card-solid); padding: 10px 8px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; transition: border-color .15s, opacity .3s, filter .3s; overflow: hidden; }
+  .pack-item:hover { border-color: var(--gold); }
+  .pack-item .ic { width: 42px; height: 42px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: var(--brand);
+    background: radial-gradient(circle at 35% 30%, var(--gold-soft), var(--brand-soft) 70%); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .pack-sprite { width: 64px; height: 69px; flex: none; background-repeat: no-repeat; background-size: 512px auto; transform: scale(var(--fit, 1)); transform-origin: 50% 94%;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,.22)); }
+  .pack-item .nm { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .pack-item .fr { font-size: 10px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .pack-item .role { font-family: var(--mono); font-size: 9px; letter-spacing: .04em; color: var(--gold); background: var(--gold-soft); padding: 1px 6px; }
+  .pack-item .dl-badge { position: absolute; left: -1px; top: -1px; width: 16px; height: 16px; background: var(--ok); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; clip-path: polygon(0 0, 100% 0, 0 100%); }
+  .pack-grid.downloading .pack-item:not(.done) { opacity: .5; filter: grayscale(.5); }
+  .pack-grid.downloading .pack-item.lit { opacity: 1; filter: none; border-color: var(--gold); }
+  .pack-note { font-size: 10.5px; color: var(--text-3); line-height: 1.6; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 10px; }
+  .pack-result { margin-top: 8px; font-size: 11.5px; color: var(--text-2); line-height: 1.7; }
+  .pack-result .fail { color: var(--err); }
+  .pack-result .ok-n { color: var(--ok); font-weight: 700; }
+  @media (prefers-reduced-motion: reduce) { .pack-item { transition: none; } }
+
   /* 外观设置 */
   .lk-body { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; padding: 16px 18px 18px; }
   .lk-preview { position: relative; aspect-ratio: 3 / 4; border: 1px solid var(--line); background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 12px 12px, var(--bg); overflow: hidden; display: flex; align-items: center; justify-content: center; max-width: 100%; }
@@ -517,7 +550,7 @@
   .seg button { padding: 3px 12px; font-size: 12px; color: var(--text-2); }
   .seg button[hidden] { display: none; }
   .seg button + button { border-left: 1px solid var(--line); }
-  .seg button.on { background: var(--plate); color: var(--plate-text); }
+  .seg button.on { color: var(--plate-text); }
   .switch { position: relative; width: 38px; height: 20px; border: 1px solid var(--line-2); background: var(--bg); flex: none; transition: background-color .2s, border-color .2s; }
   .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--text-3); transition: transform .2s var(--ease), background-color .2s; }
   .switch.on { background: var(--gold-soft); border-color: var(--gold); }
@@ -615,6 +648,102 @@
   @keyframes beaconPing { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 12px transparent; } }
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+
+  /* ---------- v1.5.0 交互质感：内层擦入 / 波纹 / 触碰闪烁 / 指针高光 / 展开 ---------- */
+  /* 1) 内层擦入：伪元素在盒子内部（z-index:-1，位于按钮自身背景之上、文字之下）从左侧擦入 */
+  .pill, .mini-btn, .send-btn, .theme button, .seg button, .chan .filters button { position: relative; z-index: 0; }
+  .pill::after, .mini-btn::after, .send-btn::after, .theme button::after, .seg button::after, .chan .filters button::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: var(--gold); clip-path: inset(0 100% 0 0); transition: clip-path .22s var(--ease); }
+  .mini-btn::after { background: var(--c); }
+  .send-btn::after { background: color-mix(in srgb, var(--gold) 55%, #fff 45%); }
+  .theme button::after, .seg button::after, .chan .filters button::after { background: var(--plate); }
+  .pill.brand::after { background: var(--brand); } .pill.gold::after { background: var(--gold); } .pill.ok::after { background: var(--ok); }
+  .pill.warn::after { background: var(--warn); } .pill.err::after { background: var(--err); } .pill.info::after { background: var(--info); }
+  .pill.peer::after { background: var(--peer); } .pill.hand::after { background: var(--hand); } .pill.bus::after { background: var(--bus); }
+  @media (hover: hover) and (pointer: fine) {
+    .pill:hover::after, .mini-btn:hover::after, .send-btn:hover::after, .theme button:hover::after, .seg button:hover::after, .chan .filters button:hover::after { clip-path: inset(0 91% 0 0); }
+  }
+  .pill:active::after, .mini-btn:active::after, .send-btn:active::after, .theme button:active::after, .seg button:active::after, .chan .filters button:active::after,
+  .theme button.on::after, .seg button.on::after, .chan .filters button.on::after, .pill.on::after, .pill[aria-pressed="true"]::after { clip-path: inset(0 0 0 0); }
+  .pill:active, .pill.on, .pill[aria-pressed="true"], .mini-btn:active { color: var(--on-accent); }
+  .theme button:active, .theme button.on, .seg button:active, .seg button.on, .chan .filters button:active, .chan .filters button.on { color: var(--plate-text); }
+  .we-item.sel { transition: outline-color .18s; }
+
+  /* 2) 波纹：全局事件委托生成，用完即删；受父级 clip-path 天然裁切，不溢出斜切角 */
+  .rpl-host { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+  .rpl-fill, .rpl-ring { position: absolute; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); transform: translate(-50%, -50%) scale(0); opacity: .5; }
+  .rpl-fill { animation: rplFill .55s ease-out both; }
+  .rpl-ring { border: 1px solid; background: none; opacity: .8; animation: rplRing .68s ease-out .03s both; }
+  @keyframes rplFill { 0% { transform: translate(-50%, -50%) scale(0); opacity: .48; } 65% { opacity: .22; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+  @keyframes rplRing { 0% { transform: translate(-50%, -50%) scale(0); opacity: .75; } 100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0; } }
+  .rm-tap { background: var(--gold-soft) !important; }
+
+  /* 3) 触碰闪烁 + 边角括号 + 扫光 + 跟随指针高光：延迟注入的 .fx 容器，仅细指针设备生效 */
+  @media (hover: hover) and (pointer: fine) {
+    .fx-host { position: relative; }
+    .fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; opacity: 0; transition: opacity .12s; }
+    .fx-host:hover .fx, .fx-host:focus-visible .fx { opacity: 1; }
+    .fx-glow { position: absolute; inset: -30%; opacity: 0; transition: opacity .18s;
+      background: radial-gradient(120px 120px at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%); }
+    .fx-host:hover .fx-glow { opacity: 1; }
+    .fx-corner { position: absolute; width: 9px; height: 9px; border: 1.5px solid var(--gold); opacity: 0; transition: opacity .15s, transform .22s var(--ease); }
+    .fx-corner.tl { left: 2px; top: 2px; border-right: 0; border-bottom: 0; transform: translate(2px, 2px); }
+    .fx-corner.br { right: 2px; bottom: 2px; border-left: 0; border-top: 0; transform: translate(-2px, -2px); }
+    .fx-host:hover .fx-corner { opacity: .95; }
+    .fx-host:hover .fx-corner.tl { transform: translate(-1px, -1px); }
+    .fx-host:hover .fx-corner.br { transform: translate(1px, 1px); }
+    .fx-sweep { position: absolute; top: -20%; bottom: -20%; left: -60%; width: 34%; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--gold) 35%, transparent), transparent); transform: skewX(-18deg); opacity: 0; }
+    .fx-host.swept .fx-sweep { animation: fxSweep .5s ease-out; }
+    @keyframes fxSweep { 0% { left: -60%; opacity: .9; } 70% { opacity: .5; } 100% { left: 130%; opacity: 0; } }
+    .fx-host.flick { animation: fxFlicker .12s steps(1, end) 1; }
+    @keyframes fxFlicker { 0% { filter: brightness(1); } 25% { filter: brightness(1.35); } 50% { filter: brightness(.85); } 75% { filter: brightness(1.2); } 100% { filter: brightness(1); } }
+  }
+
+  /* 4) 弹窗 / 抽屉：从触发点展开；内容错峰淡入 */
+  .modal-card.pop-pt { animation: none; clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); }
+  .modal-card.pop-pt.pop-go { animation: cardExpand .34s var(--ease) both; }
+  .modal-card.pop-close { animation: cardCollapse .2s var(--ease) both; }
+  @keyframes cardExpand { from { clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); opacity: .5; } to { clip-path: circle(var(--er, 140%) at var(--ex, 50%) var(--ey, 50%)); opacity: 1; } }
+  @keyframes cardCollapse { from { clip-path: circle(var(--er, 140%) at var(--ex, 50%) var(--ey, 50%)); opacity: 1; } to { clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); opacity: .35; } }
+  .modal-card.pop-go .modal-head { animation: fxFadeUp .3s var(--ease) .05s both; }
+  .modal-card.pop-go > form, .modal-card.pop-go > .dm-list, .modal-card.pop-go > .lk-body, .modal-card.pop-go > .pm-body { animation: fxFadeUp .3s var(--ease) .09s both; }
+  .modal-card.pop-go .am-foot, .modal-card.pop-go .pm-foot { animation: fxFadeUp .28s var(--ease) .14s both; }
+  @keyframes fxFadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .drawer.expand-go { animation: drawerExpand .38s var(--ease) both; }
+  @keyframes drawerExpand { from { clip-path: circle(0px at var(--ex, 100%) var(--ey, 50%)); } to { clip-path: circle(150% at var(--ex, 100%) var(--ey, 50%)); } }
+  .drawer.expand-go .head { animation: fxFadeUp .28s var(--ease) .04s both; }
+  .drawer.expand-go .body { animation: fxFadeUp .3s var(--ease) .08s both; }
+
+  /* 5) 成员卡「锁定」反馈：JS 注入的四角括号 + 扫描线，播放一次后自动移除 */
+  .lock-fx { position: absolute; inset: -8px; pointer-events: none; z-index: 6; }
+  .lock-fx i { position: absolute; width: 10px; height: 10px; border: 1.5px solid var(--gold); opacity: 0; animation: lockTighten .3s var(--ease) both; }
+  .lock-fx i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; transform: translate(-6px, -6px); }
+  .lock-fx i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; transform: translate(6px, -6px); }
+  .lock-fx i:nth-child(3) { right: 0; bottom: 0; border-left: 0; border-top: 0; transform: translate(6px, 6px); }
+  .lock-fx i:nth-child(4) { left: 0; bottom: 0; border-right: 0; border-top: 0; transform: translate(-6px, 6px); }
+  .lock-fx .scan { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); animation: lockScan .32s linear both; }
+  @keyframes lockTighten { from { opacity: 0; transform: translate(0, 0) scale(1.3); } to { opacity: 1; transform: translate(var(--tx, 0), var(--ty, 0)) scale(1); } }
+  .lock-fx i:nth-child(1) { animation-name: lockTighten1; } .lock-fx i:nth-child(2) { animation-name: lockTighten2; }
+  .lock-fx i:nth-child(3) { animation-name: lockTighten3; } .lock-fx i:nth-child(4) { animation-name: lockTighten4; }
+  @keyframes lockTighten1 { from { opacity: 0; transform: translate(-14px, -14px); } to { opacity: 1; transform: translate(-6px, -6px); } }
+  @keyframes lockTighten2 { from { opacity: 0; transform: translate(14px, -14px); } to { opacity: 1; transform: translate(6px, -6px); } }
+  @keyframes lockTighten3 { from { opacity: 0; transform: translate(14px, 14px); } to { opacity: 1; transform: translate(6px, 6px); } }
+  @keyframes lockTighten4 { from { opacity: 0; transform: translate(-14px, 14px); } to { opacity: 1; transform: translate(-6px, 6px); } }
+  @keyframes lockScan { 0% { top: 0; opacity: 0; } 15% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+  @media (pointer: coarse) {
+    .fx, .fx-host .fx { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pill::after, .mini-btn::after, .send-btn::after, .theme button::after, .seg button::after, .chan .filters button::after { transition: none; }
+    .rpl-fill, .rpl-ring { display: none; }
+    .fx, .fx-sweep, .fx-corner, .fx-glow { display: none !important; }
+    .modal-card.pop-pt, .modal-card.pop-go, .modal-card.pop-close, .drawer.expand-go { animation: none !important; clip-path: none !important; }
+    .modal-card.pop-go .modal-head, .modal-card.pop-go > form, .modal-card.pop-go > .dm-list, .modal-card.pop-go > .lk-body, .modal-card.pop-go > .pm-body, .modal-card.pop-go .am-foot, .modal-card.pop-go .pm-foot,
+    .drawer.expand-go .head, .drawer.expand-go .body { animation: none !important; opacity: 1 !important; transform: none !important; }
+    .person.locking .avatar-wrap::after, .person.locking .avatar-wrap::before { animation: none !important; }
+  }
 
   /* ---------- 响应式 ---------- */
   @media (max-width: 900px) {
@@ -742,7 +871,7 @@
       <div class="feed" id="feed"></div>
     </section>
     <section class="panel" style="grid-column: 1 / -1; min-height: 0">
-      <h2><span class="no">07</span>常驻部门成员<span class="en">Roster · ~/.claude/agents</span><button class="mini-btn" id="agent-new">＋ 新建成员</button><button class="mini-btn ghost" id="dept-manage">⚙ 部门管理</button><span class="count" id="roster-count"></span></h2>
+      <h2><span class="no">07</span>常驻部门成员<span class="en">Roster · ~/.claude/agents</span><button class="mini-btn" id="agent-new">＋ 新建成员</button><button class="mini-btn ghost" id="dept-manage">⚙ 部门管理</button><button class="mini-btn gold" id="pack-btn">🎮 游戏角色包</button><span class="count" id="roster-count"></span></h2>
       <div class="roster" id="roster"></div>
     </section>
   </div>
@@ -761,14 +890,20 @@
           <div class="pv-desc" id="pv-desc">在下面填写，这里实时预览它在看板上的样子。</div>
         </div>
       </div>
+      <div class="am-sec">身份</div>
       <label>标识 <small>subagent_type，小写字母/数字/连字符</small><input name="name" required pattern="[a-z][a-z0-9\-]{1,40}" placeholder="my-reviewer"></label>
       <label>显示名 <small>看板上的名字</small><input name="display" placeholder="小审"></label>
       <label>岗位 <input name="role" placeholder="安全审查员"></label>
       <label>部门 <select name="dept" id="am-dept"></select></label>
-      <label>模型 <small>选一个，或直接输入第三方模型 id（deepseek-chat、glm-4.6、openai/gpt-5…）</small><input name="model" id="am-model" list="am-model-list" placeholder="sonnet"><datalist id="am-model-list"></datalist></label>
-      <label>思考强度 <select name="effort" id="am-effort"></select></label>
+      <div class="am-sec">模型与强度</div>
+      <label>模型 <small>常用可点选，或直接输入第三方模型 id（deepseek-chat、glm-4.6、openai/gpt-5…）</small>
+        <span class="seg segfield" id="am-model-quick"></span>
+        <input name="model" id="am-model" list="am-model-list" placeholder="sonnet"><datalist id="am-model-list"></datalist></label>
+      <label>思考强度 <small>决定思考深度与耗时</small><span class="seg segfield" id="am-effort-seg"></span><select name="effort" id="am-effort" class="sr-field" tabindex="-1"></select></label>
+      <div class="am-sec">形象与颜色</div>
       <label>形象 <small>可导入桌宠雪碧图：.webp / .png，或 Codex · petdex 的 zip 包</small><span class="pet-row"><select name="pet" id="am-pet"></select><button type="button" class="mini-btn" id="am-pet-import" title="导入一张 8 列 × 9/11 行、每帧 192×208 的雪碧图，或 petdex / Codex 的 zip 包">导入形象…</button><button type="button" class="mini-btn" id="am-pet-fit" title="识别主体：把偏小的角色放大、各动作大小拉齐；被裁到格底的动作不放大（需要 Pillow 才会改图，否则只在屏幕上放大）">适配主体</button><button type="button" class="mini-btn danger" id="am-pet-del" title="删除当前选中的自定义形象（仓库自带的不能删）">删</button></span></label>
       <label>颜色 <select name="color" id="am-color"></select></label>
+      <div class="am-sec">简介与提示词</div>
       <label class="wide">简介 <small>什么时候该用它——Claude 靠这句自动委派，写具体</small><textarea name="description" rows="2" required placeholder="小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露…"></textarea></label>
       <label class="wide">预载技能 <small>逗号分隔，~/.claude/skills 里的名字，可空</small><input name="skills" placeholder="my-domain-skill, security-review"></label>
       <label class="wide">系统提示词 <small>成员开工时读到的正文</small><textarea name="body" rows="9" placeholder="你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单……完成后写交接单，汇报 ≤ 200 字。"></textarea></label>
@@ -848,6 +983,16 @@
         <div id="lk-msg"></div>
         <div class="lk-note">图片 / 壁纸只下载或复制到你本机的 <code>team-board/backdrops/</code>（不进仓库）。Wallpaper Engine 内容版权归各创作者所有，仅本机预览用。窄屏下背景板会自动变淡。</div>
       </div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="pack-modal" hidden>
+  <div class="modal-card" style="width:min(760px,96vw)">
+    <div class="modal-head"><span>🎮 游戏角色包</span><span class="pill mono" id="pack-count-pill"></span><button class="close" id="pack-close" aria-label="关闭">✕</button></div>
+    <div class="pm-body">
+      <div class="pack-grid" id="pack-grid"></div>
+      <div class="pack-note">形象版权归各游戏厂商与角色包画师所有，仅供个人本机使用；下载到 <code>team-board/sprites/</code>，不进仓库。来源：<span>petdex.dev</span>（社区桌宠画廊）。</div>
+      <div class="pm-foot"><span id="pack-msg"></span><button type="button" class="mini-btn" id="pack-dl-only">只下载</button><button type="button" class="mini-btn primary" id="pack-dl-assign">下载并分配给各岗位</button></div>
     </div>
   </div>
 </div>
@@ -1062,7 +1207,7 @@ function ensurePerson(m, isLead, snap) {
     el.innerHTML = `<div class="avatar-wrap"><div class="bubble"></div><div class="shadow"></div><div class="sprite"></div><div class="foot"></div><span class="extra"></span><span class="mailbox"></span><span class="unread" hidden></span></div>
       <div class="name"><span class="nm"></span><span class="role"></span><span class="star" hidden title="用户自定义 agent">★</span></div>
       <div class="chip"></div><div class="state"></div><div class="act"></div><div class="bar"><i></i></div><div class="meta"></div>`;
-    el.querySelector('.avatar-wrap').addEventListener('click', () => openDrawer(m.id));
+    el.querySelector('.avatar-wrap').addEventListener('click', (e) => lockThenOpen(e.currentTarget, m.id));
     $('#stage').appendChild(el);
     el._sprite = new Sprite(el.querySelector('.sprite'), m);
     personEls.set(m.id, el);
@@ -1367,7 +1512,7 @@ async function openDeptModal() {
   const counts = {}; for (const a of meta.agents) counts[a.dept] = (counts[a.dept] || 0) + 1;
   const row = (d) => `<div class="dm-row" data-id="${esc(d.id)}"><input name="icon" value="${esc(d.icon || '')}" maxlength="4" title="图标（emoji）"><input name="id" value="${esc(d.id)}" ${d.id ? 'readonly' : ''} placeholder="id：design" pattern="[a-z][a-z0-9\-]{0,15}"><input name="name" value="${esc(d.name || '')}" placeholder="部门名：设计部"><select name="required">${meta.requiredOpts.map(o => `<option value="${o}" ${o === (d.required || 'optional') ? 'selected' : ''}>${REQ_LABEL[o] || o}</option>`).join('')}</select><span class="cnt">${counts[d.id] || 0} 人</span><button class="del" data-del="${esc(d.id)}" title="删除部门" ${d.id === 'hq' ? 'disabled' : ''}>✕</button></div>`;
   $('#dm-list').innerHTML = `<div class="dm-row dm-head"><span>图标</span><span>id</span><span>名称</span><span>出场规则</span><span style="text-align:center">成员</span><span></span></div>` + meta.departments.map(row).join('');
-  $('#dm-msg').textContent = ''; $('#dm-msg').className = ''; $('#dept-modal').hidden = false;
+  $('#dm-msg').textContent = ''; $('#dm-msg').className = ''; $('#dept-modal').hidden = false; expandCard($('#dept-modal .modal-card'));
   $('#dm-add').onclick = () => { $('#dm-list').insertAdjacentHTML('beforeend', row({ id: '', name: '', icon: '📁', required: 'optional' })); $('#dm-list').lastElementChild.querySelector('[name=id]').focus(); };
 }
 async function saveDeptRow(rowEl) {
@@ -1378,8 +1523,121 @@ async function saveDeptRow(rowEl) {
   msg.className = ''; msg.textContent = `✓ 已保存 ${d.name}`; rowEl.querySelector('[name=id]').readOnly = true; rowEl.dataset.id = d.id; agentMeta = null; tick();
 }
 $('#dept-manage').addEventListener('click', openDeptModal);
-$('#dm-close').addEventListener('click', () => { $('#dept-modal').hidden = true; });
-$('#dept-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#dept-modal').hidden = true; });
+/* ---------- 游戏角色包（工单 15） ---------- */
+/* 兜底表（后端 /api/pets/packs 未带 items 字段时用；正常情况下用后端返回的 items，含实时 installed/sheet） */
+const PACK_GAMES_FALLBACK = [
+  { slug: 'amiya', name: '阿米娅', franchise: '明日方舟', role: 'lead' },
+  { slug: 'furina-2', name: '芙宁娜', franchise: '原神', role: 'team-architect' },
+  { slug: 'firefly-2', name: '流萤', franchise: '崩坏：星穹铁道', role: 'backend-dev' },
+  { slug: 'march7th', name: '三月七', franchise: '崩坏：星穹铁道', role: 'frontend-dev' },
+  { slug: 'nahida-2', name: '纳西妲', franchise: '原神', role: 'qa-tester' },
+  { slug: 'star-rail', name: '黄泉', franchise: '崩坏：星穹铁道', role: 'code-reviewer' },
+  { slug: 'paimon', name: '派蒙', franchise: '原神', role: 'researcher' },
+  { slug: 'genshin-impact-keqing', name: '刻晴', franchise: '原神', role: 'docs-writer' },
+  { slug: 'jinx', name: '金克丝', franchise: '英雄联盟', role: 'release-ops' },
+  { slug: 'exusiai-seekers-song', name: '能天使·寻翼之歌', franchise: '明日方舟', role: null },
+  { slug: 'hutao-2', name: '胡桃', franchise: '原神', role: null },
+  { slug: 'zelda-botw', name: '塞尔达', franchise: '塞尔达传说', role: null },
+  { slug: 'skybound-hero', name: '林克', franchise: '塞尔达传说', role: null },
+  { slug: 'xiao-qishi', name: '小骑士', franchise: '空洞骑士', role: null },
+  { slug: 'kirby', name: '卡比', franchise: '星之卡比', role: null },
+  { slug: 'hatsune-miku-2', name: '初音未来', franchise: 'VOCALOID', role: null },
+  { slug: 'ahri-spirit-blossom', name: '灵魂莲华·阿狸', franchise: '英雄联盟', role: null },
+  { slug: 'capvolt', name: '皮卡丘', franchise: '宝可梦', role: null },
+  { slug: 'minecraft-steve', name: '史蒂夫', franchise: '我的世界', role: null },
+  { slug: 'amamiya-ren-phantom', name: '雨宫莲', franchise: '女神异闻录 5', role: null },
+];
+let packRoleNames = null, packItems = PACK_GAMES_FALLBACK;
+function roleLabel(role) { return role === 'lead' ? '队长' : ((packRoleNames || {})[role] || role); }
+/* 角色包格子里的雪碧图播放：不走 petOf/ALL_PETS 那套（新下载的形象要等下一次快照轮询才会进 ALL_PETS），
+   直接用后端给的 sheet URL + PET_INFO 里已有的 fitRows（下载完会有），足够轻量、用完即销毁。 */
+const packSprites = new Set();
+class PackSprite {
+  constructor(el, url, fitRows) { this.el = el; this.fitRows = fitRows || null; this.seq = SEQ.idle(); this.i = 0; this.next = performance.now(); this.state = 'idle';
+    el.style.backgroundImage = url ? `url(${url})` : 'none'; packSprites.add(this); this.draw(); }
+  play(state) { if (state === this.state) return; this.state = state; this.seq = (SEQ[state] || SEQ.idle)(); this.i = 0; this.next = performance.now(); this.draw(); }
+  tick(now) { if (now < this.next) return; this.i = (this.i + 1) % this.seq.length; this.next = now + this.seq[this.i].dur; this.draw(); }
+  draw() { const f = this.seq[this.i]; const s = (this.el.clientWidth || 64) / ATLAS.cw;
+    this.el.style.backgroundPosition = `-${f.col * ATLAS.cw * s}px -${f.row * ATLAS.ch * s}px`;
+    this.el.style.setProperty('--fit', this.fitRows ? Math.max(1, Math.min(1.6, this.fitRows[f.row] || 1)) : 1); }
+  destroy() { packSprites.delete(this); }
+}
+(function packLoop(now) { for (const s of packSprites) s.tick(now); requestAnimationFrame(packLoop); })(performance.now());
+function destroyPackSprites() { for (const s of [...packSprites]) s.destroy(); }
+function closePackModal() { closeM('#pack-modal'); destroyPackSprites(); }
+function renderPackGrid() {
+  destroyPackSprites();
+  $('#pack-grid').innerHTML = packItems.map(it => {
+    const sheet = it.sheet || '';
+    const media = sheet ? `<div class="pack-sprite" data-slug="${esc(it.slug)}"></div>` : `<div class="ic">${esc((it.name || '?')[0])}</div>`;
+    return `<div class="pack-item ${it.installed ? 'done' : ''}" data-slug="${esc(it.slug)}">${media}
+      <div class="nm">${esc(it.name)}</div><div class="fr">${esc(it.franchise)}</div>
+      ${it.installed ? '<div class="dl-badge" title="已下载到本机">✓</div>' : ''}
+      ${it.role ? `<div class="role">${esc(roleLabel(it.role))}</div>` : ''}</div>`;
+  }).join('');
+  $('#pack-grid').querySelectorAll('.pack-sprite').forEach((el) => {
+    const it = packItems.find((x) => x.slug === el.dataset.slug); if (!it) return;
+    const info = PET_INFO[it.id || it.slug];
+    el._spr = new PackSprite(el, it.sheet, info && info.fitRows);
+  });
+}
+$('#pack-grid').addEventListener('pointerover', (e) => { const el = e.target.closest('.pack-sprite'); if (el && el._spr) el._spr.play('celebrate'); });
+$('#pack-grid').addEventListener('pointerout', (e) => { const el = e.target.closest('.pack-sprite'); if (el && el._spr && !el.contains(e.relatedTarget)) el._spr.play('idle'); });
+async function refreshPackList() {
+  try {
+    const j = await fetch('/api/pets/packs').then(r => r.ok ? r.json() : null);
+    const p = j && (j.packs || []).find(x => x.id === 'games');
+    if (p) {
+      $('#pack-count-pill').textContent = `已下载 ${p.installed}/${p.count}`;
+      if (Array.isArray(p.items) && p.items.length) packItems = p.items;
+    }
+  } catch (_) {}
+}
+async function refreshPetInfo() { try { const r = await fetch('/api/pets').then(x => x.json()); PET_INFO = r.petInfo || PET_INFO; } catch (_) {} }
+async function openPackModal() {
+  $('#pack-msg').textContent = ''; $('#pack-msg').className = '';
+  // 先把数据（真实 sheet/installed）和角色名都拿到、把 20 格渲染进 DOM，modal-card 才是最终高度；
+  // 再 hidden=false + expandCard 去量它——顺序反了的话，展开圆算的是内容还没塞进去时的小尺寸，
+  // 之后再塞入更高的内容（尤其是从占位文字换成真实雪碧图，行更高），多出来的部分会被圆形裁切区挡住，
+  // 看起来就是"卡片显示不完整"。
+  await Promise.all([refreshPackList(), refreshPetInfo(), packRoleNames ? null : (async () => {
+    try { const meta = await fetch('/api/agents').then(r => r.json()); packRoleNames = {}; (meta.agents || []).forEach(a => packRoleNames[a.name] = a.display || a.name); } catch (_) { packRoleNames = {}; }
+  })()]);
+  renderPackGrid();
+  $('#pack-modal').hidden = false; expandCard($('#pack-modal .modal-card'));
+}
+async function runPack(assign) {
+  const btns = [$('#pack-dl-only'), $('#pack-dl-assign')]; btns.forEach(b => b.disabled = true);
+  $('#pack-msg').className = ''; $('#pack-msg').textContent = '下载中…（联网获取，可能需要 20–60 秒，请稍候）';
+  const grid = $('#pack-grid'); grid.classList.add('downloading');
+  const pending = [...grid.querySelectorAll('.pack-item:not(.done)')];
+  let liti = 0;
+  const shimmer = pending.length ? setInterval(() => { pending.forEach(x => x.classList.remove('lit')); if (pending.length) pending[liti % pending.length].classList.add('lit'); liti++; }, 260) : 0;
+  try {
+    const res = await fetch('/api/pets/pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'games', assign }) });
+    let j = null; try { j = await res.json(); } catch (_) {}
+    if (!res.ok || !j || j.error) { $('#pack-msg').className = 'err'; $('#pack-msg').textContent = (j && j.error) || `HTTP ${res.status}`; return; }
+    const okN = (j.installed || []).length, failN = (j.failed || []).length;
+    const assignedEntries = Object.entries(j.assigned || {});
+    const assignedTxt = assignedEntries.length
+      ? '已分配：' + assignedEntries.map(([role, pet]) => `${roleLabel(role)} → ${(packItems.find(g => g.slug === pet) || {}).name || pet}`).join('、')
+      : (assign ? '（没有新分配：岗位都已有自定义形象，若要强制覆盖需在命令行用 --assign-all）' : '');
+    $('#pack-msg').className = 'ok';
+    $('#pack-msg').innerHTML = `✓ 成功 <b>${okN}</b> 只` +
+      (failN ? `，失败 ${failN} 只：<span class="fail">${j.failed.map(f => esc(f.slug) + '（' + esc(f.error) + '）').join('、')}</span>` : '') +
+      (assignedTxt ? '<br>' + esc(assignedTxt) : '');
+    agentMeta = null; packRoleNames = null; tick(); if (prev) layout(prev);
+    await Promise.all([refreshPackList(), refreshPetInfo()]);
+  } catch (e) { $('#pack-msg').className = 'err'; $('#pack-msg').textContent = '请求失败：' + e; }
+  finally { btns.forEach(b => b.disabled = false); clearInterval(shimmer); grid.classList.remove('downloading'); renderPackGrid(); }
+}
+$('#pack-btn').addEventListener('click', openPackModal);
+$('#pack-close').addEventListener('click', closePackModal);
+$('#pack-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePackModal(); });
+$('#pack-dl-only').addEventListener('click', () => runPack(false));
+$('#pack-dl-assign').addEventListener('click', () => runPack(true));
+$('#dm-close').addEventListener('click', () => closeM('#dept-modal'));
+$('#dept-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeM('#dept-modal'); });
 $('#dm-list').addEventListener('change', (e) => { const r = e.target.closest('.dm-row'); if (r && !r.classList.contains('dm-head')) saveDeptRow(r); });
 $('#dm-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const r = e.target.closest('.dm-row'); if (r) { e.preventDefault(); saveDeptRow(r); } } });
 $('#dm-list').addEventListener('click', async (e) => {
@@ -1427,7 +1685,8 @@ function openDrawer(id) {
   $('#d-avatar').innerHTML = miniPet(m, 60); $('#d-name').textContent = `${m.name} · ${m.roleTitle}`;
   $('#d-sub').textContent = `${DEPT_NAME[m.dept] || ''} · ${m.agentType || 'agent'} · ${STATUS_LABEL[m.status]} · ${id === '__lead' ? (prev.session?.id || '') : 'agent-' + m.id}`;
   if (($('#d-petbox') || {}).dataset?.member !== m.id) $('#d-body').innerHTML = '';
-  renderDrawerBody(m); $('#drawer').classList.add('open'); layout(prev);
+  renderDrawerBody(m); const wasOpen = $('#drawer').classList.contains('open'); $('#drawer').classList.add('open'); layout(prev);
+  if (!wasOpen) expandDrawer($('#drawer'));
 }
 function renderDrawerBody(m) {
   const tl = m.timeline.slice().reverse().map(it => it.kind === 'tool'
@@ -1461,6 +1720,14 @@ function renderDrawerBody(m) {
 /* ---------- 成员编辑器 ---------- */
 const EFFORT_LABEL = { '': '跟随会话', low: 'low · 快', medium: 'medium', high: 'high · 深思', xhigh: 'xhigh', max: 'max' };
 let agentMeta = null;
+/* 少量枚举字段：分段按钮 UI，真值仍存在原 name= 的 select/input 里，保证 FormData 与既有回填逻辑不变 */
+function segButtons(container, options, getVal, setVal, onPick) {
+  container.innerHTML = options.map(o => `<button type="button" data-v="${esc(o.v)}">${esc(o.label)}</button>`).join('');
+  const sync = () => { const v = getVal(); container.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); };
+  container.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; setVal(b.dataset.v); sync(); if (onPick) onPick(b.dataset.v); };
+  sync(); return sync;
+}
+let effSeg = null, modelSeg = null;
 async function openAgentModal(name) {
   const r = await fetch('/api/agents' + (name ? `?name=${encodeURIComponent(name)}` : '')).then(x => x.json());
   if (!agentMeta || !name) agentMeta = name ? await fetch('/api/agents').then(x => x.json()) : r;
@@ -1468,6 +1735,10 @@ async function openAgentModal(name) {
   $('#am-dept').innerHTML = meta.departments.map(d => `<option value="${d.id}">${DEPT_ICON[d.id] || ''} ${esc(d.name)}</option>`).join('');
   $('#am-model-list').innerHTML = meta.models.map(m => `<option value="${m}">${m === 'inherit' ? '跟随主会话' : ''}</option>`).join('');
   $('#am-effort').innerHTML = meta.efforts.map(e => `<option value="${e}">${EFFORT_LABEL[e] || e}</option>`).join('');
+  effSeg = segButtons($('#am-effort-seg'), meta.efforts.map(e => ({ v: e, label: EFFORT_LABEL[e] || e || '（空）' })), () => f.effort.value, (v) => { f.effort.value = v; }, () => updatePreview());
+  const quick = ['inherit', 'sonnet', 'opus', 'haiku'].filter(m => meta.models.includes(m));
+  modelSeg = segButtons($('#am-model-quick'), quick.map(m => ({ v: m, label: m === 'inherit' ? '跟随会话' : m })), () => f.model.value, (v) => { f.model.value = v; }, () => updatePreview());
+  f.model.oninput = () => modelSeg();
   if (meta.petInfo) PET_INFO = meta.petInfo;
   fillPetSelect(meta.pets);
   $('#am-color').innerHTML = '<option value="">默认</option>' + meta.colors.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1476,7 +1747,8 @@ async function openAgentModal(name) {
   $('#am-delete').hidden = !a;
   if (a) { f.name.value = a.name; f.display.value = a.display || ''; f.role.value = a.role || ''; f.dept.value = a.dept || 'dev'; f.model.value = a.model || 'inherit'; f.effort.value = a.effort || ''; f.pet.value = a.pet || ''; f.color.value = a.color || ''; f.description.value = a.description || ''; f.skills.value = (a.skills || []).join(', '); f.body.value = a.body || ''; }
   else { f.model.value = 'sonnet'; f.effort.value = 'medium'; }
-  $('#agent-modal').hidden = false; updatePreview(); f.querySelector(a ? '[name=display]' : '[name=name]').focus();
+  effSeg(); modelSeg();
+  $('#agent-modal').hidden = false; expandCard($('#agent-modal .modal-card')); updatePreview(); f.querySelector(a ? '[name=display]' : '[name=name]').focus();
 }
 const DEPT_PET = { hq: 'huhu-plan', dev: 'dada-code', emb: 'rocky', qa: 'bubu-fix', rnd: 'dewey', docs: 'stacky', ops: 'huihui-build' };
 const COLOR_CSS = { red: '#e24b4a', blue: '#378add', green: '#639922', yellow: '#ef9f27', purple: '#7f77dd', orange: '#d85a30', pink: '#d4537e', cyan: '#1d9e75' };
@@ -1516,7 +1788,7 @@ function openPetImport(target) {
   for (const id of ['pm-file', 'pm-id', 'pm-display', 'pm-path']) $('#' + id).value = '';
   $('#pm-overwrite').checked = false; $('#pm-go').disabled = false; pmSay('');
   $('#pm-target').textContent = target ? `导入后直接换到「${target.name}」身上` : '导入后会出现在形象下拉里';
-  renderPmFiles(); $('#pet-modal').hidden = false;
+  renderPmFiles(); $('#pet-modal').hidden = false; expandCard($('#pet-modal .modal-card'));
 }
 function renderPmFiles() {
   $('#pm-files').innerHTML = pmFiles.map(f => `<span class="pm-chip">${esc(f.name)} <small>${Math.max(1, Math.round(f.size / 1024))} KB</small></span>`).join('');
@@ -1562,14 +1834,14 @@ async function runPetImport() {
     const m = $('#am-msg'); m.className = ''; m.textContent = `✓ 已导入形象 ${label}（${r.pet.width}×${r.pet.height}，${r.pet.rows} 行）。别忘了点“保存”把它记到这个成员上`;
   }
   pmSay(`✓ 已导入 ${label}${r.pet.note ? '，' + r.pet.note : ''}`);
-  setTimeout(() => { $('#pet-modal').hidden = true; }, 900);
+  setTimeout(() => closeM('#pet-modal'), 900);
 }
 $('#am-pet-import').addEventListener('click', () => openPetImport(null));
 $('#pm-pick').addEventListener('click', () => $('#pm-file').click());
 $('#pm-file').addEventListener('change', (e) => { takePmFiles(e.target.files); e.target.value = ''; });
 $('#pm-go').addEventListener('click', runPetImport);
-$('#pm-close').addEventListener('click', () => { $('#pet-modal').hidden = true; });
-$('#pet-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#pet-modal').hidden = true; });
+$('#pm-close').addEventListener('click', () => closeM('#pet-modal'));
+$('#pet-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeM('#pet-modal'); });
 $('#pm-path').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runPetImport(); } });
 {
   const dz = $('#pm-drop');
@@ -1609,8 +1881,8 @@ $('#roster').addEventListener('click', async (e) => {
   if (del) { e.stopPropagation(); const name = del.dataset.del; if (!confirm(`删除成员 ${name}？会删掉 ~/.claude/agents/${name}.md`)) return; const r = await fetch('/api/agents/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }).then(x => x.json()); if (r.error) alert(r.error); agentMeta = null; tick(); return; }
   const card = e.target.closest('.ra'); if (card?.dataset.name) openAgentModal(card.dataset.name);
 });
-$('#am-close').addEventListener('click', () => { $('#agent-modal').hidden = true; });
-$('#agent-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#agent-modal').hidden = true; });
+$('#am-close').addEventListener('click', () => closeM('#agent-modal'));
+$('#agent-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeM('#agent-modal'); });
 $('#agent-form').addEventListener('submit', async (e) => {
   e.preventDefault(); const f = e.currentTarget, msg = $('#am-msg');
   const data = Object.fromEntries(new FormData(f).entries());
@@ -1624,7 +1896,7 @@ $('#am-delete').addEventListener('click', async () => {
   const name = $('#agent-form').name.value; if (!confirm(`删除成员 ${name}？会删掉 ~/.claude/agents/${name}.md`)) return;
   const r = await fetch('/api/agents/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }).then(x => x.json());
   if (r.error) { $('#am-msg').className = 'err'; $('#am-msg').textContent = r.error; return; }
-  $('#agent-modal').hidden = true; agentMeta = null; tick();
+  closeM('#agent-modal'); agentMeta = null; tick();
 });
 async function setMemberPet(m, pet, scope) {
   const msg = $('#d-pet-msg'); if (msg) msg.textContent = '保存中…';
@@ -1835,8 +2107,8 @@ document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
     if (!$('#bdq-pop').hidden) { closeQuickOp(); e.preventDefault(); return; }
-    const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
-    if (open) { open.hidden = true; e.preventDefault(); return; }
+    const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal', '#pack-modal'].map(s => $(s)).find(m => !m.hidden);
+    if (open) { if (open.id === 'pack-modal') closePackModal(); else closeM(open); e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
     if (typing) e.target.blur();
     return;
@@ -2052,7 +2324,7 @@ function bdFallbackFromWe() {   // 默认页签是 Wallpaper Engine，没扫到�
   if ($('#lk-src [data-src="we"]')?.classList.contains('on')) lkSetSource('upload');
 }
 async function openLook() {
-  $('#look-modal').hidden = false; lkSay(''); renderLook();
+  $('#look-modal').hidden = false; expandCard($('#look-modal .modal-card')); lkSay(''); renderLook();
   if (!lkSrcInited) { lkSrcInited = true; lkSetSource('we'); }
   if (bdDesktopAvailable === null) fetch('/api/wallpapers', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { if (j) { bdDesktopAvailable = !!(j.desktop && j.desktop.available); bdApplyDesktopAvail(); } }).catch(() => {});
   if (bdApi !== false) {
@@ -2080,9 +2352,9 @@ function bdSetting(patch) {   // 尺寸/位置/透明度等：先本地立即生
   }, 300);
 }
 $('#look-btn').addEventListener('click', openLook);
-$('#lk-close').addEventListener('click', () => { $('#look-modal').hidden = true; bdSetAdjust(false); });
+$('#lk-close').addEventListener('click', () => { closeM('#look-modal'); bdSetAdjust(false); });
 $('#look-modal').addEventListener('click', async (e) => {
-  if (e.target === e.currentTarget) { $('#look-modal').hidden = true; bdSetAdjust(false); return; }
+  if (e.target === e.currentTarget) { closeM('#look-modal'); bdSetAdjust(false); return; }
   const srcBtn = e.target.closest('#lk-src button'); if (srcBtn) { lkSetSource(srcBtn.dataset.src); return; }
   const fitBtn = e.target.closest('#lk-fit button'); if (fitBtn) { bdSetting({ fit: fitBtn.dataset.fit }); return; }
   const areaBtn = e.target.closest('#lk-area button'); if (areaBtn) { bdSetting({ area: areaBtn.dataset.area }); return; }
@@ -2227,6 +2499,122 @@ if (DEMO) setInterval(() => {
   const a = ids[n % 3], b = ids[(n + 1) % 3];
   demoExtra.push({ ts: Date.now() / 1000, kind: 'bus', from: a, fromName: names[a], fromAvatar: 'server-engineer', to: b, toName: names[b], toAvatar: 'ui-designer', text: `（演示）第 ${n + 1} 条总线消息：接口字段对齐一下。`, busId: 'm-demo-x' + n });
 }, 7000);
+/* ---------- v1.5.0 交互质感：波纹 / 触碰高光 / 展开动效 ---------- */
+function reducedMotion() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function fineHover() { return matchMedia('(hover: hover) and (pointer: fine)').matches; }
+let lastPointer = { x: innerWidth / 2, y: innerHeight / 2, t: 0 };
+document.addEventListener('pointerdown', (e) => { lastPointer = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+function popOrigin() { return (Date.now() - lastPointer.t < 1500) ? lastPointer : { x: innerWidth / 2, y: innerHeight / 2 }; }
+
+const RIPPLE_SEL = 'button, .task, .ra, .person .avatar-wrap, .we-item, .comms .msg .av, .comms .msg .who';
+function semanticColor(el) {
+  const host = el.closest('.pill, .mini-btn') || el;
+  for (const [cls, v] of [['gold', '--gold'], ['ok', '--ok'], ['err', '--err'], ['danger', '--err'], ['warn', '--warn'], ['info', '--info'], ['hand', '--hand'], ['peer', '--peer'], ['bus', '--bus']]) {
+    if (host.classList.contains(cls)) return `var(${v})`;
+  }
+  return 'var(--brand)';
+}
+function spawnRipple(target, x, y) {
+  if (target.disabled) return;
+  const r = target.getBoundingClientRect();
+  const lx = x == null ? r.width / 2 : x - r.left, ly = y == null ? r.height / 2 : y - r.top;
+  if (reducedMotion()) { target.classList.add('rm-tap'); setTimeout(() => target.classList.remove('rm-tap'), 140); return; }
+  if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
+  const host = document.createElement('i'); host.className = 'rpl-host';
+  const size = Math.max(18, Math.ceil(Math.hypot(Math.max(lx, r.width - lx), Math.max(ly, r.height - ly)) * 2));
+  const c = semanticColor(target);
+  const mk = (cls, extra) => { const s = document.createElement('i'); s.className = cls; s.style.cssText = `left:${lx}px;top:${ly}px;width:${size}px;height:${size}px;${extra}`; return s; };
+  host.appendChild(mk('rpl-fill', `background:${c};`));
+  host.appendChild(mk('rpl-ring', `border-color:${c};`));
+  target.appendChild(host);
+  setTimeout(() => host.remove(), 720);
+}
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const t = e.target.closest(RIPPLE_SEL); if (!t) return;
+  spawnRipple(t, e.clientX, e.clientY);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const t = document.activeElement; if (!t || typeof t.matches !== 'function' || !t.matches(RIPPLE_SEL)) return;
+  spawnRipple(t, null, null);
+});
+
+/* 触碰闪烁 / 边角括号 / 扫光 / 跟随指针高光：仅细指针设备，悬停时懒加载 .fx 容器 */
+const FX_SEL = 'button, .pill, .task, .ra, .we-item, .person .avatar-wrap, .comms .msg .av, .pack-item';
+let fxHoverEl = null, fxRaf = 0;
+function ensureFx(el) {
+  el.classList.add('fx-host');
+  if (el.querySelector(':scope > .fx')) return;
+  if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+  const fx = document.createElement('i'); fx.className = 'fx';
+  fx.innerHTML = '<i class="fx-glow"></i><i class="fx-corner tl"></i><i class="fx-corner br"></i><i class="fx-sweep"></i>';
+  el.appendChild(fx);
+}
+document.addEventListener('pointerover', (e) => {
+  if (!fineHover() || reducedMotion()) return;
+  const t = e.target.closest(FX_SEL); if (!t || t === fxHoverEl) return;
+  fxHoverEl = t; ensureFx(t);
+  t.classList.remove('swept'); void t.offsetWidth; t.classList.add('swept');
+  setTimeout(() => t.classList.remove('swept'), 520);
+  t.classList.remove('flick'); void t.offsetWidth; t.classList.add('flick');
+});
+document.addEventListener('pointerout', (e) => {
+  const t = e.target.closest(FX_SEL); if (!t || t !== fxHoverEl) return;
+  if (t.contains(e.relatedTarget)) return;
+  fxHoverEl = null;
+});
+document.addEventListener('pointermove', (e) => {
+  if (!fxHoverEl || fxRaf) return;
+  fxRaf = requestAnimationFrame(() => {
+    fxRaf = 0; if (!fxHoverEl) return;
+    const r = fxHoverEl.getBoundingClientRect();
+    fxHoverEl.style.setProperty('--mx', ((e.clientX - r.left) / Math.max(1, r.width) * 100) + '%');
+    fxHoverEl.style.setProperty('--my', ((e.clientY - r.top) / Math.max(1, r.height) * 100) + '%');
+  });
+});
+
+/* 弹窗 / 抽屉：从触发点展开 */
+function expandCard(card, origin) {
+  if (!card) return;
+  card.classList.remove('pop-pt', 'pop-go', 'pop-close'); void card.offsetWidth;
+  if (reducedMotion()) return;
+  const o = origin || popOrigin(), r = card.getBoundingClientRect();
+  const lx = o.x - r.left, ly = o.y - r.top;
+  // 半径按"卡片或整个视口，取大的"算：很多弹窗是先展开、内容后到（外观面板的壁纸网格、角色包、成员表单预览），
+  // 只按打开瞬间的卡片尺寸算，圆会盖不住后来长高的部分，底下几行看着像被切掉
+  const er = Math.ceil(Math.hypot(Math.max(lx, r.width - lx, innerWidth - lx), Math.max(ly, r.height - ly, innerHeight - ly, card.scrollHeight - ly)));
+  card.style.setProperty('--ex', lx + 'px'); card.style.setProperty('--ey', ly + 'px'); card.style.setProperty('--er', er + 'px');
+  card.classList.add('pop-pt');
+  requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('pop-go')));
+  card.addEventListener('animationend', function done(ev) {
+    if (ev.animationName !== 'cardExpand') return;
+    card.classList.remove('pop-pt', 'pop-go'); card.removeEventListener('animationend', done);
+  });
+}
+function closeM(sel) {
+  const el = typeof sel === 'string' ? $(sel) : sel; if (!el || el.hidden) return;
+  const card = el.querySelector('.modal-card');
+  if (reducedMotion() || !card) { el.hidden = true; if (card) card.classList.remove('pop-pt', 'pop-go'); return; }
+  card.classList.remove('pop-go'); card.classList.add('pop-close');
+  setTimeout(() => { el.hidden = true; card.classList.remove('pop-pt', 'pop-close'); }, 200);
+}
+function lockThenOpen(wrap, id) {
+  if (reducedMotion()) { openDrawer(id); return; }
+  const fx = document.createElement('i'); fx.className = 'lock-fx';
+  fx.innerHTML = '<i></i><i></i><i></i><i></i><i class="scan"></i>';
+  wrap.appendChild(fx);
+  setTimeout(() => { fx.remove(); openDrawer(id); }, 180);
+}
+function expandDrawer(drawer, origin) {
+  if (!drawer) return;
+  drawer.classList.remove('expand-go');
+  if (reducedMotion()) return;
+  const o = origin || popOrigin(), r = drawer.getBoundingClientRect();
+  drawer.style.setProperty('--ex', (o.x - r.left) + 'px'); drawer.style.setProperty('--ey', (o.y - r.top) + 'px');
+  void drawer.offsetWidth; drawer.classList.add('expand-go');
+}
+
 tick(); setInterval(tick, 1500);
 /* 文档截图辅助：?shot=stats|lower|member|dept 只显示对应区域 / 打开对应弹窗（对普通使用无影响） */
 (function shotMode() {
@@ -2235,7 +2623,7 @@ tick(); setInterval(tick, 1500);
   setTimeout(async () => {
     if (shot === 'stats') { hide('header, .mission, .stage, .lower'); }
     if (shot === 'lower') { hide('header, .mission, .stage, .statsrow'); }
-    if (shot === 'member') { await openAgentModal(null); const f = $('#agent-form'); f.name.value = 'security-reviewer'; f.display.value = '小审'; f.role.value = '安全审查员'; f.dept.value = 'qa'; f.model.value = 'opus'; f.effort.value = 'high'; f.color.value = 'purple'; f.description.value = '小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露。'; f.skills.value = 'security-review'; f.body.value = '你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单；逐条给出 文件:行号 → 问题 → 后果 → 改法；完成后写交接单，汇报 ≤ 200 字。'; updatePreview(); }
+    if (shot === 'member') { await openAgentModal(null); const f = $('#agent-form'); f.name.value = 'security-reviewer'; f.display.value = '小审'; f.role.value = '安全审查员'; f.dept.value = 'qa'; f.model.value = 'opus'; f.effort.value = 'high'; f.color.value = 'purple'; f.description.value = '小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露。'; f.skills.value = 'security-review'; f.body.value = '你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单；逐条给出 文件:行号 → 问题 → 后果 → 改法；完成后写交接单，汇报 ≤ 200 字。'; effSeg(); modelSeg(); updatePreview(); }
     if (shot === 'dept') { await openDeptModal(); }
     if (shot === 'look') { openLook(); }
     if (shot === 'drawer' && prev) { const m = prev.members[0]; if (m) openDrawer(m.id); }

@@ -172,6 +172,7 @@ def main():
     ap.add_argument('--no-pets', action='store_true', help='不尝试从本机 Codex 导入宠物形象')
     ap.add_argument('--no-restart', action='store_true', help='装完不重启正在跑的看板服务')
     ap.add_argument('--petdex', action='store_true', help='再从 petdex.dev 社区画廊下载一组桌宠形象到本机（联网）')
+    ap.add_argument('--game-pets', action='store_true', help='下载 games 游戏角色包并按默认表分配岗位（联网，可选，见 SPEC §9）')
     a = ap.parse_args()
     if sys.version_info < (3, 8):
         sys.exit('需要 Python 3.8+')
@@ -235,6 +236,13 @@ def main():
         print('从 petdex.dev 下载一组桌宠形象（作者与来源会写进 sprites/<id>.json）…')
         import subprocess
         r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'fetch_petdex.py'), '--starter'], capture_output=True, text=True, encoding='utf-8', errors='replace')
+        print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[-300:])
+    if a.game_pets:
+        print()
+        print('下载 games 游戏角色包并按默认表分配岗位（联网，可能 20-60 秒）…')
+        import subprocess
+        r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'fetch_petdex.py'), '--pack', 'games', '--assign'],
+                            capture_output=True, text=True, encoding='utf-8', errors='replace')
         print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[-300:])
 
 

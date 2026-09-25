@@ -173,6 +173,7 @@ skills:
 
 - 仓库自带 13 只：4 只机器人（cc-haha，MIT）+ 9 只程序化绘制的角色（`make_pets.py`，MIT）。开箱每个岗位一只，不重复。改配色 / 形状 / 特征：编辑 `make_pets.py` 里的 `CHARS`，`python make_pets.py` 重新生成。
 - 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物，并顺带导入 `~/.codex/pets/`（Codex 里创建 / 领养的）与 `~/.petdex/pets/` 里的桌宠（`install.py` 会自动尝试）。素材归各自作者，只留本机。
+- 游戏角色包：ROSTER 面板 →「🎮 游戏角色包」，20 只热门游戏角色，网格里预览动画，「下载并分配给各岗位」一键换掉默认形象（只动你没改过的岗位）；命令行 `fetch_petdex.py --pack games --assign`。
 - 从 petdex 画廊下载：`python ~/.claude/team-board/fetch_petdex.py --starter`（16 只）；`--list --search 关键词` 搜；按 slug 点名下载。作者与来源写进 `sprites/<id>.json`。
 - 看板里导入：成员编辑框 → 形象旁「导入形象…」→ 选 zip（pet.json + spritesheet）、.webp 或 .png。格式：8 列、每帧 192:208、9 行或 11 行（1536×1872 / 1536×2288，等比缩放也行）。行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅。
 - 手动放：把雪碧图直接丢进 `team-board/sprites/`，刷新页面即可选到。

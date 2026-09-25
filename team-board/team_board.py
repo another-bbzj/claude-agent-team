@@ -216,7 +216,7 @@ def pet_info() -> dict:
             if mp.exists():
                 try:
                     meta = json.loads(mp.read_text(encoding='utf-8'))
-                    for k in ('displayName', 'description', 'source', 'credit', 'license'):
+                    for k in ('displayName', 'description', 'source', 'credit', 'license', 'franchise'):
                         if meta.get(k):
                             entry[k] = str(meta[k])[:300]
                     if isinstance(meta.get('fitRows'), list):
@@ -347,7 +347,7 @@ def parse_pet_package(data: bytes, hint: str = ''):
     return meta, ext, img
 
 
-def save_pet(meta: dict, ext: str, img: bytes, overwrite: bool = False, source: str = '', credit: str = '') -> dict:
+def save_pet(meta: dict, ext: str, img: bytes, overwrite: bool = False, source: str = '', credit: str = '', franchise: str = '') -> dict:
     pet = meta.get('id') or ''
     if not PET_ID_RE.match(pet):
         raise ValueError('形象标识只能用小写字母、数字、连字符，1-40 位，例如 my-cat')
@@ -366,6 +366,8 @@ def save_pet(meta: dict, ext: str, img: bytes, overwrite: bool = False, source: 
             'description': str(meta.get('description') or '')[:300],
             'source': source or str(meta.get('source') or ''), 'credit': credit or str(meta.get('credit') or meta.get('author') or meta.get('submittedBy') or ''),
             'license': str(meta.get('license') or ''), 'importedAt': datetime.now().isoformat(timespec='seconds')}
+    if franchise or meta.get('franchise'):
+        side['franchise'] = str(franchise or meta.get('franchise'))[:80]
     if meta.get('spriteVersionNumber'):
         side['spriteVersionNumber'] = meta['spriteVersionNumber']
     pet_meta_path(pet).write_text(json.dumps(side, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -581,6 +583,96 @@ def set_member_pet(d: dict) -> dict:
                 mp.pop(k, None)
     save_team_cfg()
     return {'id': mid, 'pet': pet, 'scope': scope}
+
+
+class PetPackError(Exception):
+    """角色包彻底联网失败（拿不到 petdex 清单）；HTTP 层映射成 502。单个 slug 下载失败不算这个，进 failed 列表。"""
+
+
+def pet_pack_list() -> list:
+    """所有角色包一览（目前只有 games，见 fetch_petdex.PACKS）：[{id,name,count,installed,roles}]。
+    roles 是包自带的默认岗位分配表（type/'lead' -> slug），不是当前实际分配。"""
+    sys.path.insert(0, str(HERE))
+    import fetch_petdex
+    have = pet_files()
+    out = []
+    for pid, items in fetch_petdex.PACKS.items():
+        installed = sum(1 for it in items if slugify_pet_id(it['slug']) in have)
+        roles = {it['role']: it['slug'] for it in items if it.get('role')}
+        remote = _petdex_sheet_urls()
+        members = []
+        for it in items:   # 每只的预览：已下载用本机雪碧图；没下载用上次缓存的 petdex 清单里的地址（不为这个联网）
+            pet = slugify_pet_id(it['slug'])
+            members.append({'slug': it['slug'], 'id': pet, 'name': it['name'], 'franchise': it.get('franchise', ''),
+                            'role': it.get('role') or '', 'installed': pet in have,
+                            'sheet': ('/sprites/' + have[pet]) if pet in have else remote.get(it['slug'], '')})
+        out.append({'id': pid, 'name': fetch_petdex.PACK_NAMES.get(pid, pid), 'count': len(items),
+                    'installed': installed, 'roles': roles, 'items': members})
+    return out
+
+
+def _petdex_sheet_urls() -> dict:
+    """slug -> petdex 雪碧图地址，只读本机缓存的清单（fetch_petdex.py 下载时写的 .petdex-manifest.json）。"""
+    try:
+        pets = json.loads((HERE / '.petdex-manifest.json').read_text(encoding='utf-8')).get('pets') or []
+        return {p['slug']: p.get('spritesheetUrl', '') for p in pets if isinstance(p, dict) and p.get('slug')}
+    except Exception:
+        return {}
+
+
+def assign_pack_roles(pack_id: str, force_all: bool = False) -> dict:
+    """按角色包的默认岗位表写 team.json（复用 lead_pet / agents[type].pet 这套已有字段，不手搓别的结构）。
+    只分配给用户没自己改过形象的岗位：pet 为空、或已经就是这个包分配的同一只（幂等重跑）；--assign-all 才强制覆盖。
+    role='lead' 是队长（TEAM_CFG['lead_pet']）；role 是 subagent_type 时若不是常驻成员就跳过（不报错）。
+    只处理已下载成功（在 pet_files() 里）的槽位。返回实际写入的 {role: pet}。"""
+    sys.path.insert(0, str(HERE))
+    import fetch_petdex
+    items = fetch_petdex.PACKS.get(pack_id) or []
+    have = pet_files()
+    assigned = {}
+    for it in items:
+        role = it.get('role')
+        if not role:
+            continue
+        pid = slugify_pet_id(it['slug'])
+        if pid not in have:
+            continue
+        if role == 'lead':
+            cur = TEAM_CFG.get('lead_pet', '')
+            if force_all or not cur or cur == pid:
+                TEAM_CFG['lead_pet'] = pid
+                assigned['lead'] = pid
+            continue
+        agents = TEAM_CFG.get('agents', {})
+        if role not in agents:
+            continue
+        cur = agents[role].get('pet', '')
+        if force_all or not cur or cur == pid:
+            agents[role]['pet'] = pid
+            assigned[role] = pid
+    if assigned:
+        save_team_cfg()
+    return assigned
+
+
+def install_pet_pack(pack_id: str, assign: bool = False, assign_all: bool = False, force: bool = False) -> dict:
+    """下载角色包（并发 ≤4，单个失败不影响其他）+ 可选分配；供 HTTP /api/pets/pack 与
+    fetch_petdex.py --pack --assign 共用。拿不到 petdex 清单这种彻底联网失败抛 PetPackError（HTTP 层转 502）；
+    单个 slug 下载失败进返回值的 failed 列表，不算异常。"""
+    sys.path.insert(0, str(HERE))
+    import fetch_petdex
+    items = fetch_petdex.PACKS.get(pack_id)
+    if not items:
+        raise ValueError('没有这个角色包：' + pack_id)
+    try:
+        pets = fetch_petdex.manifest(strict=False)
+    except Exception as e:
+        raise PetPackError(str(e)) from e
+    installed, failed = fetch_petdex.download_pack_items(pets, items, force=force)
+    assigned = {}
+    if assign or assign_all:
+        assigned = assign_pack_roles(pack_id, force_all=assign_all)
+    return {'installed': installed, 'failed': failed, 'assigned': assigned}
 
 
 def delete_pet(pet: str):
@@ -2117,6 +2209,8 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path == '/api/pets':
             auto_discover_pets()
             return self._json({'pets': pet_list(), 'petInfo': pet_info(), 'shippedPets': sorted(SHIPPED_PETS)})
+        if u.path == '/api/pets/packs':
+            return self._json({'packs': pet_pack_list()})
         if u.path == '/api/update/check':
             q = parse_qs(u.query)
             return self._json({'version': VERSION, **update_check(force='force' in q)})
@@ -2244,6 +2338,14 @@ class Handler(SimpleHTTPRequestHandler):
                 delete_pet(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'pets': pet_list(), 'petInfo': pet_info()})
+            if u.path == '/api/pets/pack':
+                try:
+                    out = install_pet_pack(str(payload.get('id', '')), assign=bool(payload.get('assign')),
+                                            assign_all=bool(payload.get('assignAll')), force=bool(payload.get('force')))
+                except PetPackError as e:
+                    return self._json({'error': str(e)}, 502)
+                Handler._cache = (0.0, None)
+                return self._json({'ok': True, **out})
             if u.path == '/api/bus/send':
                 out = bus_send(payload)
                 Handler._cache = (0.0, None)
