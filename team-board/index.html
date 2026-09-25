@@ -533,8 +533,15 @@
   .we-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .we-item .tt { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 5px; font-size: 9.5px; background: color-mix(in srgb, var(--plate) 82%, transparent); color: var(--plate-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .we-item .tk { position: absolute; right: 2px; top: 2px; font-size: 8px; font-family: var(--mono); padding: 1px 4px; background: var(--gold); color: var(--on-accent); letter-spacing: .05em; }
+  .we-item .tq { position: absolute; left: 2px; top: 2px; font-size: 8px; font-family: var(--mono); padding: 1px 4px; letter-spacing: .05em; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--text-2); }
+  .we-item .tq.warn { background: var(--err); color: #fff; }
   .we-item:hover { border-color: var(--gold); }
   .we-item.sel { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .we-item.loading { pointer-events: none; }
+  .we-item.loading::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); z-index: 1; }
+  .we-item.loading::before { content: ''; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid color-mix(in srgb, var(--gold) 55%, transparent); border-top-color: var(--gold); border-radius: 50%; animation: we-spin .7s linear infinite; z-index: 2; }
+  @keyframes we-spin { to { transform: rotate(360deg); } }
+  .we-item.failed { outline: 2px solid var(--err); outline-offset: -2px; }
   .we-empty { grid-column: 1/-1; font-size: 11.5px; color: var(--text-3); padding: 14px 4px; text-align: center; font-family: var(--mono); }
   @media (max-width: 560px) { .lk-body { grid-template-columns: 1fr; } .lk-preview { max-height: 200px; aspect-ratio: auto; height: 200px; } .seg { flex-wrap: wrap; } .seg button { padding: 3px 8px; font-size: 11px; } .lk-row { gap: 6px 10px; } }
 
@@ -815,7 +822,7 @@
           <div class="lk-note" style="border:0;padding:0">适合 WE 的 3D 场景壁纸：在 WE 里把它设为桌面后再点这里，拿到的是当前桌面的高清截图。</div>
         </div>
         <div class="lk-src-pane" id="lk-pane-upload" hidden>
-          <div class="lk-row"><span class="cn">上传</span><button type="button" class="mini-btn" id="lk-pick">选择图片…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg" hidden><small style="color:var(--text-3)">png / webp / jpg · ≤ 15 MB · 也可拖进来</small></div>
+          <div class="lk-row"><span class="cn">上传</span><button type="button" class="mini-btn" id="lk-pick">选择图片…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg,image/gif" hidden><small style="color:var(--text-3)">png / webp / jpg / gif · ≤ 15 MB · 也可拖进来</small></div>
           <div class="lk-row"><span class="cn">本机路径</span><input class="field" id="lk-path" placeholder="C:\Users\你\Pictures\bg.png"><button type="button" class="mini-btn" id="lk-path-go">导入</button></div>
         </div>
         <div class="lk-hr"></div>
@@ -1846,6 +1853,7 @@ const BD_DEFAULTS = { enabled: false, url: '', credit: '', title: '', kind: 'ima
   opacity: 0.9, blur: 0, dim: 0, saturate: 1, mask: 'fade-left', blend: 'normal', panelAlpha: 1 };
 let BD = { ...BD_DEFAULTS }, bdApi = null, bdHold = 0, bdAdjusting = false, lkSrcInited = false;
 let bdWallpapers = null, bdWpApi = null, bdDesktopAvailable = null;
+let bdVideoTimer = 0, bdVideoFallback = '', bdVideoFailed = { url: '', fallback: '' };
 const bdLocal = () => { try { return JSON.parse(localStorage.getItem('team-board-backdrop') || '{}') || {}; } catch (_) { return {}; } };
 const bdSaveLocal = (o) => { try { localStorage.setItem('team-board-backdrop', JSON.stringify({ ...bdLocal(), ...o })); } catch (_) {} };
 function bdNormalize(bd) {   // 兼容 1 版字段：side=right/left → x；旧配置缺字段一律补默认值
@@ -1857,6 +1865,8 @@ function applyBackdrop(bd, force) {
   if (!bd || (!force && Date.now() < bdHold)) return;
   const next = { ...BD, ...bdNormalize(bd) };
   if (bdApi === false) Object.assign(next, bdLocal());   // 后端没有接口：所有调整只记在本机浏览器
+  // 这个视频本页已判定放不了：之后每次轮询都直接显示它的预览图，不再反复重试（换了壁纸或刷新页面才会再试）
+  if (next.kind === 'video' && bdVideoFailed.url && next.url === bdVideoFailed.url) next.kind = 'image', next.url = bdVideoFailed.fallback;
   BD = next;
   const layer = $('#backdrop'), img = $('#bd-img'), video = $('#bd-video'), on = !!(BD.enabled && BD.url);
   layer.classList.toggle('has-img', on);
@@ -1880,10 +1890,13 @@ function applyBackdrop(bd, force) {
   if (isVideo) {
     if (video.getAttribute('src') !== BD.url) {
       video.src = BD.url; video.classList.remove('ready');
-      video.oncanplay = () => { video.classList.add('ready'); bdVideoAutoplay(); };
-      video.onerror = () => layer.classList.remove('has-img');
+      clearTimeout(bdVideoTimer);
+      video.onloadeddata = () => clearTimeout(bdVideoTimer);
+      video.oncanplay = () => { video.classList.add('ready'); bdVideoAutoplay(); clearTimeout(bdVideoTimer); };
+      video.onerror = () => bdVideoFail('浏览器无法解码');
+      bdVideoTimer = setTimeout(() => { if (!video.classList.contains('ready')) bdVideoFail('8 秒内没能加载'); }, 8000);
     }
-  } else { video.pause(); video.classList.remove('ready'); }
+  } else { video.pause(); video.classList.remove('ready'); clearTimeout(bdVideoTimer); }
   $('#lk-video-row').hidden = !isVideo;
   $('#bd-credit').textContent = on ? (BD.title || BD.credit || '') : '';
   bdSyncArea();
@@ -1906,6 +1919,24 @@ $('#bdq-btn').addEventListener('click', () => {
 document.addEventListener('click', (e) => { if (!$('#bdq-pop').hidden && !e.target.closest('#bdq')) closeQuickOp(); });
 $('#bdq-opacity').addEventListener('input', (e) => { $('#bdq-opacity-v').textContent = Math.round(e.target.value * 100) + '%'; bdSetting({ opacity: +e.target.value }); });
 $('#bdq-panel').addEventListener('input', (e) => { $('#bdq-panel-v').textContent = Math.round(e.target.value * 100) + '%'; bdSetting({ panelAlpha: +e.target.value }); });
+function bdVideoFail(reason) {   // 视频播不了：有该壁纸的预览图就自动回退成图片背景，没有就只提示
+  clearTimeout(bdVideoTimer);
+  const layer = $('#backdrop'), video = $('#bd-video'), img = $('#bd-img');
+  if (!bdVideoFallback) { const m = /^(\/api\/wallpapers\/[^/?]+)\/media/.exec(BD.url || ''); if (m) bdVideoFallback = m[1] + '/preview'; }   // 刷新页面后没点过网格：从视频地址推出同一壁纸的预览图
+  if (bdVideoFallback && BD.kind === 'video') {
+    bdVideoFailed = { url: BD.url, fallback: bdVideoFallback };
+    BD = { ...BD, kind: 'image', url: bdVideoFallback };
+    video.pause(); video.removeAttribute('src'); video.hidden = true; video.classList.remove('ready');
+    img.hidden = false; img.classList.remove('ready');
+    img.onload = () => img.classList.add('ready'); img.onerror = () => layer.classList.remove('has-img');
+    img.src = bdVideoFallback;
+    $('#lk-video-row').hidden = true;
+    toast(`这个视频浏览器放不了（${reason}），已改用预览图`, 'err', 'BACKDROP', 6500);
+  } else {
+    toast(`这个视频浏览器放不了（${reason}）`, 'err', 'BACKDROP', 6500);
+  }
+  if (!$('#look-modal').hidden) renderLook();
+}
 function bdVideoAutoplay() {
   const v = $('#bd-video'); if (v.hidden) return;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1979,11 +2010,28 @@ function bdRenderWallpapers() {
   if (!bdWallpapers) { grid.innerHTML = '<div class="we-empty">加载中…</div>'; return; }
   const items = bdWallpapers.filter(w => !q || (w.title || '').toLowerCase().includes(q));
   if (!items.length) { grid.innerHTML = `<div class="we-empty">${bdWallpapers.length ? '没有匹配的壁纸' : '本机没发现 Wallpaper Engine 创意工坊内容'}</div>`; return; }
-  grid.innerHTML = items.map(w => `<div class="we-item ${BD.source === 'wallpaper' && BD.wallpaperId === w.id ? 'sel' : ''}" data-wp="${esc(w.id)}" title="${esc(w.title || w.id)}">
+  grid.innerHTML = items.map(w => {
+    const tip = w.note && (w.mediaKind !== 'video' || wpBrowserCanPlay(w) === false) ? `${w.title || w.id} · ${w.note}` : (w.title || w.id);
+    return `<div class="we-item ${BD.source === 'wallpaper' && BD.wallpaperId === w.id ? 'sel' : ''}" data-wp="${esc(w.id)}" title="${esc(tip)}">
     <img src="${esc(w.preview)}" alt="" loading="lazy" onerror="this.style.opacity=0">
     <span class="tk">${esc(WP_KIND[w.type] || w.type || '')}</span>
+    ${wpBadge(w)}
     <span class="tt">${esc(w.title || w.id)}</span>
-  </div>`).join('');
+  </div>`;
+  }).join('');
+}
+// 视频能不能放以浏览器为准：后端按编码 / 分辨率推测的 playable 只是提示（装了 HEVC 扩展、硬件解码强的机器照样能放）。
+// 先问 canPlayType；真放不了由 bdVideoFail（error / 8 秒无画面）自动退回预览图。
+const WP_CODEC_MIME = { h264: 'video/mp4; codecs="avc1.640033"', hevc: 'video/mp4; codecs="hvc1.1.6.L153.B0"', vp9: 'video/webm; codecs="vp9"', av1: 'video/mp4; codecs="av01.0.12M.08"', webm: 'video/webm' };
+function wpBrowserCanPlay(w) {   // true / false / null（不知道）
+  const mime = WP_CODEC_MIME[w.codec]; if (!mime) return null;
+  try { return document.createElement('video').canPlayType(mime) !== ''; } catch (_) { return null; }
+}
+function wpBadge(w) {   // 字段没就绪（quality 缺失/unknown、codec 未知）时不显示角标
+  if (w.quality === 'full') return '<span class="tq">高清原图</span>';
+  if (w.quality === 'preview') return '<span class="tq">仅预览</span>';
+  if (w.mediaKind === 'video' && wpBrowserCanPlay(w) === false) return '<span class="tq warn">浏览器不支持此编码</span>';
+  return '';
 }
 function bdApplyDesktopAvail() {
   const btn = $('#lk-src [data-src="desktop"]');
@@ -2011,10 +2059,10 @@ async function openLook() {
     try { const r = await fetch('/api/backdrop', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); bdApi = true; applyBackdrop(j, true); renderLook(); } else if (r.status === 404) { bdApi = false; lkSay('提示：后端暂无背景板接口，所有调整只在本机浏览器生效；下载 / 上传需要新版 team_board.py。'); } } catch (_) {}
   }
 }
-async function bdSend(body, busy) {
+async function bdSend(body, busy, failTag) {
   lkSay(busy || '保存中…');
   const r = await postJSON('/api/backdrop', body, BD_MISSING);
-  if (r.error) { if (r.missing) bdApi = false; lkSay(r.error, 'err'); return null; }
+  if (r.error) { if (r.missing) bdApi = false; lkSay(r.error, 'err'); if (failTag) toast(r.error, 'err', failTag, 6500); return null; }
   bdApi = true; bdHold = 0; applyBackdrop(r, true); renderLook(); return r;
 }
 let bdTimer = 0;
@@ -2036,8 +2084,20 @@ $('#look-modal').addEventListener('click', async (e) => {
   const maskBtn = e.target.closest('#lk-mask button'); if (maskBtn) { bdSetting({ mask: maskBtn.dataset.mask }); return; }
   const wpItem = e.target.closest('.we-item[data-wp]');
   if (wpItem) {
-    const r = await bdSend({ wallpaper: wpItem.dataset.wp, enabled: true }, '正在应用 Wallpaper Engine 壁纸…');
-    if (r) { lkSay('✓ 壁纸已应用', 'ok'); toast('壁纸已就位', 'gold', 'BACKDROP'); }
+    wpItem.classList.remove('failed'); wpItem.classList.add('loading');
+    const wpMeta = bdWallpapers?.find(x => x.id === wpItem.dataset.wp);
+    bdVideoFallback = (wpMeta && wpMeta.preview) || '';
+    const r = await bdSend({ wallpaper: wpItem.dataset.wp, enabled: true }, '正在应用 Wallpaper Engine 壁纸…', 'BACKDROP FAILED');
+    wpItem.classList.remove('loading');
+    if (r) {
+      lkSay('✓ 壁纸已应用', 'ok');
+      const canPlay = r.kind === 'video' ? wpBrowserCanPlay(wpMeta || {}) : null;
+      if (canPlay === false) toast(`这个视频是 ${String(wpMeta.codec).toUpperCase()} 编码，当前浏览器不支持，会自动改用预览图`, 'err', 'BACKDROP', 6500);
+      else if (r.kind !== 'video' && r.note) toast(r.note, 'info', 'BACKDROP', 5500);   // 视频的分辨率推测不提示：真放不了会自动回退并说明
+      else toast(r.quality === 'full' ? '壁纸已就位 · 高清原图' : r.quality === 'preview' ? '壁纸已就位 · 这个 3D 场景只能用预览图' : '壁纸已就位', 'gold', 'BACKDROP');
+    } else {
+      wpItem.classList.add('failed'); setTimeout(() => wpItem.classList.remove('failed'), 4000);
+    }
     return;
   }
   if (e.target.closest('#lk-desktop-go')) {
@@ -2061,9 +2121,21 @@ $('#look-modal').addEventListener('click', async (e) => {
   }
 });
 $('#lk-we-q').addEventListener('input', () => bdRenderWallpapers());
+$('#lk-we-grid').addEventListener('mouseover', (e) => {   // 悬停时懒加载 scene 的高清原图探测（不一次性 probe 全部）
+  const el = e.target.closest('.we-item[data-wp]'); if (!el || el.dataset.probed) return;
+  const w = bdWallpapers?.find(x => x.id === el.dataset.wp);
+  if (!w || w.type !== 'scene' || w.quality === 'full' || w.quality === 'preview') return;
+  el.dataset.probed = '1';
+  fetch(`/api/wallpapers/${encodeURIComponent(w.id)}/probe`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.quality || j.quality === 'unknown') return;
+    w.quality = j.quality; if (j.width) w.width = j.width; if (j.height) w.height = j.height;
+    const badge = wpBadge(w), old = el.querySelector('.tq');
+    if (badge) { if (old) old.outerHTML = badge; else el.querySelector('.tk')?.insertAdjacentHTML('afterend', badge); }
+  }).catch(() => {});
+});
 async function bdUpload(file) {
   if (!file) return;
-  if (!/^image\/(png|webp|jpeg)$/.test(file.type) && !/\.(png|webp|jpe?g)$/i.test(file.name)) { lkSay('只支持 png / webp / jpg', 'err'); return; }
+  if (!/^image\/(png|webp|jpeg|gif)$/.test(file.type) && !/\.(png|webp|jpe?g|gif)$/i.test(file.name)) { lkSay('只支持 png / webp / jpg / gif', 'err'); return; }
   if (file.size > 15 * 1024 * 1024) { lkSay('图片超过 15 MB', 'err'); return; }
   let data; try { data = await readB64(file); } catch (err) { lkSay('读不了文件：' + err, 'err'); return; }
   const r = await bdSend({ data, name: file.name, enabled: true }, `上传 ${file.name}…`); if (r) lkSay('✓ 已上传并启用', 'ok');

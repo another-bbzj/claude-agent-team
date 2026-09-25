@@ -14,18 +14,20 @@ HERE = Path(__file__).resolve().parent
 BACKDROPS = HERE / 'backdrops'
 MAX_BYTES = 15 * 1024 * 1024
 MAX_SIDE = 1600
-FILE_RE = re.compile(r'^[a-z0-9][a-z0-9_-]{0,40}\.(png|webp|jpg)$')   # backdrops/ 里只认自己生成的文件名
+FILE_RE = re.compile(r'^[a-z0-9][a-z0-9_-]{0,40}\.(png|webp|jpg|gif)$')   # backdrops/ 里只认自己生成的文件名
 DEFAULTS = {'file': '', 'credit': '', 'opacity': 0.9, 'side': 'right', 'enabled': False}
 
 
 def sniff(data: bytes):
-    """按文件头认图片类型：png / webp / jpg，认不出返回 None。"""
+    """按文件头认图片类型：png / webp / jpg / gif，认不出返回 None。"""
     if data[:8] == b'\x89PNG\r\n\x1a\n':
         return 'png'
     if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
         return 'webp'
     if data[:3] == b'\xff\xd8\xff':
         return 'jpg'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'gif'   # WE 不少 scene 壁纸的 preview 是 GIF；存原样，kind=image 会照常当动图播放
     return None
 
 
@@ -67,8 +69,11 @@ def write_config(cfg: dict, root: Path = None) -> dict:
 
 
 def shrink(data: bytes):
-    """有 Pillow：长边缩到 ≤ MAX_SIDE 并转 webp（保留透明）；没有 Pillow 或失败就原样返回。返回 (bytes, ext)。"""
+    """有 Pillow：长边缩到 ≤ MAX_SIDE 并转 webp（保留透明）；没有 Pillow 或失败就原样返回。返回 (bytes, ext)。
+    GIF 不处理（会丢动画/被转成静态 webp），原样返回。"""
     ext = sniff(data)
+    if ext == 'gif':
+        return data, ext
     try:
         from PIL import Image
         import io
@@ -95,7 +100,7 @@ def save_image(data: bytes, stem: str, root: Path = None, credit: str = '', opti
     if not data or len(data) > MAX_BYTES:
         raise ValueError(f'图片为空或超过 {MAX_BYTES // 1024 // 1024} MB')
     if not sniff(data):
-        raise ValueError('只支持 png / webp / jpg 图片')
+        raise ValueError('只支持 png / webp / jpg / gif 图片')
     stem = re.sub(r'[^a-z0-9_-]+', '-', str(stem or 'custom').lower()).strip('-')[:36] or 'custom'
     if optimize:
         data, ext = shrink(data)

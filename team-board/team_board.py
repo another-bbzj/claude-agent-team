@@ -1590,6 +1590,7 @@ def write_backdrop(d: dict) -> dict:
     v1.4.1：{preset} 已移除（不再内置任何立绘预设），一律 400；旧配置里 source:'preset' 的图片本身不受影响，仍会正常显示。"""
     bs = _bs()
     raw = _read_backdrop_raw(BACKDROPS)
+    extra = {}   # 本次响应里附带的临时信息（quality/note/warning），不落盘
 
     if d.get('clear'):
         f = str(raw.get('file') or '')
@@ -1633,12 +1634,29 @@ def write_backdrop(d: dict) -> dict:
         if item['_mediaKind'] == 'video':
             raw.update({'file': '', 'enabled': True, 'credit': item['title'],
                         'kind': 'video', 'source': 'wallpaper', 'wallpaperId': wid, 'title': item['title']})
+            info = _wp().probe_video(item['_media'])
+            extra['quality'] = 'full'
+            extra['note'] = info.get('note') or ''
+            if info.get('playable') is False:
+                # 仍然允许应用（用户可能装了对应解码扩展），只是提示可能放不了
+                extra['warning'] = info.get('note') or '该视频可能无法在浏览器中播放'
         else:
-            src = item.get('_preview')
-            if not src or not src.is_file():
-                raise ValueError('该壁纸没有可用的预览图（3D 场景 / web 壁纸只能用预览，可先设为桌面壁纸再用「当前桌面」拿高清图）')
             stem = 'we-' + (re.sub(r'[^a-z0-9]+', '', wid.lower())[:24] or 'wp')
-            cfg = bs.save_image(src.read_bytes(), stem, BACKDROPS, credit=item['title'])
+            full = _wp().get_scene_full_image(wid) if item['type'] == 'scene' else None
+            cfg = None
+            if full:
+                img_path, _w, _h = full
+                try:
+                    cfg = bs.save_image(img_path.read_bytes(), stem, BACKDROPS, credit=item['title'])
+                    extra['quality'] = 'full'
+                except ValueError:
+                    cfg = None   # 原图太大等失败（如 > 15MB）：退回 preview，不整体报错
+            if cfg is None:
+                src = item.get('_preview')
+                if not src or not src.is_file():
+                    raise ValueError('该壁纸没有可用的预览图（3D 场景 / web 壁纸只能用预览，可先设为桌面壁纸再用「当前桌面」拿高清图）')
+                cfg = bs.save_image(src.read_bytes(), stem, BACKDROPS, credit=item['title'])
+                extra['quality'] = 'preview'
             raw.update(cfg)
             raw.update({'kind': 'image', 'source': 'wallpaper', 'wallpaperId': '', 'title': item['title']})
     elif d.get('desktop'):
@@ -1680,7 +1698,7 @@ def write_backdrop(d: dict) -> dict:
     # 这里用真正的意图值覆盖回去，backdrop_state 读的也是这个 raw 值而不是 base['enabled']。
     final = {**base, **v2, 'enabled': bool(raw.get('enabled')) and has_source}
     _write_backdrop_raw(final, BACKDROPS)
-    return backdrop_state()
+    return {**backdrop_state(), **extra}
 
 
 def build_snapshot(args):
@@ -2089,7 +2107,12 @@ class Handler(SimpleHTTPRequestHandler):
             if not p:
                 return self._json({'error': '没有可用的桌面壁纸快照'}, 404)
             return wp.serve_file(self, p)
-        parts = path.split('/')   # ['', 'api', 'wallpapers', '<id>', 'preview'|'media']
+        parts = path.split('/')   # ['', 'api', 'wallpapers', '<id>', 'preview'|'media'|'probe']
+        if len(parts) == 5 and parts[4] == 'probe':
+            info = wp.probe_item(parts[3])
+            if info is None:
+                return self._json({'error': 'not found'}, 404)
+            return self._json(info)
         if len(parts) == 5 and parts[4] in ('preview', 'media'):
             p = wp.resolve_media(parts[3], parts[4])
             if not p:

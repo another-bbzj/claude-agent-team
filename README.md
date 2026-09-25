@@ -7,7 +7,7 @@
 一支常驻的、分部门的 Agent 团队 · 一套成员之间的办公协议 · 一块浏览器里的实时指挥室看板
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.4.1-8A2BE2)
+![version](https://img.shields.io/badge/version-1.4.2-8A2BE2)
 ![python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -225,7 +225,7 @@ python $MSG log [-n 20]                                       # 本项目最近�
 
 | 来源 | 说明 | 能做什么 |
 |---|---|---|
-| **Wallpaper Engine** | 自动找到本机所有 Steam 库里的创意工坊订阅与自建工程（找不到可设环境变量 `WALLPAPER_ENGINE_DIRS`）。**视频**壁纸直接播放原文件（不复制，可拖动进度）；**3D 场景**网页无法渲染，只能用预览图；**网页**壁纸带视频的按视频处理 | 带缩略图的网格 + 搜索，点一下即应用；标签页隐藏时视频自动暂停，系统开了「减少动态效果」也会暂停 |
+| **Wallpaper Engine** | 自动找到本机所有 Steam 库里的创意工坊订阅与自建工程（找不到可设环境变量 `WALLPAPER_ENGINE_DIRS`）。**视频**壁纸直接播放原文件（不复制，可拖动进度）；**3D 场景**网页无法实时渲染，看板会从场景包里提取嵌着的**高清原图**当静态背景（大多数场景都有，本机实测 39 个里 31 个拿到 4K 级原图），没有原图的退回预览图（GIF 预览会动）；**网页**壁纸带视频的按视频处理 | 带缩略图的网格 + 搜索，点一下即应用，角标标出「高清原图 / 仅预览 / 浏览器不支持此编码」；视频放不了（编码不支持、分辨率超出解码能力）会自动改用预览图并提示；标签页隐藏时视频自动暂停 |
 | **当前桌面** | 读 Windows 当前桌面壁纸。Wallpaper Engine 会把正在用的壁纸（包括 3D 场景）存成一张全分辨率快照——想用某个 3D 场景的高清图，先在 WE 里设为桌面，再点这里 | 一键复制为背景（仅 Windows） |
 | **上传 / 本机路径** | 任意 PNG / WebP / JPG（≤ 15 MB） | 拖入或浏览 |
 
@@ -367,7 +367,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-76 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
+86 个测试，只用标准库，几秒跑完：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑。
 
 ---
 
@@ -426,10 +426,11 @@ python -m unittest discover -s tests -v
 3. 看板上的「通讯频道」汇聚这些消息，你也能在那里直接回复。详见 [💬 成员之间通信](#-成员之间通信)。
 </details>
 
-<details><summary><b>Wallpaper Engine 页签是空的 / 3D 场景壁纸很糊</b></summary>
+<details><summary><b>Wallpaper Engine 页签是空的 / 3D 场景壁纸很糊 / 视频没动起来</b></summary>
 
 - 空的：看板没找到 Steam 库。把壁纸目录（`…/steamapps/workshop/content/431960` 或其所在的 Steam 库）写进环境变量 `WALLPAPER_ENGINE_DIRS`（多个用 `;` 分隔），重启看板。
-- 糊：3D 场景（scene）是 WE 的私有格式，网页只能拿到预览图。先在 Wallpaper Engine 里把它设为桌面，再在外观面板用「当前桌面」拿全分辨率快照。视频壁纸不受影响。
+- 糊：3D 场景（scene）是 WE 的私有格式，看板会先从场景包里找嵌着的原图；角标是「仅预览」说明这个场景只有 GPU 纹理、没有可提取的原图——先在 Wallpaper Engine 里把它设为桌面，再在外观面板用「当前桌面」拿全分辨率快照。
+- 视频黑屏 / 自动变成了静态图：浏览器解不了这个视频（常见于 HEVC / H.265 编码没装扩展、或 8K 等超大分辨率），看板已自动改用预览图。能不能放以浏览器实际结果为准。
 </details>
 
 <details><summary><b>卸载会删掉什么</b></summary>
