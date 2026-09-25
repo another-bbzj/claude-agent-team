@@ -1287,7 +1287,51 @@ def resolve_project(cwd: str) -> str:
         mt = max((f.stat().st_mtime for f in pd.glob('*.jsonl')), default=0.0)
         if mt > best_mt:
             best, best_mt = k, mt
-    return best or project_key(cwd)
+    return best or _project_by_real_cwd(cwd) or project_key(cwd)
+
+
+_proj_cwd_cache = {}   # 项目目录 → ((最新转录 mtime, 路径), 真实 cwd)
+
+
+def _real(p: str) -> str:
+    try:
+        return os.path.normcase(os.path.realpath(p))
+    except (OSError, ValueError):
+        return ''
+
+
+def _project_by_real_cwd(cwd: str) -> str:
+    """按真实路径匹配：项目在符号链接目录下时（macOS 的 /var → /private/var、自己建的软链），
+    转录里记的 cwd 和成员 os.getcwd() 拿到的路径字面不同，key 对不上。读每个项目最新转录里的 cwd，
+    realpath 后看它是不是请求 cwd 的祖先（或相同），取最近有活动的那个。"""
+    rc = _real(cwd)
+    if not rc or not PROJECTS.is_dir():
+        return ''
+    best, best_mt = '', -1.0
+    for pd in PROJECTS.iterdir():
+        if not pd.is_dir():
+            continue
+        try:
+            latest = max(pd.glob('*.jsonl'), key=lambda f: f.stat().st_mtime, default=None)
+        except OSError:
+            continue
+        if latest is None:
+            continue
+        mt = latest.stat().st_mtime
+        key = (mt, str(latest))
+        cached = _proj_cwd_cache.get(pd)
+        if cached and cached[0] == key:
+            pcwd = cached[1]
+        else:
+            pcwd = ''
+            for e in read_jsonl(latest):
+                if isinstance(e.get('cwd'), str) and e['cwd']:
+                    pcwd = _real(e['cwd'])
+                    break
+            _proj_cwd_cache[pd] = (key, pcwd)
+        if pcwd and (rc == pcwd or rc.startswith(pcwd.rstrip(os.sep) + os.sep)) and mt > best_mt:
+            best, best_mt = pd.name, mt
+    return best
 
 
 def find_inbox_dir(cwds) -> 'Path | None':
