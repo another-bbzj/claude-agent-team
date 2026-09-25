@@ -48,7 +48,7 @@ class EnsureTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix='teamensure-'))
         self.board = self.tmp / 'team-board'
-        shutil.copytree(ROOT / 'team-board', self.board)
+        shutil.copytree(ROOT / 'team-board', self.board, ignore=shutil.ignore_patterns('bus', 'backdrops'))   # 本机消息 / 立绘不带进测试
         (self.board / 'VERSION').write_text('9.9.9', encoding='utf-8')   # install.py 会把 VERSION 放进 team-board/
         self.port = free_port()
         # 故意用 cp1252 控制台编码：SessionStart 钩子在 Windows 上就是这种环境，打印中文不能把 ensure.py 弄崩（否则旧服务永远换不掉）

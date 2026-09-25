@@ -892,13 +892,27 @@ def parse_agent(jsonl: Path, meta: dict, now: float, stale: float, group):
     return _finish_agent(parsed, jsonl, meta, now, stale, group, mtime)
 
 
+def error_reason(summary: str, status: str) -> str:
+    """任务通知里的失败原因 → 看板上的一句话（以前一律写成「token 上限」，用量上限 / 断网也被误报）。"""
+    t = (summary or '').lower()
+    if 'rate_limit' in t or '429' in t or 'usage limit' in t or 'session limit' in t:
+        return '用量上限'
+    if 'econnreset' in t or 'connection' in t or 'timeout' in t or 'network' in t:
+        return '网络断开'
+    if 'max_tokens' in t or 'token' in t and 'limit' in t:
+        return '输出达到 token 上限'
+    if status in ('killed', 'cancelled'):
+        return '被手动停止'
+    return 'API 错误'
+
+
 def real_model(model) -> bool:
     """Claude Code 本地合成的消息（中断、错误回执等）model 写成 <synthetic>，不是真的模型调用，
     不能拿来覆盖成员的模型归属，否则会显示成“未定价”。"""
     return bool(model) and not str(model).startswith('<')
 
 
-VERSION = (HERE / 'VERSION').read_text(encoding='utf-8').strip() if (HERE / 'VERSION').exists() else '0.0.0'
+VERSION = next((f.read_text(encoding='utf-8').strip() for f in (HERE / 'VERSION', HERE.parent / 'VERSION') if f.exists()), '0.0.0')   # 装好后在 team-board/ 旁；仓库里直接跑时在上一级
 _update_state = {'checkedAt': 0.0, 'result': None, 'busy': False, 'applying': False}
 
 
@@ -1064,7 +1078,7 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
     if last_kind == 'assistant_text' and last_stop in ('end_turn', 'stop_sequence'):
         status = 'completed'
     elif last_stop == 'max_tokens':
-        status = 'error'
+        status = 'error'   # errorReason 缺省即「token 上限」
     elif now - mtime > stale:
         status = 'stalled'
     else:
@@ -1114,6 +1128,11 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
 _lead_cache = {}
 
 
+def _launch_cwd(cwds: list, project: str) -> str:
+    """会话的启动目录：项目 key 与 transcript 所在目录名相同的那个 cwd（队长后来 cd 到别处——甚至别的会话目录——不算）。"""
+    return next((c for c in cwds if project_key(c) == project), cwds[0] if cwds else '')
+
+
 def parse_lead(path: Path, now: float):
     """解析队长（主会话）transcript：自己的工具调用、派工记录、SendMessage。按 (size, mtime) 缓存。"""
     try:
@@ -1127,15 +1146,18 @@ def parse_lead(path: Path, now: float):
     else:
         timeline, pending, dispatches, messages, tool_count, out_tokens = [], {}, {}, [], 0, 0
         last_user_prompt, last_ts, first_ts = '', None, None
+        cwds = {}   # 队长转录里出现过的 cwd → 最后出现的序号（队长会 cd 走；键顺序 = 首次出现顺序）
         notifications = {}
         lead_model, lead_ledger = '', UsageLedger()
-        for e in read_jsonl(path):
+        for i, e in enumerate(read_jsonl(path)):
             if e.get('isSidechain'):
                 continue
             ts = parse_iso(e.get('timestamp'))
             if ts:
                 last_ts = ts
                 first_ts = first_ts or ts
+            if isinstance(e.get('cwd'), str) and e['cwd']:
+                cwds[e['cwd']] = i
             et = e.get('type')
             if et in ('queue-operation', 'attachment'):
                 raw = json.dumps(e, ensure_ascii=False)
@@ -1143,7 +1165,8 @@ def parse_lead(path: Path, now: float):
                     tid = re.search(r'<task-id>(\w+)</task-id>', raw)
                     nst = re.search(r'<status>(\w+)</status>', raw)
                     if tid and nst:
-                        notifications[tid.group(1)] = {'status': nst.group(1), 'ts': ts}
+                        nsum = re.search(r'<summary>(.*?)</summary>', raw)
+                        notifications[tid.group(1)] = {'status': nst.group(1), 'ts': ts, 'summary': nsum.group(1) if nsum else ''}
                 continue
             msg = e.get('message') or {}
             content = msg.get('content')
@@ -1197,7 +1220,8 @@ def parse_lead(path: Path, now: float):
                 'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
-                'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime}
+                'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime,
+                'cwd': _launch_cwd(list(cwds), path.parent.name), 'cwds': sorted(cwds, key=lambda c: -cwds[c])}
         _lead_cache[path] = (key, data)
     current = next((it for it in reversed(data['timeline']) if it['kind'] == 'tool'), None)
     active = now - data['mtime'] < 20
@@ -1224,14 +1248,511 @@ def discover_sessions():
     return found
 
 
+# ---- 消息总线（bus）：成员之间 / 看板与成员之间的消息。bus/messages.jsonl 追加写 + bus/cursors.json 已读游标 ----
+BUS = HERE / 'bus'   # 测试可改
+BUS_MAX_TEXT = 4000
+BUS_ALIASES = {'lead': 'lead', '__lead': 'lead', '队长': 'lead', 'main': 'lead',
+               'user': 'user', '__user': 'user', '你': 'user', 'all': 'all', '*': 'all', '__all': 'all', '全员': 'all'}
+BUS_VIA = ('cli', 'board', 'api')
+SAFE_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$')   # 收件箱文件名 / 成员 id：不许 / \ ..
+_bus_lock = threading.RLock()
+_bus_cache = {'key': None, 'msgs': []}
+
+
+PROJECT_RE = re.compile(r'^[A-Za-z0-9_.-]{1,200}$')
+
+
+def project_key(cwd: str) -> str:
+    """Claude Code 的项目 key：~/.claude/projects/<key> 的目录名。"""
+    return re.sub(r'[^A-Za-z0-9]', '-', str(cwd or '')) if cwd else ''
+
+
+def _ancestors(cwd: str) -> list:
+    try:
+        p = Path(cwd)
+        return [p, *p.parents] if p.is_absolute() else []
+    except (TypeError, ValueError):
+        return []
+
+
+def resolve_project(cwd: str) -> str:
+    """cwd → 会话的项目 key。子代理的 cwd 常是队长启动目录的子目录（队长 cd 过去、或在 .team/ 里干活），
+    所以沿 cwd 往上找 ~/.claude/projects 里存在的 key，取最近有活动的那个；都没有就退回 project_key(cwd)。"""
+    best, best_mt = '', -1.0
+    for d in _ancestors(cwd):
+        k = project_key(str(d))
+        pd = PROJECTS / k
+        if not PROJECT_RE.match(k) or not pd.is_dir():
+            continue
+        mt = max((f.stat().st_mtime for f in pd.glob('*.jsonl')), default=0.0)
+        if mt > best_mt:
+            best, best_mt = k, mt
+    return best or _project_by_real_cwd(cwd) or project_key(cwd)
+
+
+_proj_cwd_cache = {}   # 项目目录 → ((最新转录 mtime, 路径), 真实 cwd)
+
+
+def _real(p: str) -> str:
+    try:
+        return os.path.normcase(os.path.realpath(p))
+    except (OSError, ValueError):
+        return ''
+
+
+def _project_by_real_cwd(cwd: str) -> str:
+    """按真实路径匹配：项目在符号链接目录下时（macOS 的 /var → /private/var、自己建的软链），
+    转录里记的 cwd 和成员 os.getcwd() 拿到的路径字面不同，key 对不上。读每个项目最新转录里的 cwd，
+    realpath 后看它是不是请求 cwd 的祖先（或相同），取最近有活动的那个。"""
+    rc = _real(cwd)
+    if not rc or not PROJECTS.is_dir():
+        return ''
+    best, best_mt = '', -1.0
+    for pd in PROJECTS.iterdir():
+        if not pd.is_dir():
+            continue
+        try:
+            latest = max(pd.glob('*.jsonl'), key=lambda f: f.stat().st_mtime, default=None)
+        except OSError:
+            continue
+        if latest is None:
+            continue
+        mt = latest.stat().st_mtime
+        key = (mt, str(latest))
+        cached = _proj_cwd_cache.get(pd)
+        if cached and cached[0] == key:
+            pcwd = cached[1]
+        else:
+            pcwd = ''
+            for e in read_jsonl(latest):
+                if isinstance(e.get('cwd'), str) and e['cwd']:
+                    pcwd = _real(e['cwd'])
+                    break
+            _proj_cwd_cache[pd] = (key, pcwd)
+        if pcwd and (rc == pcwd or rc.startswith(pcwd.rstrip(os.sep) + os.sep)) and mt > best_mt:
+            best, best_mt = pd.name, mt
+    return best
+
+
+def find_inbox_dir(cwds) -> 'Path | None':
+    """按优先顺序对每个 cwd 往上找 .team/inbox/，第一个存在的就是收件箱目录。"""
+    for c in cwds:
+        for d in _ancestors(c):
+            if (d / '.team' / 'inbox').is_dir():
+                return d / '.team' / 'inbox'
+    return None
+
+
+def bus_party(s) -> str:
+    """规范化收发人：队长 / 用户 / 全员的同义词 → lead / user / all；其余原样（去空白，≤80 字）。"""
+    s = ' '.join(str(s or '').split())[:80]
+    return BUS_ALIASES.get(s.lower(), BUS_ALIASES.get(s, s))
+
+
+def bus_messages() -> list:
+    """读全部消息（按 (size, mtime) 缓存）。"""
+    f = BUS / 'messages.jsonl'
+    try:
+        st = f.stat()
+    except FileNotFoundError:
+        return []
+    key = (str(f), st.st_size, st.st_mtime)
+    with _bus_lock:
+        if _bus_cache['key'] != key:
+            _bus_cache['msgs'] = [m for m in read_jsonl(f) if isinstance(m, dict) and m.get('id')]
+            _bus_cache['key'] = key
+        return _bus_cache['msgs']
+
+
+def _bus_cursors() -> dict:
+    try:
+        j = json.loads((BUS / 'cursors.json').read_text(encoding='utf-8'))
+        return j if isinstance(j, dict) else {}
+    except Exception:
+        return {}
+
+
+def find_session(prefix: str):
+    """会话 id 前缀 → (project key, 队长 transcript 路径)；找不到返回 (None, None)。"""
+    prefix = str(prefix or '').strip()
+    if not re.match(r'^[A-Za-z0-9_-]{1,80}$', prefix) or not PROJECTS.is_dir():
+        return None, None
+    best = None
+    for proj in PROJECTS.iterdir():
+        if not proj.is_dir():
+            continue
+        for f in proj.glob(prefix + '*.jsonl'):
+            if best is None or f.stat().st_mtime > best.stat().st_mtime:
+                best = f
+        for d in proj.glob(prefix + '*'):   # 只有 subagents 目录、队长 transcript 还没写出的情况
+            if best is None and d.is_dir():
+                best = d.with_suffix('.jsonl')
+    return (best.parent.name, best) if best else (None, None)
+
+
+def _resolve_agent_type(to: str, project: str = '') -> str:
+    """收件人 → subagent_type（收件箱文件名）：常驻成员标识 / 显示名（可带 ·2）/ 会话里的成员 id。认不出且本身是安全文件名就原样用。"""
+    agents = TEAM_CFG.get('agents') or {}
+    if to in agents:
+        return to
+    base = re.sub(r'·\d+$', '', to)
+    for k, v in agents.items():
+        if base and base in (v.get('name'), k):
+            return k
+    if re.match(r'^[A-Za-z0-9_-]{1,80}$', to) and project and PROJECT_RE.match(project) and (PROJECTS / project).is_dir():
+        for meta in (PROJECTS / project).glob(f'*/subagents/agent-{to}.meta.json'):
+            try:
+                at = json.loads(meta.read_text(encoding='utf-8')).get('agentType') or ''
+                if at:
+                    return at
+            except Exception:
+                pass
+    return to if SAFE_NAME_RE.match(to) and '..' not in to else ''
+
+
+def _append_inbox(cwds: list, to_type: str, msg: dict):
+    """cwd（或其上级）有 .team/inbox/ 时按 office.md 格式追加一段；返回文件路径或 None。"""
+    if not to_type or not SAFE_NAME_RE.match(to_type) or '..' in to_type:
+        return None
+    inbox = find_inbox_dir(cwds)
+    if inbox is None:
+        return None
+    f = inbox / f'{to_type}.md'
+    stamp = datetime.fromtimestamp(msg['ts']).strftime('%Y-%m-%d %H:%M')
+    extra = f"（回复 {msg['reply_to']}）" if msg.get('reply_to') else ''
+    block = f"\n## {stamp} 来自 {msg['from']}\n{msg['text'].strip()}{extra}\n<!-- bus:{msg['id']} -->\n"
+    with open(f, 'a', encoding='utf-8', newline='\n') as fh:
+        fh.write(block)
+    return str(f)
+
+
+def bus_send(d: dict) -> dict:
+    """POST /api/bus/send。返回 {ok, message, inbox_file?}；参数不对抛 ValueError（400）。"""
+    text = str(d.get('text') or '').replace('\r\n', '\n').strip()
+    to = bus_party(d.get('to'))
+    frm = bus_party(d.get('from')) or 'unknown'
+    if not to:
+        raise ValueError('to（收件人）不能为空')
+    if not text:
+        raise ValueError('text（消息内容）不能为空')
+    if len(text) > BUS_MAX_TEXT:
+        raise ValueError(f'消息太长：{len(text)} 字，上限 {BUS_MAX_TEXT}')
+    project, cwd = str(d.get('project') or '').strip(), str(d.get('cwd') or '').strip()
+    cwds = [cwd] if cwd else []
+    if d.get('session'):
+        sp, lead_path = find_session(d['session'])
+        if sp:
+            project = sp
+            if not cwd and lead_path and lead_path.exists():   # 看板发的：队长最近待过的目录优先找 .team/inbox/
+                cwds = (parse_lead(lead_path, time.time()) or {}).get('cwds') or []
+    if cwd and not project:
+        project = resolve_project(cwd)
+    if project and not PROJECT_RE.match(project):
+        raise ValueError('project 不合法')
+    via = str(d.get('via') or '')
+    via = via if via in BUS_VIA else ('board' if frm == 'user' else 'api')
+    to_type = '' if to in ('user', 'all') else ('lead' if to == 'lead' else _resolve_agent_type(to, project))
+    with _bus_lock:
+        BUS.mkdir(parents=True, exist_ok=True)
+        prev = bus_messages()
+        ts = round(max(time.time(), (prev[-1].get('ts') or 0) + 0.001 if prev else 0), 3)   # 单调递增，游标按 ts 比较
+        msg = {'id': f"m-{int(ts * 1000)}-{os.urandom(2).hex()}", 'ts': ts, 'from': frm, 'to': to, 'text': text,
+               'project': project, 'via': via}
+        if to_type and to_type != to:
+            msg['toType'] = to_type   # to 是成员 id / 显示名时，记下解析出的 subagent_type，收件箱按它也能收到
+        if d.get('reply_to'):
+            msg['reply_to'] = str(d['reply_to'])[:40]
+        with open(BUS / 'messages.jsonl', 'a', encoding='utf-8', newline='\n') as fh:
+            fh.write(json.dumps(msg, ensure_ascii=False) + '\n')
+    out = {'ok': True, 'message': msg}
+    if to_type:
+        try:
+            f = _append_inbox(cwds, to_type, msg)
+            if f:
+                out['inbox_file'] = f
+        except OSError as e:
+            out['inbox_error'] = str(e)
+    return out
+
+
+def _bus_scope(msgs, project: str):
+    return [m for m in msgs if not project or not m.get('project') or m.get('project') == project]
+
+
+def _bus_for(msgs, me: str, aliases=()):
+    """发给 me（或其别名）或全员、且不是 me 自己发的消息。"""
+    names = {me, *aliases} - {''}
+    return [m for m in msgs if (m.get('to') in names or m.get('toType') in names or m.get('to') == 'all')
+            and m.get('from') not in names]
+
+
+def _cursor_of(cur: dict, me: str, project: str) -> float:
+    return max(float(cur.get(f'{me}|{project}') or 0), float(cur.get(f'{me}|') or 0))
+
+
+def bus_inbox(to: str, project: str = '', peek: bool = False, everything: bool = False) -> dict:
+    """GET /api/bus/inbox。默认只返回未读并推进游标。"""
+    me = bus_party(to)
+    if not me:
+        raise ValueError('to 不能为空')
+    with _bus_lock:
+        mine = _bus_for(_bus_scope(bus_messages(), project), me, [_resolve_agent_type(me, project)] if me not in ('lead', 'user', 'all') else [])
+        cur = _bus_cursors()
+        seen = _cursor_of(cur, me, project)
+        unread = [m for m in mine if (m.get('ts') or 0) > seen]
+        if not peek and unread:
+            cur[f'{me}|{project}'] = max(m.get('ts') or 0 for m in unread)
+            BUS.mkdir(parents=True, exist_ok=True)
+            tmp = BUS / 'cursors.json.tmp'
+            tmp.write_text(json.dumps(cur, ensure_ascii=False, indent=1), encoding='utf-8')
+            os.replace(tmp, BUS / 'cursors.json')
+    return {'messages': mine if everything else unread, 'unread': len(unread)}
+
+
+def bus_unread(me: str, project: str, aliases=(), msgs=None, cur=None) -> int:
+    msgs = _bus_scope(bus_messages() if msgs is None else msgs, project)
+    seen = _cursor_of(_bus_cursors() if cur is None else cur, me, project)
+    return sum(1 for m in _bus_for(msgs, me, aliases) if (m.get('ts') or 0) > seen)
+
+
+def bus_log(project: str = '', limit: int = 200, session: str = '') -> dict:
+    if session and not project:
+        project = find_session(session)[0] or ''
+    msgs = _bus_scope(bus_messages(), project)
+    return {'messages': list(reversed(msgs[-max(1, min(int(limit or 200), 2000)):]))}
+
+
+# ---- 背景板（Wallpaper Engine 壁纸 / 当前桌面 / 上传图）：backdrops/backdrop.json + 本机图片；
+# 内置立绘预设已移除（v1.4.1），不再联网下载任何图片。
+# v1 字段（file/credit/opacity/side/enabled）逻辑在 backdrop_store.py；v2 尺寸/透明化/壁纸字段在这里管理
+# （backdrop_store.clean_config 只认 v1 字段，写回会把 v2 字段丢掉，所以这里绕开它直接读写 backdrop.json）。
+BACKDROPS = HERE / 'backdrops'   # 测试可改
+_bs_mod = None
+_wp_mod = None
+
+BACKDROP_DEFAULTS_V2 = {
+    'kind': 'image', 'source': '', 'title': '', 'wallpaperId': '',
+    'fit': 'contain', 'scale': 100, 'x': 50, 'y': 50, 'area': 'page',
+    'blur': 0, 'dim': 0, 'saturate': 1, 'mask': 'none', 'blend': 'normal', 'panelAlpha': 1.0,
+}
+BACKDROP_ENUMS = {
+    'kind': ('image', 'video'), 'area': ('page', 'stage'), 'fit': ('contain', 'cover', 'custom'),
+    'mask': ('none', 'fade-left', 'fade-right', 'vignette', 'fade-bottom'),
+    'blend': ('normal', 'luminosity', 'screen', 'multiply', 'soft-light'),
+}
+BACKDROP_RANGES = {'scale': (10, 400), 'x': (0, 100), 'y': (0, 100),
+                    'blur': (0, 20), 'dim': (0, 0.9), 'saturate': (0, 2), 'panelAlpha': (0.2, 1)}
+
+
+class BackdropFetchError(Exception):
+    """预设下载失败（网络 / 站点）：接口回 502。"""
+
+
+def _bs():
+    """按文件路径加载本目录的 backdrop_store.py（不走 sys.modules 缓存，免得测试里串到别的副本）。"""
+    global _bs_mod
+    if _bs_mod is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('backdrop_store_' + str(abs(hash(str(HERE)))), HERE / 'backdrop_store.py')
+        _bs_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_bs_mod)
+    return _bs_mod
+
+
+def _wp():
+    """按文件路径加载本目录的 wallpapers.py（同 _fb()，不走 sys.modules 缓存）。"""
+    global _wp_mod
+    if _wp_mod is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('wallpapers_' + str(abs(hash(str(HERE)))), HERE / 'wallpapers.py')
+        _wp_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_wp_mod)
+    return _wp_mod
+
+
+def _read_backdrop_raw(root: Path) -> dict:
+    try:
+        j = json.loads((root / 'backdrop.json').read_text(encoding='utf-8'))
+        return j if isinstance(j, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_backdrop_raw(cfg: dict, root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    tmp = root / 'backdrop.json.tmp'
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    os.replace(tmp, root / 'backdrop.json')
+
+
+def _clean_backdrop_v2(raw: dict, base: dict) -> dict:
+    """v1 之外的新字段：独立清洗、夹到取值范围内；未知/越界值一律回落默认值。"""
+    out = dict(BACKDROP_DEFAULTS_V2)
+    for k in out:
+        if k in raw:
+            out[k] = raw[k]
+    if 'x' not in raw and 'side' in raw:   # 兼容 1 版：只有旧字段时 side=right → x=100，left → x=0
+        out['x'] = 100 if base.get('side') == 'right' else 0
+    for k, choices in BACKDROP_ENUMS.items():
+        if out[k] not in choices:
+            out[k] = BACKDROP_DEFAULTS_V2[k]
+    for k, (lo, hi) in BACKDROP_RANGES.items():
+        try:
+            out[k] = round(min(hi, max(lo, float(out[k]))), 3)
+        except (TypeError, ValueError):
+            out[k] = BACKDROP_DEFAULTS_V2[k]
+    out['title'] = str(out.get('title') or '')[:200]
+    out['source'] = str(out.get('source') or '')[:40]
+    out['wallpaperId'] = str(out.get('wallpaperId') or '')[:200]
+    return out
+
+
+def backdrop_state(presets: bool = True) -> dict:
+    bs = _bs()
+    raw = _read_backdrop_raw(BACKDROPS)
+    base = bs.clean_config(raw)
+    v2 = _clean_backdrop_v2(raw, base)
+    url = ''
+    if v2['kind'] == 'video' and v2['wallpaperId'] and _wp().resolve_media(v2['wallpaperId'], 'media'):
+        url = f"/api/wallpapers/{v2['wallpaperId']}/media"
+    elif base['file'] and (BACKDROPS / base['file']).is_file():
+        url = f"/backdrops/{base['file']}?v={int((BACKDROPS / base['file']).stat().st_mtime)}"
+    # 注意：不用 base['enabled']——bs.clean_config 要求 file 非空才算 enabled，而 video 壁纸不落 file（引用外部源）
+    out = {'enabled': bool(raw.get('enabled')) and bool(url), 'url': url, 'credit': base['credit'],
+           'opacity': base['opacity'], 'side': base['side'], **v2}
+    out.pop('wallpaperId', None)   # 内部字段（引用外部视频用），前端不需要
+    if presets:
+        out['presets'] = []   # v1.4.1：内置立绘预设已移除，恒为空数组（字段保留只为兼容旧前端）
+    return out
+
+
+def write_backdrop(d: dict) -> dict:
+    """POST /api/backdrop：
+    换图：{data[,name]} / {path} / {wallpaper:<id>}（WE 壁纸） / {desktop:true}（当前桌面快照）
+    改设置：{opacity, side, enabled, credit} 及 v2 字段（kind/source/title/fit/scale/x/y/area/blur/dim/saturate/mask/blend/panelAlpha）
+    关闭：{clear:true}（删图）。以上可与设置组合。
+    v1.4.1：{preset} 已移除（不再内置任何立绘预设），一律 400；旧配置里 source:'preset' 的图片本身不受影响，仍会正常显示。"""
+    bs = _bs()
+    raw = _read_backdrop_raw(BACKDROPS)
+    extra = {}   # 本次响应里附带的临时信息（quality/note/warning），不落盘
+
+    if d.get('clear'):
+        f = str(raw.get('file') or '')
+        if bs.FILE_RE.match(f) and (BACKDROPS / f).is_file():
+            (BACKDROPS / f).unlink()
+        raw.update({'file': '', 'enabled': False, 'credit': '', 'kind': 'image', 'source': '', 'wallpaperId': '', 'title': ''})
+        _write_backdrop_raw({**bs.clean_config(raw), **_clean_backdrop_v2(raw, bs.clean_config(raw))}, BACKDROPS)
+        return backdrop_state()
+
+    if d.get('preset'):
+        raise ValueError('内置立绘预设已移除，请用 Wallpaper Engine / 当前桌面 / 上传')
+    elif d.get('data'):
+        b64 = str(d['data'])
+        if b64.lstrip().startswith('data:') and ',' in b64[:200]:
+            b64 = b64.split(',', 1)[1]
+        if len(b64) > bs.MAX_BYTES * 4 // 3 + 16:
+            raise ValueError('图片超过 15 MB')
+        import base64
+        try:
+            data = base64.b64decode(b64, validate=False)
+        except Exception:
+            raise ValueError('图片数据不是合法的 base64')
+        cfg = bs.save_image(data, 'custom', BACKDROPS, credit=str(d.get('credit') or d.get('name') or '本机图片'))
+        raw.update(cfg)
+        raw.update({'kind': 'image', 'source': 'upload', 'wallpaperId': '', 'title': str(d.get('name') or '')})
+    elif str(d.get('path') or '').strip():
+        p = Path(os.path.expanduser(str(d['path']).strip().strip('"\'')))
+        if not p.is_file():
+            raise ValueError('文件不存在：' + str(p))
+        if p.stat().st_size > bs.MAX_BYTES:
+            raise ValueError('图片超过 15 MB')
+        cfg = bs.save_image(p.read_bytes(), 'custom', BACKDROPS, credit=str(d.get('credit') or p.name))
+        raw.update(cfg)
+        raw.update({'kind': 'image', 'source': 'path', 'wallpaperId': '', 'title': p.name})
+    elif str(d.get('wallpaper') or '').strip():
+        wp = _wp()
+        wid = str(d['wallpaper']).strip()
+        item = wp.find_item(wid)
+        if not item:
+            raise ValueError('未知的壁纸：' + wid)
+        if item['_mediaKind'] == 'video':
+            raw.update({'file': '', 'enabled': True, 'credit': item['title'],
+                        'kind': 'video', 'source': 'wallpaper', 'wallpaperId': wid, 'title': item['title']})
+            info = _wp().probe_video(item['_media'])
+            extra['quality'] = 'full'
+            extra['note'] = info.get('note') or ''
+            if info.get('playable') is False:
+                # 仍然允许应用（用户可能装了对应解码扩展），只是提示可能放不了
+                extra['warning'] = info.get('note') or '该视频可能无法在浏览器中播放'
+        else:
+            stem = 'we-' + (re.sub(r'[^a-z0-9]+', '', wid.lower())[:24] or 'wp')
+            full = _wp().get_scene_full_image(wid) if item['type'] == 'scene' else None
+            cfg = None
+            if full:
+                img_path, _w, _h = full
+                try:
+                    cfg = bs.save_image(img_path.read_bytes(), stem, BACKDROPS, credit=item['title'])
+                    extra['quality'] = 'full'
+                except ValueError:
+                    cfg = None   # 原图太大等失败（如 > 15MB）：退回 preview，不整体报错
+            if cfg is None:
+                src = item.get('_preview')
+                if not src or not src.is_file():
+                    raise ValueError('该壁纸没有可用的预览图（3D 场景 / web 壁纸只能用预览，可先设为桌面壁纸再用「当前桌面」拿高清图）')
+                cfg = bs.save_image(src.read_bytes(), stem, BACKDROPS, credit=item['title'])
+                extra['quality'] = 'preview'
+            raw.update(cfg)
+            raw.update({'kind': 'image', 'source': 'wallpaper', 'wallpaperId': '', 'title': item['title']})
+    elif d.get('desktop'):
+        src = _wp().desktop_wallpaper_path()
+        if not src:
+            raise ValueError('没有可用的桌面壁纸快照（非 Windows，或 Wallpaper Engine 未写入）')
+        cfg = bs.save_image(src.read_bytes(), 'desktop', BACKDROPS, credit='当前桌面壁纸')
+        raw.update(cfg)
+        raw.update({'kind': 'image', 'source': 'desktop', 'wallpaperId': '', 'title': '当前桌面壁纸'})
+
+    keys = {k: d[k] for k in ('opacity', 'side', 'enabled', 'credit') if k in d}
+    if 'side' in keys and keys['side'] not in ('left', 'right'):
+        raise ValueError('side 只能是 left / right')
+    if 'opacity' in keys:
+        try:
+            float(keys['opacity'])
+        except (TypeError, ValueError):
+            raise ValueError('opacity 要是 0-1 的数字')
+    raw.update(keys)
+
+    v2keys = {k: d[k] for k in BACKDROP_DEFAULTS_V2 if k in d}
+    for k, choices in BACKDROP_ENUMS.items():
+        if k in v2keys and v2keys[k] not in choices:
+            raise ValueError(f'{k} 取值不合法（可选：{"/".join(choices)}）')
+    for k in BACKDROP_RANGES:
+        if k in v2keys:
+            try:
+                float(v2keys[k])
+            except (TypeError, ValueError):
+                raise ValueError(f'{k} 必须是数字')
+    raw.update(v2keys)
+
+    base = bs.clean_config(raw)
+    v2 = _clean_backdrop_v2(raw, base)
+    has_source = bool(base['file'] or v2['wallpaperId'])
+    if raw.get('enabled') and not has_source:
+        raise ValueError('还没有背景图：先上传，或选一个壁纸 / 当前桌面')
+    # base['enabled']（backdrop_store.clean_config 算的）要求 file 非空，video 壁纸没有 file 会被它强制关掉，
+    # 这里用真正的意图值覆盖回去，backdrop_state 读的也是这个 raw 值而不是 base['enabled']。
+    final = {**base, **v2, 'enabled': bool(raw.get('enabled')) and has_source}
+    _write_backdrop_raw(final, BACKDROPS)
+    return {**backdrop_state(), **extra}
+
+
 def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
     sessions = discover_sessions()
     if args.session:
         chosen = next((s for s in sessions if s['session'].startswith(args.session)), None)
-    elif args.project:
-        chosen = next((s for s in sessions if args.project in s['project']), None)
+    elif args.project:   # 先精确匹配项目 key（msg.py who），再按子串（--project 命令行参数）
+        chosen = next((s for s in sessions if s['project'] == args.project), None)             or next((s for s in sessions if args.project in s['project']), None)
     else:
         chosen = sessions[0] if sessions else None
 
@@ -1258,6 +1779,7 @@ def build_snapshot(args):
         session_info = {'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime']}
         lead_path = sub.parent.parent / (chosen['session'] + '.jsonl')
         lead_data = parse_lead(lead_path, now)
+        session_info['cwd'] = (lead_data or {}).get('cwd') or ''
     else:
         lead_data = None
     members = [m for m in members if m]
@@ -1289,6 +1811,7 @@ def build_snapshot(args):
                     m['endedAt'] = m['endedAt'] or n['ts'] or m['lastActivityAt']
                 elif n['status'] in ('failed', 'error', 'killed', 'cancelled') and m['status'] != 'completed':
                     m['status'] = 'error'
+                    m['errorReason'] = error_reason(n.get('summary', ''), n['status'])
             elif m['status'] == 'completed' and now - m['lastActivityAt'] < 8:
                 m['status'] = 'running'  # 刚写完总结、队长还没收到通知的几秒内，仍视作进行中
             d = lead_data['dispatches'].get(m.get('toolUseId'))
@@ -1354,6 +1877,35 @@ def build_snapshot(args):
             else:
                 comms.append({'ts': msg['ts'], 'kind': 'report', 'from': m['id'], 'fromName': m['name'], 'fromAvatar': m['avatar'],
                               'to': '__lead', 'toName': '队长', 'toAvatar': 'team-lead', 'text': '私信队长：' + msg['text']})
+    # 消息总线：本项目（或全局）的 bus 消息，从会话最早活动前 10 分钟起，画成 kind=bus 的通信
+    bus_info = {'count': 0, 'unreadLead': 0, 'unreadUser': 0}
+    if session_info:
+        proj = session_info['project']
+        all_bus, cur = _bus_scope(bus_messages(), proj), _bus_cursors()
+        starts = [x for x in [m['startedAt'] for m in members] + [(lead_data or {}).get('firstTs'), chosen['mtime']] if x]
+        since = min(starts) - 600
+        special = {'lead': ('__lead', '队长', 'team-lead'), 'user': ('__user', '你', 'user'), 'all': ('__all', '全员', 'team-lead')}
+
+        def bus_end(ref, ref_type=''):
+            if ref in special:
+                return special[ref]
+            t = find_member(ref) or (find_member(ref_type) if ref_type else None)
+            if t:
+                return t['id'], t['name'], t['avatar']
+            reg = TEAM_CFG['agents'].get(ref_type or ref) or {}
+            return ref, reg.get('name') or ref, reg.get('avatar', 'docs-coordinator')
+        recent = [b for b in all_bus if (b.get('ts') or 0) >= since]
+        for b in recent[-200:]:
+            f_id, f_name, f_av = bus_end(b.get('from', ''))
+            t_id, t_name, t_av = bus_end(b.get('to', ''), b.get('toType', ''))
+            comms.append({'ts': b.get('ts'), 'kind': 'bus', 'from': f_id, 'fromName': f_name, 'fromAvatar': f_av,
+                          'to': t_id, 'toName': t_name, 'toAvatar': t_av, 'text': short(b.get('text', ''), 400), 'busId': b['id']})
+        for m in members:
+            m['unread'] = bus_unread(m['agentType'] or m['id'], proj, [m['id']], all_bus, cur)
+        bus_info = {'count': len(recent), 'unreadLead': bus_unread('lead', proj, (), all_bus, cur),
+                    'unreadUser': bus_unread('user', proj, (), all_bus, cur)}
+    for m in members:
+        m.setdefault('unread', 0)
     # 文件交接：B 读了 A 之前写过的文件（A≠B），每对 (A,B,文件) 只记一次
     writers = {}
     for m in members:
@@ -1381,7 +1933,7 @@ def build_snapshot(args):
                           'to': '__lead', 'toName': '队长', 'toAvatar': 'team-lead', 'text': short(m['lastText'], 200) or '已完成'})
         elif m['status'] == 'error':
             comms.append({'ts': m['lastActivityAt'], 'kind': 'error', 'from': m['id'], 'fromName': m['name'], 'fromAvatar': m['avatar'],
-                          'to': '__lead', 'toName': '队长', 'toAvatar': 'team-lead', 'text': '中断：输出达到 token 上限'})
+                          'to': '__lead', 'toName': '队长', 'toAvatar': 'team-lead', 'text': '中断：' + (m.get('errorReason') or '输出达到 token 上限')})
     comms.sort(key=lambda x: -(x['ts'] or 0))
 
     running = sum(1 for m in members if m['status'] == 'running')
@@ -1505,6 +2057,8 @@ def build_snapshot(args):
         'roster': roster,
         'feed': feed[:100],
         'comms': comms[:80],
+        'bus': bus_info,
+        'backdrop': backdrop_state(presets=False),
     }
 
 
@@ -1521,7 +2075,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         # 页面与脚本经常改，禁止浏览器缓存，避免出现“改了但没生效”的旧页面
-        if not self.path.startswith('/sprites/'):
+        if self.path.startswith('/backdrops/') and not self.path.startswith('/backdrops/backdrop.json'):
+            self.send_header('Cache-Control', 'public, max-age=86400')   # 背景图 url 带 ?v=<mtime>，换图自动失效
+        elif not self.path.startswith('/sprites/'):
             self.send_header('Cache-Control', 'no-store, must-revalidate')
         super().end_headers()
 
@@ -1532,11 +2088,14 @@ class Handler(SimpleHTTPRequestHandler):
             args = argparse.Namespace(**vars(Handler.args))
             if 'session' in q:
                 args.session = q['session'][0]
+            elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
+                args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
+            custom = 'session' in q or 'project' in q or 'cwd' in q
             with Handler._lock:
                 t, data = Handler._cache
-                if data is None or time.time() - t > 1.0 or 'session' in q:
+                if data is None or time.time() - t > 1.0 or custom:
                     data = json.dumps(build_snapshot(args), ensure_ascii=False)
-                    if 'session' not in q:
+                    if not custom:
                         Handler._cache = (time.time(), data)
             body = data.encode('utf-8')
             self.send_response(200)
@@ -1561,16 +2120,85 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path == '/api/update/check':
             q = parse_qs(u.query)
             return self._json({'version': VERSION, **update_check(force='force' in q)})
+        if u.path in ('/api/bus', '/api/bus/inbox'):
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            project = q.get('project') or resolve_project(q.get('cwd', ''))
+            try:
+                if u.path == '/api/bus':
+                    return self._json(bus_log(project, int(q.get('limit') or 200), q.get('session', '')))
+                flag = lambda k: q.get(k, '') not in ('', '0', 'false')
+                return self._json(bus_inbox(q.get('to', ''), project, peek=flag('peek'), everything=flag('all')))
+            except ValueError as e:
+                return self._json({'error': str(e)}, 400)
+        if u.path == '/api/backdrop':
+            return self._json(backdrop_state())
+        if u.path == '/api/wallpapers' or u.path.startswith('/api/wallpapers/'):
+            return self._handle_wallpapers_get(u.path)
+        if self._is_bus_file():
+            return self._json({'error': 'not found'}, 404)   # 消息原文件不走静态服务
         if u.path == '/':
             self.path = '/index.html'
         return super().do_GET()
 
+    def _handle_wallpapers_get(self, path: str):
+        """GET /api/wallpapers、/api/wallpapers/desktop、/api/wallpapers/<id>/(preview|media)。
+        文件只从扫描结果的白名单路径服务（wallpapers.resolve_media / desktop_wallpaper_path），杜绝任意路径读取。"""
+        wp = _wp()
+        if path == '/api/wallpapers':
+            return self._json(wp.list_wallpapers())
+        if path == '/api/wallpapers/desktop':
+            p = wp.desktop_wallpaper_path()
+            if not p:
+                return self._json({'error': '没有可用的桌面壁纸快照'}, 404)
+            return wp.serve_file(self, p)
+        parts = path.split('/')   # ['', 'api', 'wallpapers', '<id>', 'preview'|'media'|'probe']
+        if len(parts) == 5 and parts[4] == 'probe':
+            info = wp.probe_item(parts[3])
+            if info is None:
+                return self._json({'error': 'not found'}, 404)
+            return self._json(info)
+        if len(parts) == 5 and parts[4] in ('preview', 'media'):
+            p = wp.resolve_media(parts[3], parts[4])
+            if not p:
+                return self._json({'error': 'not found'}, 404)
+            return wp.serve_file(self, p)
+        return self._json({'error': 'not found'}, 404)
+
+    def _is_bus_file(self) -> bool:
+        """按真实落盘路径判断（/BUS/、/./bus/、%2F 等写法都挡住）：bus/ 下的消息原文件不走静态服务。"""
+        try:
+            t = Path(self.translate_path(self.path)).resolve()
+            return any(t == b or b in t.parents for b in {BUS.resolve(), (HERE / 'bus').resolve()})
+        except Exception:
+            return True
+
+    def do_HEAD(self):
+        if self._is_bus_file():
+            return self._json({'error': 'not found'}, 404)
+        return super().do_HEAD()
+
+    def _same_origin(self) -> bool:
+        """没有 Origin（msg.py / curl）放行；有 Origin 必须是本机回环地址 + 本服务端口（别的网站、本机别的端口的页面都不行）。"""
+        origin = self.headers.get('Origin')
+        if not origin:
+            return True
+        try:
+            o = urlparse(origin)
+            port = o.port or (443 if o.scheme == 'https' else 80)
+        except ValueError:
+            return False
+        return o.hostname in ('127.0.0.1', 'localhost', '::1') and port == self.server.server_address[1]
+
     def do_POST(self):
         u = urlparse(self.path)
+        if not self._same_origin():
+            return self._json({'error': '拒绝跨站请求'}, 403)   # 别的网页不能往本机看板 POST（防止借 bus 给代理注入消息）
         try:
             n = int(self.headers.get('Content-Length') or 0)
             if n > PET_MAX_BYTES * 2:
                 return self._json({'error': '请求体过大'}, 413)
+            if n < 0:
+                raise ValueError('bad Content-Length')
             payload = json.loads(self.rfile.read(n).decode('utf-8') or '{}')
         except Exception:
             return self._json({'error': '请求体不是合法 JSON'}, 400)
@@ -1616,6 +2244,17 @@ class Handler(SimpleHTTPRequestHandler):
                 delete_pet(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)
                 return self._json({'ok': True, 'pets': pet_list(), 'petInfo': pet_info()})
+            if u.path == '/api/bus/send':
+                out = bus_send(payload)
+                Handler._cache = (0.0, None)
+                return self._json(out)
+            if u.path == '/api/backdrop':
+                try:
+                    out = write_backdrop(payload)
+                except BackdropFetchError as e:
+                    return self._json({'error': str(e)}, 502)
+                Handler._cache = (0.0, None)
+                return self._json(out)
             if u.path == '/api/departments/delete':
                 delete_department(str(payload.get('id', '')))
                 Handler._cache = (0.0, None)

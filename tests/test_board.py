@@ -57,7 +57,7 @@ class BoardEnv:
         self.tmp = Path(tempfile.mkdtemp(prefix='teamboard-'))
         self.home = self.tmp / 'home'
         self.claude = self.home / '.claude'
-        shutil.copytree(ROOT / 'team-board', self.claude / 'team-board')
+        shutil.copytree(ROOT / 'team-board', self.claude / 'team-board', ignore=shutil.ignore_patterns('bus', 'backdrops'))   # 本机消息 / 立绘不带进测试
         shutil.copytree(ROOT / 'agents', self.claude / 'agents')
         proj = self.claude / 'projects' / 'C--demo'
         sess = proj / 'sess-0001'
@@ -577,7 +577,8 @@ class UpdateTest(unittest.TestCase):
             zp = tmp / 'main.zip'
             with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as z:
                 for f in ROOT.rglob('*'):
-                    if f.is_file() and '.git' not in f.parts and '__pycache__' not in f.parts:
+                    rel = f.relative_to(ROOT).parts
+                    if f.is_file() and not {'.git', '.team', '__pycache__'} & set(rel) and rel[:2] not in (('team-board', 'bus'), ('team-board', 'backdrops')):
                         z.write(f, 'claude-agent-team-main/' + f.relative_to(ROOT).as_posix())
             home = tmp / 'home'; (home / '.claude').mkdir(parents=True)
             env.update({'HOME': str(home), 'USERPROFILE': str(home), 'TEAM_UPDATE_ZIP_URL': zp.as_uri()})

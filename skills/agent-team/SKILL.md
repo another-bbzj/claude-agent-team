@@ -11,7 +11,7 @@ description: 用 Agent Team（部门制多代理）完成一个开发任务。�
 
 1. **定规模**。S（≤2 个文件，一人能做）→ 不开 team，直接做并说明原因。M（3-6 个模块）→ 队长自己写 SPEC。L（>6 模块或陌生领域）→ 先派 `team-architect` 出 SPEC 与工单。完成标准：给出 S/M/L 与成员上限（M ≤ 6 人，L ≤ 10 人）。
 2. **建办公室**。按 [office.md](office.md) 在项目里创建 `.team/`：`SPEC.md`（接口签名、数据模型、DOM/class 约定、测试命令）、`tickets/NN-slug.md`（每张工单是一条**竖切片**，声明 `blocked_by`，大小能装进一个新上下文窗口）、每位成员一个空 `inbox/<subagent_type>.md`。完成标准：每个待改文件恰好属于一张工单。
-3. **第一波派工**（无阻塞的工单）。每次 Agent 调用：`subagent_type` 用 [roles.md](roles.md) 里的名字；`description` 为中文工单标题（看板任务名）；prompt 只放**指针**——SPEC 路径、工单路径、收件箱路径——加 [office.md](office.md) 的派工模板；`run_in_background: true`。成员之间通过收件箱和交接单交流（桌面版子代理没有私信工具，实测发不出去）。
+3. **第一波派工**（无阻塞的工单）。每次 Agent 调用：`subagent_type` 用 [roles.md](roles.md) 里的名字；`description` 为中文工单标题（看板任务名）；prompt 只放**指针**——SPEC 路径、工单路径、收件箱路径——加 [office.md](office.md) 的派工模板；`run_in_background: true`。成员之间可用原生 `SendMessage` 或 `msg.py` CLI 交流，看板通讯频道汇聚所有消息（详见 office.md）。
 4. **收报与转达**。成员汇报 ≤ 200 字。汇报里"需要转达给 X"的条目，队长追加进 `inbox/X.md`（或下一次派工的 prompt 里点名引用），看板会画转达线。阻塞解除的工单立即派出。
 5. **收尾检查**（建议而非硬性）：≥2 人写了代码 → 收尾时派 `code-reviewer` + `qa-tester`；交付给人用 → 派 `docs-writer`；成员失败/停滞 → 重派同一角色并把上下文写全。用不到的部门**不用凑人**——每个任务出场的部门本来就不同，看板上空着的部门只显示“按需出场”，收尾后最多提示“建议补位”，不是错误。跳过时在汇报里说一句原因即可。完成标准：`.team/tickets/` 每张状态为 done。
 6. **临时角色与部门**。常驻成员里没有合适的人时，直接派 `general-purpose`，`description` 写成「部门名·任务标题」（如「设计部·画登录页原型」「[rnd]·对比三种排序算法」），看板会把它归进那个部门；部门不存在就先 `curl -s -X POST http://127.0.0.1:7788/api/departments -H 'Content-Type: application/json' -d '{"id":"design","name":"设计部","icon":"🎨"}'` 建一个（立即生效）。一个角色会反复用到就顺手 `POST /api/agents` 登记成常驻成员（下次会话起可直接点名）。1-3 人的小团队同样正常：看板只画出场的部门，统计表按实际人数算。
