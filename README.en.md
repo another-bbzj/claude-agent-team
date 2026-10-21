@@ -62,6 +62,7 @@ The side-by-side comparison and the first full task are in the guide: [before yo
 
 | Goal | Where |
 |---|---|
+| How the pieces connect | [Runtime](docs/GUIDE.en.md#arch) |
 | Panels, drawer, themes, backdrop | [Guide · interface](docs/GUIDE.en.md#ui) |
 | One team task, end to end | [First run](docs/GUIDE.en.md#first-run) |
 | How agents message each other | [Message bus](docs/GUIDE.en.md#msg) |

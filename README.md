@@ -65,6 +65,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 
 | 你想做的 | 去哪 |
 |---|---|
+| 看运行时怎么接在一起 | [运行时结构](docs/GUIDE.md#arch) |
 | 看懂顶栏、舞台、通讯、抽屉、外观 | [界面](docs/GUIDE.md#ui) |
 | 走完一次团队任务 | [第一次使用](docs/GUIDE.md#first-run) |
 | 看成员怎么互相发消息 | [消息总线](docs/GUIDE.md#msg) |
