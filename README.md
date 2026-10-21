@@ -55,6 +55,8 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 **先体验，无需安装或账号：** 在仓库根目录运行 `python tools/demo_board.py --port 7790`，打开 [只读演示看板](http://127.0.0.1:7790/)。演示只使用仓库中的合成数据，不读取你的会话；详见 [演示说明](docs/DEMO.md)。
 
+![只读合成演示：synthetic-example 的队长和四名成员。金额、用时和工具标签来自仓库里的合成快照，不是用量基准](docs/img/demo-synthetic.svg)
+
 ```bash
 git clone https://github.com/another-bbzj/claude-agent-team.git
 cd claude-agent-team

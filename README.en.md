@@ -10,6 +10,8 @@ A department-based agent team workflow and local live board for Claude Code: see
 
 To try the board without installation, accounts or access to your own transcripts, run `python tools/demo_board.py --port 7790` from the checkout and open [the read-only demo](http://127.0.0.1:7790/). It uses synthetic data only; see [the demo guide](docs/DEMO.md).
 
+![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark](docs/img/demo-synthetic.svg)
+
 Requirements: Python 3.8 or later and Claude Code for the transcript-based workflow. The core runtime uses the Python standard library. Git is needed for the clone commands below.
 
 ```sh
