@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 server.log
+.coverage
+.coverage.*
+htmlcov/
 # sprites/ 只提交仓库自带的 13 只（MIT）；本机导入的 Codex / petdex / 自制形象与它们的 .json 边车都不入库
 team-board/sprites/*
 !team-board/sprites/huhu-plan.webp
