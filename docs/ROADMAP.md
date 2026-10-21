@@ -6,11 +6,13 @@ This is a working list of extension directions, not a release schedule. Proposal
 
 The current board parses local Claude Code transcripts and exposes local snapshots and a message bus. The message CLI can fall back to `.team/inbox` files when the board is unreachable. Tests exercise synthetic transcripts, temporary-home installation and local HTTP behavior. Contributor instructions and review prompts are available in [AGENTS.md](../AGENTS.md) and [the Codex maintenance guide](CODEX.md).
 
+Implemented extension tools include the [versioned aggregate snapshot export](INTEGRATIONS.md), a [Codex exec JSONL metrics adapter](CODEX_METRICS.md) with synthetic fixtures, and a [read-only no-account board demo](DEMO.md). The exec adapter is an offline event summary, with its supported format and limits documented separately.
+
 ## Planned work
 
 | Priority | Direction | Acceptance criteria before calling it supported |
 | --- | --- | --- |
-| 1 | Additional transcript adapters, including a Codex adapter | Use documented or observed input formats with synthetic fixtures; identify source/version; test session selection, agent identity, tool events, errors and usage deduplication; keep existing Claude Code tests passing. |
+| 1 | Full interactive transcript adapters, including Codex | Extend beyond the shipped offline exec metrics adapter; use documented or observed input formats with synthetic fixtures; identify source/version; test session selection, agent identity, tool events, errors and usage deduplication; keep existing Claude Code tests passing. |
 | 1 | A shared, privacy-safe fixture collection | Every fixture is synthetic or explicitly sanitized; contributors can reproduce the target bug offline; tests reject accidental inclusion of credentials, local identities and private transcript content. |
 | 2 | More extension recipes | Demonstrate a specific consumer using the documented integration surface; document input/output shape and failure behavior; include an offline example and avoid requiring access to a maintainer's machine. |
 | 2 | Maintainer automation using Codex | Start with drafts for triage or review; define trusted inputs, permissions, secret handling, spending limits and human approval before posting, merging or releasing; include regression checks. No such hosted automation is currently configured. |

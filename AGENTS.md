@@ -1,6 +1,6 @@
 # Contributor instructions
 
-This repository provides a local team board for Claude Code transcripts. Codex can help maintain the repository; the board does not currently parse Codex sessions.
+This repository provides a local team board for Claude Code transcripts. The separate `tools/codex_metrics.py` summarizes explicitly supplied Codex exec JSONL logs offline. Full interactive Codex session ingestion into the board remains planned.
 
 ## Source map
 
@@ -11,6 +11,8 @@ This repository provides a local team board for Claude Code transcripts. Codex c
 - `install.py`: installation, configuration merging and uninstall.
 - `team-board/ensure.py`, `team-board/update.py`: startup and updates.
 - `tests/`: standard-library unittest tests, including synthetic transcripts and temporary user homes.
+- `tools/codex_metrics.py`: read-only aggregate metrics for documented Codex exec JSONL events.
+- `tools/demo_board.py`: isolated read-only board using synthetic data and shipped assets only.
 
 ## Change and test
 

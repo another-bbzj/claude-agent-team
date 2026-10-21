@@ -1,6 +1,16 @@
 # Integration recipes
 
-These recipes use the existing Claude Code board and standard-library tools. They do not add a hosted service or a Codex session parser. See [the main guide](GUIDE.md) for board setup and [the Codex maintainer guide](CODEX.md) for using Codex to maintain this repository.
+These recipes use the existing Claude Code board and standard-library tools. They do not add a hosted service or interactive Codex session ingestion. See [the main guide](GUIDE.md) for board setup and [the Codex maintainer guide](CODEX.md) for using Codex to maintain this repository.
+
+## Codex exec event metrics
+
+The [Codex exec adapter](CODEX_METRICS.md) accepts an explicitly supplied `codex exec --json` log and emits aggregate counts and token usage without text, commands or identifiers:
+
+```sh
+python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
+```
+
+This command works entirely offline and does not start Codex or spend API credits. Its event-report format is separate from the board snapshot export below. For a no-account UI walkthrough, use the [read-only synthetic demo](DEMO.md).
 
 ## Export aggregate metrics
 

@@ -1,6 +1,6 @@
 # Maintaining this project with Codex
 
-Codex is a contributor tool for reproducing bugs, preparing fixes, reviewing changes and triaging reports in this repository. The board itself reads Claude Code transcripts from `~/.claude/projects/`. It does not currently ingest Codex sessions or invoke an OpenAI API.
+Codex is a contributor tool for reproducing bugs, preparing fixes, reviewing changes and triaging reports in this repository. The board itself reads Claude Code transcripts from `~/.claude/projects/`. The separate [Codex exec metrics adapter](CODEX_METRICS.md) summarizes explicitly supplied JSONL logs offline. It does not import interactive Codex sessions into the board or invoke an OpenAI API.
 
 ## Start with a bounded task
 

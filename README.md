@@ -53,6 +53,8 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 ## 🚀 三分钟装好
 
+**先体验，无需安装或账号：** 在仓库根目录运行 `python tools/demo_board.py --port 7790`，打开 [只读演示看板](http://127.0.0.1:7790/)。演示只使用仓库中的合成数据，不读取你的会话；详见 [演示说明](docs/DEMO.md)。
+
 ```bash
 git clone https://github.com/another-bbzj/claude-agent-team.git
 cd claude-agent-team
@@ -490,9 +492,17 @@ install.py         安装 / 更新 / 卸载        VERSION  版本号
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json
 ```
 
+也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
+
+```bash
+python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
+```
+
+详见 [Codex exec 指标适配器](docs/CODEX_METRICS.md)。该工具只读取你指定的 JSONL 文件，不启动 Codex、不调用 API；输出不包含消息、命令正文或会话标识。
+
 导出采用数字字段白名单，不包含提示词、消息正文、会话标识或本地路径；原始 `/snapshot.json` 仍可能含私密内容，请勿直接公开。
 
-[Codex 维护指南](docs/CODEX.md) 和 [AGENTS.md](AGENTS.md) 用于复现问题、补测试和审查本仓库。当前看板的会话解析面向 **Claude Code**；Codex 会话适配仍属于 [计划中的工作](docs/ROADMAP.md)，不是已实现功能。
+[Codex 维护指南](docs/CODEX.md) 和 [AGENTS.md](AGENTS.md) 用于复现问题、补测试和审查本仓库。当前看板的交互会话解析面向 **Claude Code**；Codex exec 的离线指标已有适配工具，Codex 交互会话的完整看板适配仍属于 [计划中的工作](docs/ROADMAP.md)。
 
 ## 🙏 致谢
 
