@@ -137,7 +137,31 @@ class EnvironmentCheckTest(unittest.TestCase):
             item = doctor.tool_check()
         self.assertEqual(item['status'], 'warn')
         self.assertIn('lsof', item['summary'])
-        self.assertIn('apt-get install lsof', item['hint'])
+        self.assertIn('ss', item['summary'])
+        self.assertIn('fuser', item['summary'])
+        self.assertIn('iproute2', item['hint'])
+        self.assertIn('psmisc', item['hint'])
+        self.assertIn('lsof', item['hint'])
+
+    def test_only_ss_or_only_fuser_is_enough(self):
+        def only(name):
+            return '/usr/bin/' + name
+
+        with mock.patch.object(doctor.os, 'name', 'posix'), \
+                mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: only('ss') if name == 'ss' else None):
+            ss_only = doctor.tool_check()
+        self.assertEqual(ss_only['status'], 'ok')
+        self.assertIn('ss', ss_only['summary'])
+        self.assertNotIn('lsof', ss_only['summary'])
+        self.assertNotIn('fuser', ss_only['summary'])
+
+        with mock.patch.object(doctor.os, 'name', 'posix'), \
+                mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: only('fuser') if name == 'fuser' else None):
+            fuser_only = doctor.tool_check()
+        self.assertEqual(fuser_only['status'], 'ok')
+        self.assertIn('fuser', fuser_only['summary'])
+        self.assertNotIn('lsof', fuser_only['summary'])
+        self.assertNotIn('ss（', fuser_only['summary'])
 
     def test_pillow_status_matches_whether_it_imports(self):
         item = doctor.pillow_check()
@@ -181,9 +205,11 @@ class DiagnosisTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = write_board(Path(self.tmp.name) / 'team-board')
 
-    def diagnose(self, probed, tool_path='/usr/bin/lsof'):
+    def diagnose(self, probed, tools=('lsof',)):
+        wanted = set(tools)
+
         def which(name):
-            return tool_path if tool_path and name in ('lsof', 'netstat') else None
+            return '/usr/bin/' + name if name in wanted else None
 
         with mock.patch.object(doctor, 'probe_port', return_value=probed), \
                 mock.patch.object(doctor.shutil, 'which', side_effect=which):
@@ -196,7 +222,7 @@ class DiagnosisTest(unittest.TestCase):
         self.assertEqual(by_id(report, 'port')['status'], 'ok')
 
     def test_free_port_without_tool_warns_but_does_not_fail(self):
-        report = self.diagnose({'listening': False, 'board': False, 'version': '', 'error': ''}, tool_path=None)
+        report = self.diagnose({'listening': False, 'board': False, 'version': '', 'error': ''}, tools=())
         self.assertTrue(report['ok'])
         self.assertEqual(by_id(report, 'process-tool')['status'], 'warn')
         self.assertEqual(by_id(report, 'restart')['status'], 'warn')
@@ -204,18 +230,28 @@ class DiagnosisTest(unittest.TestCase):
 
     def test_stale_board_without_process_tool_is_a_failure(self):
         probed = {'listening': True, 'board': True, 'version': '0.9.0', 'error': ''}
-        report = self.diagnose(probed, tool_path=None)
+        report = self.diagnose(probed, tools=())
         self.assertFalse(report['ok'])
         restart = by_id(report, 'restart')
         self.assertEqual(restart['status'], 'fail')
         self.assertIn('v0.9.0', restart['summary'])
         self.assertIn('v1.4.2', restart['summary'])
         self.assertIn('当成启动成功', restart['summary'])
-        self.assertIn('lsof', restart['hint'])
+        self.assertIn('iproute2', restart['hint'])
+        self.assertIn('psmisc', restart['hint'])
+
+    def test_stale_board_with_only_ss_or_only_fuser_can_be_replaced(self):
+        probed = {'listening': True, 'board': True, 'version': '0.9.0', 'error': ''}
+        for tools in (('ss',), ('fuser',)):
+            report = self.diagnose(probed, tools=tools)
+            self.assertTrue(report['ok'], tools)
+            self.assertEqual(by_id(report, 'process-tool')['status'], 'ok')
+            self.assertIn(tools[0], by_id(report, 'process-tool')['summary'])
+            self.assertEqual(by_id(report, 'restart')['status'], 'warn')
 
     def test_stale_board_with_tool_can_be_replaced(self):
         probed = {'listening': True, 'board': True, 'version': '0.9.0', 'error': ''}
-        report = self.diagnose(probed, tool_path='/usr/bin/lsof')
+        report = self.diagnose(probed, tools=('lsof',))
         self.assertTrue(report['ok'])
         restart = by_id(report, 'restart')
         self.assertEqual(restart['status'], 'warn')
@@ -229,7 +265,7 @@ class DiagnosisTest(unittest.TestCase):
 
     def test_current_version_without_tool_warns_about_the_next_upgrade(self):
         probed = {'listening': True, 'board': True, 'version': '1.4.2', 'error': ''}
-        report = self.diagnose(probed, tool_path=None)
+        report = self.diagnose(probed, tools=())
         self.assertTrue(report['ok'])
         self.assertEqual(by_id(report, 'restart')['status'], 'warn')
         self.assertIn('下次升级', by_id(report, 'restart')['summary'])
@@ -237,7 +273,7 @@ class DiagnosisTest(unittest.TestCase):
     def test_missing_local_version_is_not_called_a_failed_restart(self):
         (self.root / 'VERSION').write_text(' \n', encoding='utf-8')
         probed = {'listening': True, 'board': True, 'version': '0.9.0', 'error': ''}
-        report = self.diagnose(probed, tool_path=None)
+        report = self.diagnose(probed, tools=())
         self.assertTrue(report['ok'])
         self.assertEqual(by_id(report, 'version')['status'], 'warn')
         self.assertEqual(by_id(report, 'restart')['status'], 'warn')
@@ -277,7 +313,7 @@ class CliTest(unittest.TestCase):
             root = write_board(Path(tmp) / 'team-board')
             probed = {'listening': False, 'board': False, 'version': '', 'error': ''}
             with mock.patch.object(doctor, 'probe_port', return_value=probed), \
-                    mock.patch.object(doctor.shutil, 'which', return_value='/usr/bin/lsof'), \
+                    mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: '/usr/bin/lsof' if name == 'lsof' else None), \
                     mock.patch.object(doctor, 'pillow_check', return_value=doctor.check('pillow', 'warn', '未安装 Pillow', 'pip install pillow')):
                 buf = io.StringIO()
                 with contextlib.redirect_stdout(buf):

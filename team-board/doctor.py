@@ -6,9 +6,9 @@
     python doctor.py --port 7799 --root ~/.claude/team-board
     python doctor.py --strict          # 有警告也返回 1
 
-ensure.py 在找不到 lsof / netstat 时仍会继续启动。旧进程若拒绝
-/api/shutdown 并继续占着端口，listening() 立刻为真，脚本会打印 started。
-本命令把这种情况直接说出来，不会去结束任何进程。
+ensure.py 在 Unix 上依次用 lsof、ss、fuser 找监听进程；三个都没有时仍会继续启动。
+旧进程若拒绝 /api/shutdown 并继续占着端口，listening() 立刻为真，脚本会打印 started。
+本命令把这种情况直接说出来，不会去结束任何进程。有任意一个工具即视为可以按端口替换。
 """
 import argparse
 import json
@@ -32,15 +32,30 @@ def check(check_id, status, summary, hint=''):
     return {'id': check_id, 'status': status, 'summary': summary, 'hint': hint}
 
 
-def process_tool_name():
-    """与 ensure.pids_on_port 使用的工具一致：Windows 用 netstat，其他系统用 lsof。"""
-    return 'netstat' if os.name == 'nt' else 'lsof'
+def _missing_tools_phrase():
+    """与 ensure.pids_on_port 一致：Windows 只认 netstat；Unix 上 lsof、ss、fuser 有一个即可。"""
+    if os.name == 'nt':
+        return 'netstat'
+    return 'lsof、ss 或 fuser'
 
 
-def tool_install_hint(name):
-    if name == 'lsof':
-        return '安装 lsof（Debian/Ubuntu：sudo apt-get install lsof；Fedora：sudo dnf install lsof）'
-    return '确认 netstat 在 PATH 中（Windows 通常位于 System32）'
+def tool_install_hint():
+    if os.name == 'nt':
+        return '确认 netstat 在 PATH 中（Windows 通常位于 System32）'
+    return ('安装其中之一：lsof，iproute2（提供 ss），或 psmisc（提供 fuser）。'
+            'Debian/Ubuntu：sudo apt-get install lsof，或 sudo apt-get install iproute2，或 sudo apt-get install psmisc')
+
+
+def _found_process_tools():
+    if os.name == 'nt':
+        path = shutil.which('netstat')
+        return [('netstat', path)] if path else []
+    found = []
+    for name in ('lsof', 'ss', 'fuser'):
+        path = shutil.which(name)
+        if path:
+            found.append((name, path))
+    return found
 
 
 def parse_port(raw):
@@ -168,11 +183,11 @@ def pillow_check():
 
 
 def tool_check():
-    name = process_tool_name()
-    found = shutil.which(name)
+    found = _found_process_tools()
     if found:
-        return check('process-tool', 'ok', '找到 %s：%s' % (name, found), '')
-    return check('process-tool', 'warn', '找不到 %s' % name, tool_install_hint(name))
+        shown = '、'.join('%s（%s）' % (name, path) for name, path in found)
+        return check('process-tool', 'ok', '找到 %s' % shown, '')
+    return check('process-tool', 'warn', '找不到 %s' % _missing_tools_phrase(), tool_install_hint())
 
 
 def port_check(port, probed, local_version):
@@ -190,13 +205,14 @@ def port_check(port, probed, local_version):
     return check('port', 'warn', '127.0.0.1:%s 上是 v%s，本机文件是 v%s' % (port, remote, local_version), '')
 
 
-def restart_check(port, probed, local_version, tool_ok, tool_name):
-    hint = tool_install_hint(tool_name)
+def restart_check(port, probed, local_version, tool_ok):
+    phrase = _missing_tools_phrase()
+    hint = tool_install_hint()
     if not probed['listening']:
         if tool_ok:
             return check('restart', 'ok', '端口空闲。以后若要换掉不响应关机接口的旧进程，可以按端口找到它。', '')
         return check('restart', 'warn',
-                     '端口目前空闲，但找不到 %s。旧进程若拒绝 /api/shutdown，ensure 会把仍被占用的端口误判成新服务已启动。' % tool_name,
+                     '端口目前空闲，但找不到 %s。旧进程若拒绝 /api/shutdown，ensure 会把仍被占用的端口误判成新服务已启动。' % phrase,
                      hint)
     if not probed['board']:
         return check('restart', 'fail', '127.0.0.1:%s 被非看板进程占用，不能靠 ensure 安全替换。' % port,
@@ -211,14 +227,14 @@ def restart_check(port, probed, local_version, tool_ok, tool_name):
         return check('restart', 'ok', '服务已是本机 v%s，不需要替换。' % local_version, '')
     if remote == local_version:
         return check('restart', 'warn',
-                     '当前已是本机 v%s，但找不到 %s。下次升级时，不退出的旧进程会换不掉。' % (local_version, tool_name),
+                     '当前已是本机 v%s，但找不到 %s。下次升级时，不退出的旧进程会换不掉。' % (local_version, phrase),
                      hint)
     summary = '在跑的是 v%s，本机文件是 v%s。' % (remote, local_version)
     if tool_ok:
         return check('restart', 'warn', summary + '可以运行 ensure.py：先请求 /api/shutdown，失败再按端口结束监听进程。',
                      'python ensure.py')
     return check('restart', 'fail',
-                 summary + '找不到 %s。关机接口失败时 ensure 无法按端口结束旧进程，并可能把仍在监听的旧服务当成启动成功。' % tool_name,
+                 summary + '找不到 %s。关机接口失败时 ensure 无法按端口结束旧进程，并可能把仍在监听的旧服务当成启动成功。' % phrase,
                  hint)
 
 
@@ -227,7 +243,6 @@ def diagnose(root, port):
     local = read_local_version(root)
     probed = probe_port(port)
     tool = tool_check()
-    tool_name = process_tool_name()
     checks = [
         python_check(),
         encoding_check(),
@@ -238,7 +253,7 @@ def diagnose(root, port):
         pillow_check(),
         tool,
         port_check(port, probed, local),
-        restart_check(port, probed, local, tool['status'] == 'ok', tool_name),
+        restart_check(port, probed, local, tool['status'] == 'ok'),
     ]
     counts = {'ok': 0, 'warn': 0, 'fail': 0}
     for item in checks:
