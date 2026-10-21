@@ -155,7 +155,7 @@ class DemoHttpTest(unittest.TestCase):
         original_resolve = Path.resolve
 
         for failure in (OSError('PRIVATE_PERMISSION'), RuntimeError('PRIVATE_SYMLINK_LOOP')):
-            def resolve(path, *args, **kwargs):
+            def resolve(path, *args, failure=failure, **kwargs):
                 if path == demo.BOARD / 'favicon.png':
                     raise failure
                 return original_resolve(path, *args, **kwargs)

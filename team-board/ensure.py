@@ -49,6 +49,30 @@ def running_version() -> str:
         return ''
 
 
+def _pids_unix():
+    """lsof 不一定装了（精简 Linux / 容器常见），依次退到 ss、fuser。"""
+    import re
+    try:
+        txt = subprocess.run(['lsof', '-ti', f'tcp:{PORT}', '-sTCP:LISTEN'], capture_output=True, text=True, timeout=10).stdout
+        pids = {int(x) for x in txt.split() if x.strip().isdigit()}
+        if pids:
+            return pids
+    except Exception:
+        pass
+    try:
+        txt = subprocess.run(['ss', '-ltnpH', f'sport = :{PORT}'], capture_output=True, text=True, timeout=10).stdout
+        pids = {int(x) for x in re.findall(r'pid=(\d+)', txt)}
+        if pids:
+            return pids
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(['fuser', f'{PORT}/tcp'], capture_output=True, text=True, timeout=10)
+        return {int(x) for x in r.stdout.split() if x.strip().isdigit()}
+    except Exception:
+        return set()
+
+
 def pids_on_port():
     out = set()
     try:
@@ -59,8 +83,7 @@ def pids_on_port():
                 if len(parts) >= 5 and parts[1].endswith(f':{PORT}') and parts[3] == 'LISTENING':
                     out.add(int(parts[4]))
         else:
-            txt = subprocess.run(['lsof', '-ti', f'tcp:{PORT}', '-sTCP:LISTEN'], capture_output=True, text=True, timeout=10).stdout
-            out.update(int(x) for x in txt.split() if x.strip().isdigit())
+            out.update(_pids_unix())
     except Exception:
         pass
     return out
