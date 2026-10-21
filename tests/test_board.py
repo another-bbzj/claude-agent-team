@@ -529,7 +529,7 @@ class CustomPetImportTest(unittest.TestCase):
     """import_codex_pets.py 也要把用户在 Codex 里自制的宠物（~/.codex/pets/<id>/spritesheet.webp）搬进 sprites/。"""
 
     def test_custom_pets_from_codex_home(self):
-        import subprocess, sys
+        import subprocess
         tmp = Path(tempfile.mkdtemp(prefix='petimport-'))
         try:
             sheet = webp_sheet
@@ -562,7 +562,7 @@ class CustomPetImportTest(unittest.TestCase):
 
 class UpdateTest(unittest.TestCase):
     def test_check_and_apply_from_local_zip(self):
-        import subprocess, sys, zipfile
+        import subprocess, zipfile
         tmp = Path(tempfile.mkdtemp(prefix='teamupd-'))
         try:
             (tmp / 'VERSION').write_text('9.9.9\n', encoding='utf-8')
