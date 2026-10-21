@@ -64,7 +64,10 @@ def reload_team_cfg():
     try:
         mt = (HERE / 'team.json').stat().st_mtime
         if mt != _team_cfg_mtime:
-            TEAM_CFG.clear(); TEAM_CFG.update(json.loads((HERE / 'team.json').read_text(encoding='utf-8')))
+            cfg = json.loads((HERE / 'team.json').read_text(encoding='utf-8'))
+            if not isinstance(cfg, dict):
+                return
+            TEAM_CFG.clear(); TEAM_CFG.update(cfg)
             _team_cfg_mtime = mt
     except Exception:
         pass
@@ -2199,9 +2202,14 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({'error': '请求体过大'}, 413)
             if n < 0:
                 raise ValueError('bad Content-Length')
-            payload = json.loads(self.rfile.read(n).decode('utf-8') or '{}')
+            body = self.rfile.read(n)
+            if len(body) != n:
+                raise ValueError('incomplete request body')
+            payload = json.loads(body.decode('utf-8') or '{}')
         except Exception:
             return self._json({'error': '请求体不是合法 JSON'}, 400)
+        if not isinstance(payload, dict):
+            return self._json({'error': '请求体必须是 JSON 对象'}, 400)
         try:
             reload_team_cfg()
             if u.path == '/api/agents':
