@@ -498,7 +498,15 @@ class ReviewFixesTest(unittest.TestCase):
         self.assertEqual(self.raw('POST', '/api/bus/send', body, {'Origin': f'http://127.0.0.1:{self.port}'})[0], 200)
         self.assertEqual(self.raw('POST', '/api/bus/send', body, {'Origin': f'http://localhost:{self.port}'})[0], 200)
         for o in ('http://evil.example', f'http://evil.example:{self.port}', 'http://localhost:3000', 'null'):
-            self.assertEqual(self.raw('POST', '/api/bus/send', body, {'Origin': o})[0], 403, o)
+            status = None
+            for _ in range(2):
+                try:
+                    status = self.raw('POST', '/api/bus/send', body, {'Origin': o})[0]
+                    break
+                except (ConnectionAbortedError, ConnectionResetError):
+                    # Windows 偶发在读到 403 状态行之前把连接掐掉（WinError 10053）。拒绝本身没有副作用，重试一次。
+                    continue
+            self.assertEqual(status, 403, o)
 
     def test_negative_content_length(self):
         self.assertEqual(self.raw('POST', '/api/bus/send', None, {'Content-Length': '-1'})[0], 400)
