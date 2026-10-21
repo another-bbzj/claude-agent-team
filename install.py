@@ -152,7 +152,17 @@ def merge_settings(install: bool):
     if path.exists():
         shutil.copy2(path, path.with_name(f'settings.json.bak-{time.strftime("%Y%m%d-%H%M%S")}'))
     hooks = data.setdefault('hooks', {})
-    ss = [e for e in hooks.get('SessionStart', []) if HOOK_TAG not in json.dumps(e)]
+    ss = []
+    for entry in hooks.get('SessionStart', []):
+        # One SessionStart group can contain both our command and user commands.
+        # Remove only our hook, retaining the group's matcher and other metadata.
+        remaining = []
+        for hook in entry.get('hooks', []):
+            values = [hook.get('command', '')] + hook.get('args', [])
+            if not any(isinstance(v, str) and HOOK_TAG in v.replace('\\', '/') for v in values):
+                remaining.append(hook)
+        if remaining or not entry.get('hooks'):
+            ss.append({**entry, 'hooks': remaining} if 'hooks' in entry else entry)
     if install:
         ensure = (CLAUDE / 'team-board' / 'ensure.py').as_posix()
         ss.append({'hooks': [{'type': 'command', 'command': 'python', 'args': [ensure], 'timeout': 15,
