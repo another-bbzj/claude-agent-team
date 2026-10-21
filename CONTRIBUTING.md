@@ -2,7 +2,8 @@
 
 Thanks for helping maintain claude-agent-team. Bug reports, reproducible test cases,
 documentation fixes and small integrations are welcome. English and Chinese are both
-welcome; the main [README](README.md) and [user guide](docs/GUIDE.md) are in Chinese.
+welcome; the main [README](README.md) and [illustrated guide](docs/GUIDE.md) are in Chinese.
+The English landing page is [README.en.md](README.en.md); its operational guide is [docs/GUIDE.en.md](docs/GUIDE.en.md).
 
 ## Start here
 
