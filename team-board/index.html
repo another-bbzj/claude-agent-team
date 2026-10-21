@@ -282,6 +282,9 @@
   .person.selected .name { box-shadow: inset 0 -2px 0 var(--gold); }
   .person .name .role { font-weight: 400; opacity: .62; font-family: var(--sans); font-size: 11px; white-space: nowrap; }
   .person .name .star { color: var(--gold); font-size: 10px; }
+  .official-team { margin-top: 3px; padding: 0 6px; font: 800 10px/16px var(--sans); letter-spacing: .04em; color: #1a1406; background: var(--gold); }
+  .official-team[hidden] { display: none; }
+  .task .official-team { margin-top: 0; }
   .person .chip { margin-top: 5px; display: inline-flex; gap: 4px; align-items: center; font-family: var(--mono); font-size: 10px; padding: 1px 7px; border: 1px solid var(--line); color: var(--text-2); background: var(--panel); }
   .person .chip .fam { font-weight: 700; }
   .person .chip .fam.opus, .person .chip .fam.fable { color: var(--peer); } .person .chip .fam.sonnet { color: var(--info); } .person .chip .fam.haiku { color: var(--ok); }
@@ -1041,6 +1044,11 @@ const commKey = (c) => `${c.kind}|${c.from}|${c.to}|${c.ts}|${(c.text || '').sli
 const modelChip = (m) => { const fam = m.modelFamily || (m.definedModel && m.definedModel !== 'inherit' ? m.definedModel : '') || '?'; return `<span class="fam ${esc(fam)}">${esc(fam)}</span>${m.effort ? `<span>· ${esc(m.effort)}</span>` : ''}${m.cost ? `<span>· ${fmtCost(m.cost)}</span>` : ''}`; };
 
 function stateText(m) {
+  if (m.officialTeam && !m.startedAt) {
+    if (m.status === 'running') return m.description ? `进行中 · ${m.description}` : '任务进行中';
+    if (m.status === 'completed') return '已完成';
+    return '待命';
+  }
   if (m.status === 'running') { const quiet = Date.now()/1000 - m.lastActivityAt; if (quiet > 15) return `思考/生成中 · ${Math.round(quiet)}s 未落笔`; return m.current && !m.current.done ? `正在${TOOL_ZH[m.current.name] || '使用'} ${shortTool(m.current.name)}` : '思考中…'; }
   if (m.status === 'completed') return `✓ 已交付 · 用时 ${fmtDur(m.startedAt, m.endedAt)}`;
   if (m.status === 'stalled') return `zZ 已 ${fmtRel(m.lastActivityAt)}无动静`;
@@ -1060,7 +1068,7 @@ function ensurePerson(m, isLead, snap) {
     el = document.createElement('div');
     el.className = 'person appear'; el.dataset.id = m.id;
     el.innerHTML = `<div class="avatar-wrap"><div class="bubble"></div><div class="shadow"></div><div class="sprite"></div><div class="foot"></div><span class="extra"></span><span class="mailbox"></span><span class="unread" hidden></span></div>
-      <div class="name"><span class="nm"></span><span class="role"></span><span class="star" hidden title="用户自定义 agent">★</span></div>
+      <div class="name"><span class="nm"></span><span class="role"></span><span class="star" hidden title="用户自定义 agent">★</span></div><div class="official-team" hidden>官方 Team</div>
       <div class="chip"></div><div class="state"></div><div class="act"></div><div class="bar"><i></i></div><div class="meta"></div>`;
     el.querySelector('.avatar-wrap').addEventListener('click', () => openDrawer(m.id));
     $('#stage').appendChild(el);
@@ -1078,6 +1086,7 @@ function ensurePerson(m, isLead, snap) {
   el.querySelector('.nm').textContent = m.name;
   el.querySelector('.role').textContent = m.roleTitle;
   el.querySelector('.star').hidden = !m.custom;
+  el.querySelector('.official-team').hidden = !m.officialTeam;
   el.querySelector('.foot').style.background = isLead ? 'var(--gold)' : accent(m.id);
   el.querySelector('.name').style.setProperty('--acc', isLead ? 'var(--gold)' : accent(m.id));
   const ur = el.querySelector('.unread'), nUr = m.unread || 0; ur.hidden = !nUr; ur.textContent = nUr ? `✉${nUr > 99 ? '99+' : nUr}` : ''; ur.title = nUr ? `${nUr} 条未读总线消息` : '';
@@ -1260,7 +1269,7 @@ function renderTasks(snap) {
       <div class="subject">${esc(m.description)}</div>
       <div class="desc">${m.status === 'completed' && m.lastText ? esc(m.lastText) : esc(m.prompt)}</div>
       <div class="bar"><i></i></div>
-      <div class="foot"><span>${esc(m.agentType || 'agent')}</span><span>${esc(m.modelFamily || '?')}${m.effort ? ' · ' + esc(m.effort) : ''}</span><span>${fmtCost(m.cost)}</span><span>${m.toolCount} tools</span><span>${m.status === 'completed' ? fmtDur(m.startedAt, m.endedAt) : fmtDur(m.startedAt)}</span>${m.group ? `<span>${esc(m.group)}</span>` : ''}</div>`;
+      <div class="foot"><span>${esc(m.agentType || 'agent')}</span>${m.officialTeam ? '<span class="official-team">官方 Team</span>' : ''}<span>${esc(m.modelFamily || '?')}${m.effort ? ' · ' + esc(m.effort) : ''}</span><span>${fmtCost(m.cost)}</span><span>${m.toolCount} tools</span><span>${m.status === 'completed' ? fmtDur(m.startedAt, m.endedAt) : fmtDur(m.startedAt)}</span>${m.group ? `<span>${esc(m.group)}</span>` : ''}</div>`;
   }
   for (const [id, el] of taskEls) if (!snap.members.some(m => m.id === id)) { el.remove(); taskEls.delete(id); }
   $('#task-count').textContent = snap.members.length ? `${snap.lead.done}/${snap.members.length}` : '';
@@ -1425,7 +1434,7 @@ let drawerNote = { id: '', text: '', until: 0 };
 function openDrawer(id) {
   selectedId = id; const m = id === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === id); if (!m) return;
   $('#d-avatar').innerHTML = miniPet(m, 60); $('#d-name').textContent = `${m.name} · ${m.roleTitle}`;
-  $('#d-sub').textContent = `${DEPT_NAME[m.dept] || ''} · ${m.agentType || 'agent'} · ${STATUS_LABEL[m.status]} · ${id === '__lead' ? (prev.session?.id || '') : 'agent-' + m.id}`;
+  $('#d-sub').textContent = `${m.officialTeam ? '官方 Team · ' : ''}${DEPT_NAME[m.dept] || ''} · ${m.agentType || 'agent'} · ${STATUS_LABEL[m.status]} · ${id === '__lead' ? (prev.session?.id || '') : 'agent-' + m.id}`;
   if (($('#d-petbox') || {}).dataset?.member !== m.id) $('#d-body').innerHTML = '';
   renderDrawerBody(m); $('#drawer').classList.add('open'); layout(prev);
 }
@@ -2203,7 +2212,8 @@ function demoAugment(s) {
   const now = Date.now() / 1000; if (!demoT0) demoT0 = Math.floor(now) - 900;
   const T = (k) => demoT0 + k * 40;
   const mk = (id, name, role, type, dept, status, avatar, x = {}) => ({ id, name, roleTitle: role, agentType: type, dept, status, avatar, description: `${role} · 演示任务`, prompt: '（?demo=1 演示数据）', startedAt: T(1), endedAt: status === 'completed' ? T(15) : null, lastActivityAt: status === 'stalled' ? now - 400 : now - 4, toolCount: 18, thinkingCount: 3, outputTokens: 38000, totalTokens: 910000, cacheHit: 0.93, timeline: [{ kind: 'tool', label: 'Edit · team-board/index.html', ts: now - 30, done: true, ms: 120 }], usage: { in: 12000, out: 38000, cache_read: 840000, cache_write: 20000 }, cost: 1.42, modelFamily: 'opus', effort: 'high', model: 'claude-opus-5-5', writes: [], reads: [], current: status === 'running' ? { name: 'Edit', label: 'Edit · team-board/index.html', done: false } : null, unread: 0, hasDef: true, ...x });
-  const fake = [mk('demo-a', '阿服', '后端工程师', 'backend-dev', 'dev', 'running', 'server-engineer', { unread: 2 }), mk('demo-b', '小界', '前端工程师', 'frontend-dev', 'dev', 'running', 'ui-designer'), mk('demo-c', '测测', '测试工程师', 'qa-tester', 'qa', 'completed', 'qa-engineer', { modelFamily: 'haiku', cost: 0.21 }), mk('demo-d', '小文', '文档工程师', 'docs-writer', 'docs', 'stalled', 'docs-coordinator', { unread: 1, modelFamily: 'sonnet', cost: 0.64 })];
+  const official = { officialTeam: true, cost: 0, modelFamily: '', toolCount: 0, totalTokens: 0, outputTokens: 0, usage: { in: 0, out: 0, cache_read: 0, cache_write: 0 }, prompt: '官方 Agent Team 合成演示' };
+  const fake = [mk('demo-a', '阿服', '后端工程师', 'backend-dev', 'dev', 'running', 'server-engineer', { unread: 2 }), mk('demo-b', '小界', '前端工程师', 'frontend-dev', 'dev', 'running', 'ui-designer'), mk('demo-c', '测测', '测试工程师', 'qa-tester', 'qa', 'completed', 'qa-engineer', { modelFamily: 'haiku', cost: 0.21 }), mk('demo-d', '小文', '文档工程师', 'docs-writer', 'docs', 'stalled', 'docs-coordinator', { unread: 1, modelFamily: 'sonnet', cost: 0.64 }), mk('demo-official-r', '合成研究员', '研究分析员', 'researcher', 'rnd', 'running', 'data-analyst', official), mk('demo-official-w', '合成写手', '文档', 'writer', 'rnd', 'completed', 'docs-coordinator', official)];
   s.members = s.members.concat(fake);
   for (const m of fake) { const d = (s.departments || []).find(x => x.id === m.dept); if (d) { if (!d.members.length) d.status = m.status; d.members = d.members.concat(m.id); if (m.status === 'running') d.status = 'running'; } }
   const nm = (id) => id === '__lead' ? '队长' : id === '__user' ? '你' : id === '__all' ? '全员' : (fake.find(m => m.id === id) || {}).name || id;

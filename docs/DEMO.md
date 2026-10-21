@@ -11,8 +11,9 @@ Open [the local demo](http://127.0.0.1:7790/) in your browser. The command print
 actual URL; `--port 0` chooses an available port. Stop it with Ctrl+C. It does not
 open a browser automatically or install anything into your home directory.
 
-The page displays four synthetic members and coherent example departments, tool
-activity, token counts and estimated costs. A persistent banner marks it as a
+The page displays four synthetic subagent members and two official Agent Team
+teammates, plus coherent example departments, tool activity, token counts and
+estimated costs. Official teammates are marked with a 官方 Team badge. A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed
@@ -37,4 +38,4 @@ a demonstration. For the real transcript-based workflow, follow the
 [main README](../README.md). For aggregate exports and other integrations, see
 [INTEGRATIONS.md](INTEGRATIONS.md).
 
-![Read-only synthetic demo, four example members](img/demo-readonly.png)
+![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
