@@ -19,7 +19,10 @@ class LoopbackServerTest(unittest.TestCase):
                         self.assertEqual(server.server_name, 'localhost')
                         self.assertEqual(server.server_port, server.server_address[1])
                         self.assertGreater(server.server_port, 0)
-                        self.assertEqual(server.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN), 1)
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+                            client.settimeout(1)
+                            client.connect(server.server_address)
+                            self.assertEqual(client.getpeername(), server.server_address)
                     dns.assert_not_called()
             finally:
                 env.cleanup()
