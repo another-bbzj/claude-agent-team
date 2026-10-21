@@ -8,13 +8,11 @@ import base64
 import importlib.util
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
-import time
 import unittest
 import urllib.error
 import urllib.request
