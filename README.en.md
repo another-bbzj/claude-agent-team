@@ -34,6 +34,8 @@ python tools/demo_board.py --port 7790
 
 Open <http://127.0.0.1:7790/>. See [the demo guide](docs/DEMO.md).
 
+![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark](docs/img/demo-synthetic.svg)
+
 **Install into your Claude Code setup:**
 
 ```sh
