@@ -1,0 +1,19 @@
+{
+  "members": [
+    {
+      "name": "synthetic-lead",
+      "agentId": "synthetic-agent-lead",
+      "agentType": "team-lead",
+      "unspecified": "runtime field names are unpublished"
+    },
+    {
+      "name": "synthetic-researcher",
+      "agent_id": "synthetic-agent-researcher",
+      "agent_type": "researcher"
+    },
+    {
+      "name": "synthetic-writer"
+    }
+  ],
+  "unspecifiedRuntime": "session ids and tmux pane ids have no published key names"
+}
