@@ -1,0 +1,12 @@
+{
+  "members": [{"status": "completed"}, {"status": "running"}],
+  "totals": {
+    "cost": 0.012,
+    "membersCost": 0.008,
+    "unpriced": 0,
+    "tokens": 200,
+    "usage": {"in": 100, "out": 200, "cache_read": 300, "cache_write": 0, "total": 600, "cacheHit": 0.75},
+    "leadUsage": {"in": 50, "out": 100, "cache_read": 0, "cache_write": 0, "total": 150, "cacheHit": 0},
+    "allUsage": {"in": 150, "out": 300, "cache_read": 300, "cache_write": 0, "total": 750, "cacheHit": 0.6667}
+  }
+}
