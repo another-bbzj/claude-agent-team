@@ -22,6 +22,7 @@ import threading
 import time
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -2282,6 +2283,15 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    """The board only binds loopback; do not delay listening for reverse DNS."""
+
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name = 'localhost'
+        self.server_port = self.server_address[1]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--port', type=int, default=7788)
@@ -2296,7 +2306,7 @@ def main():
         return
     os.environ['TEAM_BOARD_PORT'] = str(args.port)   # 更新脚本重启时用同一个端口
     threading.Thread(target=auto_discover_pets, args=(True,), daemon=True).start()   # 把文件夹里已有的形象纳入
-    srv = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+    srv = LoopbackHTTPServer(('127.0.0.1', args.port), Handler)
     print(f'Agent Team Board  ->  http://127.0.0.1:{args.port}/   (Ctrl+C 退出)')
     try:
         srv.serve_forever()

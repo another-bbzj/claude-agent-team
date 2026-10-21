@@ -74,6 +74,8 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(wait_json(self.port)['version'], '0.9.0')
         r = subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
         out = r.stdout + r.stderr
+        log = (self.board / 'server.log').read_text(encoding='utf-8', errors='replace') if (self.board / 'server.log').exists() else ''
+        self.assertEqual(r.returncode, 0, out + '\nserver.log:\n' + log)
         self.assertNotIn('Traceback', out, out)
         self.assertIn('0.9.0', out, out)
         self.assertIn('9.9.9', out, out)
@@ -84,7 +86,9 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(snap.get('version'), '9.9.9')
 
     def test_current_server_is_left_alone(self):
-        subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
+        r = subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
+        log = (self.board / 'server.log').read_text(encoding='utf-8', errors='replace') if (self.board / 'server.log').exists() else ''
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr + '\nserver.log:\n' + log)
         snap = wait_json(self.port, 15)
         self.assertEqual(snap.get('version'), '9.9.9')
         r = subprocess.run([sys.executable, str(self.board / 'ensure.py')], env=self.env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
