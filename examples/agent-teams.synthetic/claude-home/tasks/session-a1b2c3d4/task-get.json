@@ -1,0 +1,10 @@
+{
+  "task": {
+    "id": "4",
+    "subject": "Hold the synthetic checklist",
+    "description": "Synthetic task stored in the TaskGet output shape.",
+    "status": "pending",
+    "blocks": [],
+    "blockedBy": ["2"]
+  }
+}
