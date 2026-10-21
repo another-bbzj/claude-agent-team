@@ -1,0 +1,762 @@
+{
+  "demo": true,
+  "generatedAt": 1767261740,
+  "version": "demo-synthetic",
+  "update": {
+    "hasUpdate": false
+  },
+  "session": {
+    "id": "synthetic-session",
+    "project": "synthetic-example",
+    "lastActivity": 1767261740
+  },
+  "sessions": [
+    {
+      "id": "synthetic-session",
+      "project": "synthetic-example",
+      "mtime": 1767261740,
+      "count": 4
+    }
+  ],
+  "lead": {
+    "name": "演示队长",
+    "avatar": "team-lead",
+    "phase": "coordinating",
+    "running": 1,
+    "done": 2,
+    "total": 4,
+    "dept": "hq",
+    "model": "synthetic-model",
+    "modelFamily": "sonnet",
+    "cost": 0.005,
+    "usage": {
+      "in": 50,
+      "out": 20,
+      "cache_read": 100,
+      "cache_write": 0
+    },
+    "pet": "huhu-plan",
+    "active": true,
+    "current": null,
+    "toolCount": 3,
+    "outputTokens": 20,
+    "timeline": [],
+    "lastUserPrompt": "合成演示：展示团队成员和指标。",
+    "lastActivityAt": 1767261740,
+    "startedAt": 1767261600,
+    "endedAt": null,
+    "totalTokens": 170,
+    "cacheHit": 0.6667
+  },
+  "members": [
+    {
+      "id": "synthetic-member-1",
+      "name": "演示后端",
+      "baseName": "演示后端",
+      "roleTitle": "演示后端",
+      "agentType": "backend-dev",
+      "dept": "dev",
+      "status": "running",
+      "avatar": "server-engineer",
+      "pet": "dada-code",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": null,
+      "lastActivityAt": 1767261700,
+      "toolCount": 2,
+      "thinkingCount": 1,
+      "outputTokens": 50,
+      "totalTokens": 360,
+      "cacheHit": 0.6452,
+      "usage": {
+        "in": 100,
+        "out": 50,
+        "cache_read": 200,
+        "cache_write": 10
+      },
+      "cost": 0.01,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261700,
+          "done": false,
+          "ms": 10
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "",
+      "current": {
+        "name": "Read",
+        "label": "Read · synthetic example",
+        "done": false
+      },
+      "unread": 0,
+      "hasDef": true,
+      "custom": false
+    },
+    {
+      "id": "synthetic-member-2",
+      "name": "演示前端",
+      "baseName": "演示前端",
+      "roleTitle": "演示前端",
+      "agentType": "frontend-dev",
+      "dept": "dev",
+      "status": "completed",
+      "avatar": "ui-designer",
+      "pet": "pip",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": 1767261710,
+      "lastActivityAt": 1767261710,
+      "toolCount": 3,
+      "thinkingCount": 1,
+      "outputTokens": 100,
+      "totalTokens": 720,
+      "cacheHit": 0.6452,
+      "usage": {
+        "in": 200,
+        "out": 100,
+        "cache_read": 400,
+        "cache_write": 20
+      },
+      "cost": 0.02,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261710,
+          "done": true,
+          "ms": 10
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "合成任务已交付。",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false
+    },
+    {
+      "id": "synthetic-member-3",
+      "name": "演示测试",
+      "baseName": "演示测试",
+      "roleTitle": "演示测试",
+      "agentType": "qa-tester",
+      "dept": "qa",
+      "status": "completed",
+      "avatar": "qa-engineer",
+      "pet": "bubu-fix",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": 1767261720,
+      "lastActivityAt": 1767261720,
+      "toolCount": 4,
+      "thinkingCount": 1,
+      "outputTokens": 150,
+      "totalTokens": 1080,
+      "cacheHit": 0.6452,
+      "usage": {
+        "in": 300,
+        "out": 150,
+        "cache_read": 600,
+        "cache_write": 30
+      },
+      "cost": 0.03,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261720,
+          "done": true,
+          "ms": 10
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "合成任务已交付。",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false
+    },
+    {
+      "id": "synthetic-member-4",
+      "name": "演示文档",
+      "baseName": "演示文档",
+      "roleTitle": "演示文档",
+      "agentType": "docs-writer",
+      "dept": "docs",
+      "status": "stalled",
+      "avatar": "docs-coordinator",
+      "pet": "huhu-plan",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": null,
+      "lastActivityAt": 1767261730,
+      "toolCount": 5,
+      "thinkingCount": 1,
+      "outputTokens": 200,
+      "totalTokens": 1440,
+      "cacheHit": 0.6452,
+      "usage": {
+        "in": 400,
+        "out": 200,
+        "cache_read": 800,
+        "cache_write": 40
+      },
+      "cost": 0.04,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261730,
+          "done": true,
+          "ms": 10
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false
+    }
+  ],
+  "departments": [
+    {
+      "id": "hq",
+      "name": "指挥部",
+      "icon": "🎯",
+      "required": "optional",
+      "members": [],
+      "status": "running",
+      "needed": true,
+      "missing": false,
+      "cost": 0,
+      "unpriced": 0,
+      "running": 0,
+      "done": 0,
+      "failed": 0,
+      "tools": 0,
+      "tokens": 0,
+      "outTokens": 0,
+      "cacheHit": 0,
+      "seconds": 0,
+      "models": []
+    },
+    {
+      "id": "dev",
+      "name": "研发部",
+      "icon": "🛠",
+      "required": "optional",
+      "members": [
+        "synthetic-member-1",
+        "synthetic-member-2"
+      ],
+      "status": "running",
+      "needed": true,
+      "missing": false,
+      "cost": 0.03,
+      "unpriced": 0,
+      "running": 1,
+      "done": 1,
+      "failed": 0,
+      "tools": 5,
+      "tokens": 1080,
+      "outTokens": 150,
+      "cacheHit": 0.6452,
+      "seconds": 210,
+      "models": [
+        "sonnet"
+      ]
+    },
+    {
+      "id": "qa",
+      "name": "质量部",
+      "icon": "🔍",
+      "required": "optional",
+      "members": [
+        "synthetic-member-3"
+      ],
+      "status": "completed",
+      "needed": true,
+      "missing": false,
+      "cost": 0.03,
+      "unpriced": 0,
+      "running": 0,
+      "done": 1,
+      "failed": 0,
+      "tools": 4,
+      "tokens": 1080,
+      "outTokens": 150,
+      "cacheHit": 0.6452,
+      "seconds": 120,
+      "models": [
+        "sonnet"
+      ]
+    },
+    {
+      "id": "docs",
+      "name": "文档部",
+      "icon": "📄",
+      "required": "optional",
+      "members": [
+        "synthetic-member-4"
+      ],
+      "status": "stalled",
+      "needed": true,
+      "missing": false,
+      "cost": 0.04,
+      "unpriced": 0,
+      "running": 0,
+      "done": 0,
+      "failed": 1,
+      "tools": 5,
+      "tokens": 1440,
+      "outTokens": 200,
+      "cacheHit": 0.6452,
+      "seconds": 130,
+      "models": [
+        "sonnet"
+      ]
+    }
+  ],
+  "totals": {
+    "cost": 0.105,
+    "membersCost": 0.1,
+    "unpriced": 0,
+    "unpricedModels": [],
+    "modelMix": {
+      "sonnet": 4
+    },
+    "tokens": 500,
+    "usage": {
+      "in": 1000,
+      "out": 500,
+      "cache_read": 2000,
+      "cache_write": 100,
+      "total": 3600,
+      "cacheHit": 0.6452
+    },
+    "leadUsage": {
+      "in": 50,
+      "out": 20,
+      "cache_read": 100,
+      "cache_write": 0,
+      "total": 170,
+      "cacheHit": 0.6667
+    },
+    "allUsage": {
+      "in": 1050,
+      "out": 520,
+      "cache_read": 2100,
+      "cache_write": 100,
+      "total": 3770,
+      "cacheHit": 0.6462
+    }
+  },
+  "roster": [
+    {
+      "name": "backend-dev",
+      "display": "演示后端",
+      "description": "合成演示成员",
+      "dept": "dev",
+      "avatar": "server-engineer",
+      "role": "演示后端",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "dada-code"
+    },
+    {
+      "name": "frontend-dev",
+      "display": "演示前端",
+      "description": "合成演示成员",
+      "dept": "dev",
+      "avatar": "ui-designer",
+      "role": "演示前端",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "pip"
+    },
+    {
+      "name": "qa-tester",
+      "display": "演示测试",
+      "description": "合成演示成员",
+      "dept": "qa",
+      "avatar": "qa-engineer",
+      "role": "演示测试",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "bubu-fix"
+    },
+    {
+      "name": "docs-writer",
+      "display": "演示文档",
+      "description": "合成演示成员",
+      "dept": "docs",
+      "avatar": "docs-coordinator",
+      "role": "演示文档",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "huhu-plan"
+    }
+  ],
+  "feed": [
+    {
+      "ts": 1767261700,
+      "memberId": "synthetic-member-1",
+      "name": "演示后端",
+      "avatar": "server-engineer",
+      "label": "Read · synthetic example",
+      "done": false,
+      "error": false
+    },
+    {
+      "ts": 1767261710,
+      "memberId": "synthetic-member-2",
+      "name": "演示前端",
+      "avatar": "ui-designer",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    },
+    {
+      "ts": 1767261720,
+      "memberId": "synthetic-member-3",
+      "name": "演示测试",
+      "avatar": "qa-engineer",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    },
+    {
+      "ts": 1767261730,
+      "memberId": "synthetic-member-4",
+      "name": "演示文档",
+      "avatar": "docs-coordinator",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    }
+  ],
+  "comms": [],
+  "bus": {
+    "count": 0,
+    "unreadLead": 0,
+    "unreadUser": 0
+  },
+  "backdrop": {
+    "enabled": false,
+    "file": "",
+    "url": ""
+  },
+  "pets": [
+    "huhu-plan",
+    "dada-code",
+    "bubu-fix",
+    "huihui-build",
+    "pip",
+    "cubo",
+    "drip",
+    "mush",
+    "kit",
+    "spark",
+    "bolt",
+    "puff",
+    "tank"
+  ],
+  "petInfo": {
+    "huhu-plan": {
+      "file": "huhu-plan.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "dada-code": {
+      "file": "dada-code.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "bubu-fix": {
+      "file": "bubu-fix.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "huihui-build": {
+      "file": "huihui-build.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "pip": {
+      "file": "pip.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "cubo": {
+      "file": "cubo.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "drip": {
+      "file": "drip.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "mush": {
+      "file": "mush.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "kit": {
+      "file": "kit.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "spark": {
+      "file": "spark.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "bolt": {
+      "file": "bolt.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "puff": {
+      "file": "puff.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "tank": {
+      "file": "tank.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}
