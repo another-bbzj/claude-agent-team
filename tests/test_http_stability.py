@@ -59,6 +59,58 @@ class HttpInputStabilityTest(unittest.TestCase):
                 apply.assert_called_once_with()
                 response.assert_called_once_with({'ok': True})
 
+    def _post_cross_origin(self, body, length=None, origin='http://evil.example'):
+        events = []
+
+        class RecordingReader(io.BytesIO):
+            def read(self, n=-1):
+                chunk = super().read(n)
+                events.append(('read', n, len(chunk)))
+                return chunk
+
+        class RecordingWriter(io.BytesIO):
+            def write(self, data):
+                events.append(('write', len(data)))
+                return super().write(data)
+
+            def flush(self):
+                events.append(('flush',))
+                return super().flush()
+
+        handler = self.tb.Handler.__new__(self.tb.Handler)
+        handler.path = '/api/bus/send'
+        handler.headers = Message()
+        handler.headers['Content-Length'] = str(len(body) if length is None else length)
+        handler.headers['Origin'] = origin
+        handler.rfile = RecordingReader(body)
+        handler.wfile = RecordingWriter()
+        handler.request_version = 'HTTP/1.1'
+        handler.requestline = 'POST /api/bus/send HTTP/1.1'
+        handler.do_POST()
+        return handler, events
+
+    def test_cross_origin_drains_body_before_403_and_flushes(self):
+        body = b'{"from":"user","to":"lead","text":"origin"}'
+        handler, events = self._post_cross_origin(body)
+        raw = handler.wfile.getvalue()
+        kinds = [event[0] for event in events]
+        self.assertIn(b' 403 ', raw)
+        self.assertIn('拒绝跨站请求'.encode('utf-8'), raw)
+        self.assertLess(kinds.index('read'), kinds.index('write'))
+        self.assertLess(kinds.index('write'), kinds.index('flush'))
+        self.assertEqual(sum(event[2] for event in events if event[0] == 'read'), len(body))
+        self.assertFalse(any(event[0] == 'read' and event[1] < 0 for event in events))
+
+    def test_cross_origin_skips_negative_or_huge_content_length(self):
+        body = b'{"a":1}'
+        for length in (-1, self.tb.PET_MAX_BYTES * 2 + 1, 'nope'):
+            with self.subTest(length=length):
+                handler, events = self._post_cross_origin(body, length=length)
+                self.assertIn(b' 403 ', handler.wfile.getvalue())
+                self.assertFalse(any(event[0] == 'read' for event in events))
+                self.assertIn('flush', [event[0] for event in events])
+                self.assertEqual(handler.rfile.read(), body)
+
     def test_invalid_reload_preserves_last_valid_config(self):
         tb = self.tb
         config = json.loads(json.dumps(tb.TEAM_CFG))

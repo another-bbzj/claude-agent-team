@@ -2340,9 +2340,32 @@ class Handler(SimpleHTTPRequestHandler):
             return False
         return o.hostname in ('127.0.0.1', 'localhost', '::1') and port == self.server.server_address[1]
 
+    def _drain_body(self):
+        """按 Content-Length 从 rfile 读完并丢弃请求体。
+
+        请求头是用缓冲的 rfile 解析的，正文可能已经在这个缓冲里，不能改从裸 socket 读。
+        跨站 403 若在接收缓冲里还留着未读正文时关连接，Windows 会回 RST（WinError 10053），
+        客户端的 getresponse() 就读不到已经写出的状态行。负值或无法解析的长度不读：
+        read(-1) 会一直读到对端关闭。超过正常 POST 上限的声明也不读，避免被伪造的
+        Content-Length 挂住处理线程。
+        """
+        try:
+            n = int(self.headers.get('Content-Length') or 0)
+        except (TypeError, ValueError):
+            return
+        if n <= 0 or n > PET_MAX_BYTES * 2:
+            return
+        remaining = n
+        while remaining > 0:
+            chunk = self.rfile.read(min(remaining, 65536))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
     def do_POST(self):
         u = urlparse(self.path)
         if not self._same_origin():
+            self._drain_body()   # 先读完正文再拒绝，否则 Windows 客户端会 ConnectionAbortedError，读不到 403
             return self._json({'error': '拒绝跨站请求'}, 403)   # 别的网页不能往本机看板 POST（防止借 bus 给代理注入消息）
         try:
             n = int(self.headers.get('Content-Length') or 0)
@@ -2428,6 +2451,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        self.wfile.flush()   # 状态行和正文先送进内核，再回到会关闭连接的处理循环
 
 
 class LoopbackHTTPServer(ThreadingHTTPServer):
