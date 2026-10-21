@@ -1,0 +1,9 @@
+{"type":"thread.started","thread_id":"synthetic-thread"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"synthetic-command","type":"command_execution","command":"echo synthetic example","status":"in_progress"}}
+{"type":"item.completed","item":{"id":"synthetic-command","type":"command_execution","command":"echo synthetic example","aggregated_output":"synthetic example","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"synthetic-message","type":"agent_message","text":"This example contains no real user data."}}
+{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":60,"output_tokens":25,"reasoning_output_tokens":5}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"synthetic-command","type":"command_execution","command":"echo another synthetic example","aggregated_output":"another synthetic example","exit_code":0,"status":"completed"}}
+{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":60,"output_tokens":25}}

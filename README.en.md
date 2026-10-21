@@ -8,6 +8,8 @@ A department-based agent team workflow and local live board for Claude Code: see
 
 ## Quick start
 
+To try the board without installation, accounts or access to your own transcripts, run `python tools/demo_board.py --port 7790` from the checkout and open [the read-only demo](http://127.0.0.1:7790/). It uses synthetic data only; see [the demo guide](docs/DEMO.md).
+
 Requirements: Python 3.8 or later and Claude Code for the transcript-based workflow. The core runtime uses the Python standard library. Git is needed for the clone commands below.
 
 ```sh
@@ -34,7 +36,7 @@ This starts the foreground server on the loopback address at port 7788; use Ctrl
 - Offers `team-board/msg.py` for messaging, with an inbox-file fallback when the board is unreachable.
 - Supports local pet artwork imports and optional background customization. The [Chinese guide](docs/GUIDE.md) covers the full UI.
 
-The board currently parses Claude Code sessions. Codex can be used to maintain this repository, as described in [CODEX.md](docs/CODEX.md); Codex transcript ingestion is a [planned adapter](docs/ROADMAP.md), not an implemented feature. Importing local Codex pet artwork is separate from session support.
+The board currently parses Claude Code sessions. The [Codex exec metrics adapter](docs/CODEX_METRICS.md) separately summarizes explicitly provided `codex exec --json` logs offline. Full interactive Codex session ingestion into the board remains [planned](docs/ROADMAP.md). Using Codex to maintain the repository and importing local Codex pet artwork are separate features.
 
 ## Configuration and privacy
 

@@ -223,13 +223,14 @@ def main():
     print('  钩子  -> settings.json SessionStart（已备份原文件）')
     print('现在就想看看板：python', (CLAUDE / 'team-board' / 'ensure.py').as_posix())
     # 之前启动的看板进程还在跑旧代码（页面新、服务旧会出现“导入形象 not found”），装完就重启它
-    if a.no_restart or os.environ.get('TEAM_BOARD_NO_RESTART'):
-        return
-    try:
-        import subprocess
-        subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'ensure.py'), '--restart'], timeout=60)
-    except Exception as e:
-        print('看板重启失败（不影响安装）：', e)
+    if not (a.no_restart or os.environ.get('TEAM_BOARD_NO_RESTART')):
+        try:
+            import subprocess
+            r = subprocess.run([sys.executable, str(CLAUDE / 'team-board' / 'ensure.py'), '--restart'], timeout=60)
+            if r.returncode != 0:
+                print('看板重启失败（不影响安装）：退出码', r.returncode)
+        except Exception as e:
+            print('看板重启失败（不影响安装）：', e)
     if not a.no_pets:
         print()
         print('检测本机 Codex 客户端与 ~/.codex/pets、~/.petdex/pets，导入里面的宠物形象（只读你自己的文件，不联网）…')
