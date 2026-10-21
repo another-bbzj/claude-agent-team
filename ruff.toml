@@ -1,0 +1,15 @@
+# 运行时下限是 Python 3.8。这里只开能指出真实缺陷的规则，不重排本仓库的长行和单行写法。
+
+target-version = "py38"
+line-length = 120
+
+[lint]
+select = ["E9", "F", "B"]
+ignore = [
+  # re.split 的位置参数 maxsplit 另有兼容性改动，不在格式清理里改调用点。
+  "B034",
+  # 给大量故意的宽 except 补 raise-from，会改掉异常链。
+  "B904",
+  # zip(strict=True) 在长度不一致时会从静默截断变成抛错。
+  "B905",
+]

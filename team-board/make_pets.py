@@ -152,7 +152,7 @@ def draw_char(name, pose):
         ld.polygon([(cx + W * .3, cy - H * .16), (cx + W * .26, cy - H * .06), (cx + W * .34, cy - H * .06)], fill=(120, 180, 240, 230))
     elif prop == 'zz':
         txt = ImageDraw.Draw(layer)
-        for i, (dx, dy, sz) in enumerate([(.28, -.36, .07), (.36, -.44, .05)]):
+        for dx, dy, sz in ((.28, -.36, .07), (.36, -.44, .05)):
             txt.text((cx + dx * W, cy + dy * H), 'z', fill=(90, 90, 100, 255), font_size=int(W * sz))
     # 变换：缩放 / 倾斜 / 位移 / 躺倒
     sx, sy = pose.get('sx', 1), pose.get('sy', 1)
