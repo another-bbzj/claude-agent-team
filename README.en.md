@@ -38,6 +38,12 @@ This starts the foreground server on the loopback address at port 7788; use Ctrl
 
 The board currently parses Claude Code sessions. The [Codex exec metrics adapter](docs/CODEX_METRICS.md) separately summarizes explicitly provided `codex exec --json` logs offline. Full interactive Codex session ingestion into the board remains [planned](docs/ROADMAP.md). Using Codex to maintain the repository and importing local Codex pet artwork are separate features.
 
+## How the pieces connect
+
+The diagram follows the system light or dark theme. Solid lines are the live path: the lead writes `.team/` in the project, the eight member files live in `agents/`, and `team_board.py` reads transcripts only on `127.0.0.1:7788` and serves `/snapshot.json`. Dashed lines are three tools that do not read personal sessions.
+
+![Loopback runtime: main session, resident members, the board, and three tools that do not read sessions](docs/img/architecture.svg)
+
 ## Configuration and privacy
 
 Defaults for departments, agent labels, pets and estimated pricing live in `team-board/team.json`; the installed copy is under `~/.claude/team-board/`. Pricing is an estimate, not a provider bill. See the [Chinese README](README.md) for customization and update behavior.
@@ -70,6 +76,6 @@ python -m unittest discover -s tests -v
 
 Some tests start local HTTP servers and need loopback socket access. The optional Pillow-dependent image test is skipped when Pillow is unavailable. UI syntax checking uses Node.js during development; use the exact command in [AGENTS.md](AGENTS.md). The [CI workflow](.github/workflows/test.yml) defines the platform/interpreter matrix.
 
-The architecture is a Python standard-library HTTP server that derives snapshots from local transcript files, plus a browser UI that polls those snapshots. The installer and local asset/update helpers are separate scripts. No hosted backend is required to view local sessions.
+The architecture is a Python standard-library HTTP server that derives snapshots from local transcript files, plus a browser UI that polls those snapshots. The installer and local asset/update helpers are separate scripts. No hosted backend is required to view local sessions. The figure in [How the pieces connect](#how-the-pieces-connect) is that path.
 
 Licensed under [MIT](LICENSE). This is an independent community project.

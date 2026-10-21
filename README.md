@@ -158,6 +158,12 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 
 ---
 
+## 运行时结构
+
+图跟着系统的浅色或深色走。实线是实时路径：队长把工单写进项目里的 `.team/`，八位成员的定义在 `agents/`，`team_board.py` 只在 `127.0.0.1:7788` 读取转录并给出 `/snapshot.json`。虚线是三条不读个人会话的旁路。成员之间怎么交接，见下一节。
+
+![本机运行时：主会话、常驻成员、回环看板，以及三条不读会话的旁路](docs/img/architecture.svg)
+
 ## 🤝 团队是怎么协作的
 
 ```mermaid
