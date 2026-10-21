@@ -39,3 +39,7 @@ a demonstration. For the real transcript-based workflow, follow the
 [INTEGRATIONS.md](INTEGRATIONS.md).
 
 ![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
+
+The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members and does not yet include the official Agent Team teammates.
+
+![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)
