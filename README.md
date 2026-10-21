@@ -35,6 +35,8 @@ python tools/demo_board.py --port 7790
 
 打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。
 
+![只读合成演示：synthetic-example 的队长和四名成员。金额、用时和工具标签来自仓库里的合成快照，不是用量基准](docs/img/demo-synthetic.svg)
+
 **装进自己的 Claude Code：**
 
 ```bash
@@ -65,12 +67,14 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 
 | 你想做的 | 去哪 |
 |---|---|
+| 看运行时怎么接在一起 | [运行时结构](docs/GUIDE.md#arch) |
 | 看懂顶栏、舞台、通讯、抽屉、外观 | [界面](docs/GUIDE.md#ui) |
 | 走完一次团队任务 | [第一次使用](docs/GUIDE.md#first-run) |
 | 看成员怎么互相发消息 | [消息总线](docs/GUIDE.md#msg) |
 | 加部门、换模型、换桌宠 | [成员](docs/GUIDE.md#members) · [形象](docs/GUIDE.md#pets) |
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
+| 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
 | 只读导出、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
@@ -83,5 +87,4 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 思路借鉴 [cc-haha](https://github.com/NanmiCoder/cc-haha) 的 Agent Teams 工作台；省 token 的写法借鉴 [ponytail](https://github.com/DietrichGebert/ponytail) 与 [mattpocock/skills](https://github.com/mattpocock/skills)。桌宠格式与 Codex、[petdex](https://petdex.dev) 兼容，感谢社区作者们的形象。
 
 ## 许可证
-
 [MIT](LICENSE) © [another-bbzj](https://github.com/another-bbzj)

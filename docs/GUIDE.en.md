@@ -9,6 +9,7 @@ Board: <http://127.0.0.1:7788/> after installation. The `SessionStart` hook star
 - [Before you start](#why)
 - [Install, update, uninstall](#install)
 - [First run](#first-run)
+- [How the pieces connect](#arch)
 - [How the team collaborates](#office)
 - [Messages](#msg)
 - [What the board shows](#ui)
@@ -121,6 +122,14 @@ Open any project folder in Claude Code, including an empty one.
 **7. The lead accepts the work in person:** runs the tests, walks the main path, then reports one or two sentences per member, the seams that showed up, anything left open, and the cost read from the board.
 
 You can also just say so in the chat (“have the reviewer look at store.js again”).
+
+<a id="arch"></a>
+
+## How the pieces connect
+
+The diagram follows the system light or dark theme. Solid lines are the live path: the lead writes `.team/` in the project, the eight member files live in `agents/`, and `team_board.py` reads transcripts only on `127.0.0.1:7788` and serves `/snapshot.json`. Dashed lines are three tools that do not read personal sessions. How members hand work across is the next section.
+
+![Loopback runtime: main session, resident members, the board, and three tools that do not read sessions](img/architecture.svg)
 
 <a id="office"></a>
 

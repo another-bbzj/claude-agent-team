@@ -34,6 +34,8 @@ python tools/demo_board.py --port 7790
 
 Open <http://127.0.0.1:7790/>. See [the demo guide](docs/DEMO.md).
 
+![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark](docs/img/demo-synthetic.svg)
+
 **Install into your Claude Code setup:**
 
 ```sh
@@ -62,6 +64,7 @@ The side-by-side comparison and the first full task are in the guide: [before yo
 
 | Goal | Where |
 |---|---|
+| How the pieces connect | [Runtime](docs/GUIDE.en.md#arch) |
 | Panels, drawer, themes, backdrop | [Guide · interface](docs/GUIDE.en.md#ui) |
 | One team task, end to end | [First run](docs/GUIDE.en.md#first-run) |
 | How agents message each other | [Message bus](docs/GUIDE.en.md#msg) |
@@ -72,6 +75,10 @@ The side-by-side comparison and the first full task are in the guide: [before yo
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
 The live board parses **Claude Code** sessions. [tools/codex_metrics.py](docs/CODEX_METRICS.md) summarizes an explicit `codex exec --json` log offline. It does not ingest interactive Codex sessions; that remains [planned](docs/ROADMAP.md). Using Codex to maintain this repository, and importing pets from a local Codex install, are separate.
+
+## Release notes and questions
+
+[CHANGELOG.md](CHANGELOG.md) is reconstructed from commits on `main`. This repository has no git tags; [`VERSION`](VERSION) is 1.4.2. [docs/FAQ.md](docs/FAQ.md) restates the questions in the guide’s [FAQ](docs/GUIDE.md#faq). The public issue list had no threads to add.
 
 ## License
 

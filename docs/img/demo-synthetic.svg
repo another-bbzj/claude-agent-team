@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 680" role="img" aria-labelledby="demoTitle demoDesc">
+  <title id="demoTitle">只读合成演示看板</title>
+  <desc id="demoDesc">synthetic-example 会话。名字、状态、成本和工具标签来自 examples/board-demo.synthetic.json，经 tools/demo_board.py 读出。金额用看板 fmtCost，已完成用时用夹具时间戳上的 fmtDur。不是屏幕录像，也不是用量基准。</desc>
+  <style>
+    .bg { fill: #e7e9ed; }
+    .card { fill: #ffffff; stroke: #d2d6de; }
+    .inset { fill: #f7f7f4; stroke: #d2d6de; }
+    .ink { fill: #131722; }
+    .muted { fill: #465066; }
+    .faint { fill: #858c9d; }
+    .brand { fill: #2c3d9e; stroke: #2c3d9e; }
+    .gold { fill: #9c7818; stroke: #9c7818; }
+    .ok { fill: #2b8466; stroke: #2b8466; }
+    .warn { fill: #b36f0b; stroke: #b36f0b; }
+    .info { fill: #1c74a8; stroke: #1c74a8; }
+    .banner { fill: #153d50; }
+    .bannertext { fill: #ffffff; }
+    .track { fill: #e7e9ed; }
+    .gridline { stroke: rgba(22, 28, 48, .06); }
+    text { font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #070a11; }
+      .card { fill: #141926; stroke: #232a3a; }
+      .inset { fill: #0e121c; stroke: #232a3a; }
+      .ink { fill: #eceae3; }
+      .muted { fill: #a6acba; }
+      .faint { fill: #676f83; }
+      .brand { fill: #7085f0; stroke: #7085f0; }
+      .gold { fill: #d3b35c; stroke: #d3b35c; }
+      .ok { fill: #62b596; stroke: #62b596; }
+      .warn { fill: #e3a444; stroke: #e3a444; }
+      .info { fill: #5fb1e3; stroke: #5fb1e3; }
+      .banner { fill: #153d50; }
+      .bannertext { fill: #ffffff; }
+      .track { fill: #0e121c; }
+      .gridline { stroke: rgba(236, 234, 227, .05); }
+    }
+  </style>
+  <rect class="bg" width="1080" height="680"/>
+  <path class="gridline" d="M0 24 H1080 M0 600 H1080" fill="none"/>
+
+<text class="ink" x="28" y="46" font-size="20" font-weight="600">只读演示</text>
+<text class="faint mono" x="132" y="44" font-size="12">demo-synthetic</text>
+<text class="muted mono" x="28" y="68" font-size="12">synthetic-example · synthetic-session</text>
+<text class="brand" x="28" y="96" font-size="12">协调中</text>
+<text class="brand" x="80" y="96" font-size="12">⚙ 1 进行中</text>
+<text class="ok" x="166.32" y="96" font-size="12">✓ 2 已完成</text>
+<text class="muted" x="252.64" y="96" font-size="12">4 成员</text>
+<text class="ok" x="307.52" y="96" font-size="12">部门 4/4</text>
+<text class="mono muted" x="377.28" y="96" font-size="12">sonnet×4</text>
+<text class="mono ink" x="457.35999999999996" y="96" font-size="12">≈ $0.100 成员 / $0.105 合计</text>
+<text class="mono faint" x="667.28" y="96" font-size="12">Σ 3770 tok · 缓存 65%</text>
+<path class="card" d="M24 112 H1040 L1056 128 V184 H24 Z" stroke-width="1"/>
+<path class="brand" d="M24 112 H1040 L1056 128" fill="none" stroke-width="2"/>
+<text class="ink" x="40" y="142" font-size="16" font-weight="600">演示队长</text>
+<text class="brand" x="140" y="142" font-size="13">协调中 · 1 人在干活</text>
+<text class="muted" x="40" y="168" font-size="12">3 次工具 · 2/4 已交付 · $0.005 · 170 tok · 缓存 67%</text>
+<text class="faint mono" x="520" y="168" font-size="12">synthetic-model · sonnet · pet huhu-plan</text>
+<text class="faint" x="360" y="142" font-size="12">合成演示：展示团队成员和指标。</text>
+<path class="card" d="M24 204 H340 L352 216 V520 H24 Z" stroke-width="1"/>
+<path class="brand" d="M24 204 H340 L352 216" fill="none" stroke-width="2"/>
+<text class="ink" x="40" y="236" font-size="14" font-weight="600">🛠 研发部</text>
+<text class="brand" x="224" y="236" font-size="12">进行中</text>
+<text class="faint mono" x="40" y="256" font-size="11">$0.030 · 1080 tok · 5 次工具</text>
+<path class="inset" d="M38 274 H334 V370 H38 Z"/>
+<circle class="brand" cx="54" cy="292" r="5">
+<animate attributeName="opacity" values="1;0.35;1" dur="1.6s" repeatCount="indefinite"/>
+</circle>
+<text class="ink" x="68" y="296" font-size="14" font-weight="600">演示后端</text>
+<text class="brand" x="174" y="296" font-size="12">进行中</text>
+<text class="muted" x="68" y="318" font-size="12">正在读取 Read</text>
+<text class="mono faint" x="68" y="338" font-size="11">$0.010 · 360 tok · 缓存 65%</text>
+<text class="mono faint" x="68" y="358" font-size="11">backend-dev · sonnet · dada-code</text>
+<rect class="track" x="68" y="366" width="180" height="3" rx="1"/>
+<rect class="brand" x="68" y="366" width="70" height="3" rx="1">
+<animate attributeName="x" values="68;178;68" dur="1.8s" repeatCount="indefinite"/>
+</rect>
+<path class="inset" d="M38 382 H334 V478 H38 Z"/>
+<circle class="ok" cx="54" cy="400" r="5">
+</circle>
+<text class="ink" x="68" y="404" font-size="14" font-weight="600">演示前端</text>
+<text class="brand" x="174" y="404" font-size="12">已完成</text>
+<text class="muted" x="68" y="426" font-size="12">✓ 已交付 · 用时 1m50s</text>
+<text class="mono faint" x="68" y="446" font-size="11">$0.020 · 720 tok · 缓存 65%</text>
+<text class="mono faint" x="68" y="466" font-size="11">frontend-dev · sonnet · pip</text>
+<path class="card" d="M368 204 H684 L696 216 V520 H368 Z" stroke-width="1"/>
+<path class="ok" d="M368 204 H684 L696 216" fill="none" stroke-width="2"/>
+<text class="ink" x="384" y="236" font-size="14" font-weight="600">🔍 质量部</text>
+<text class="ok" x="568" y="236" font-size="12">已完成</text>
+<text class="faint mono" x="384" y="256" font-size="11">$0.030 · 1080 tok · 4 次工具</text>
+<path class="inset" d="M382 274 H678 V370 H382 Z"/>
+<circle class="ok" cx="398" cy="292" r="5">
+</circle>
+<text class="ink" x="412" y="296" font-size="14" font-weight="600">演示测试</text>
+<text class="ok" x="518" y="296" font-size="12">已完成</text>
+<text class="muted" x="412" y="318" font-size="12">✓ 已交付 · 用时 2m0s</text>
+<text class="mono faint" x="412" y="338" font-size="11">$0.030 · 1080 tok · 缓存 65%</text>
+<text class="mono faint" x="412" y="358" font-size="11">qa-tester · sonnet · bubu-fix</text>
+<path class="card" d="M712 204 H1028 L1040 216 V520 H712 Z" stroke-width="1"/>
+<path class="warn" d="M712 204 H1028 L1040 216" fill="none" stroke-width="2"/>
+<text class="ink" x="728" y="236" font-size="14" font-weight="600">📄 文档部</text>
+<text class="warn" x="912" y="236" font-size="12">停滞</text>
+<text class="faint mono" x="728" y="256" font-size="11">$0.040 · 1440 tok · 5 次工具</text>
+<path class="inset" d="M726 274 H1022 V370 H726 Z"/>
+<circle class="warn" cx="742" cy="292" r="5">
+</circle>
+<text class="ink" x="756" y="296" font-size="14" font-weight="600">演示文档</text>
+<text class="warn" x="862" y="296" font-size="12">停滞</text>
+<text class="muted" x="756" y="318" font-size="12">停滞</text>
+<text class="mono faint" x="756" y="338" font-size="11">$0.040 · 1440 tok · 缓存 65%</text>
+<text class="mono faint" x="756" y="358" font-size="11">docs-writer · sonnet · huhu-plan</text>
+<text class="warn" x="982" y="296" font-size="14" font-weight="600">zZ<animate attributeName="opacity" values="0.35;1;0.35" dur="2.4s" repeatCount="indefinite"/></text>
+<text class="faint" x="28" y="552" font-size="11">动作</text>
+<text class="ink" x="80" y="548" font-size="12" font-weight="600">演示后端</text>
+<text class="muted mono" x="80" y="568" font-size="11">Read · synthetic example</text>
+<text class="brand" x="80" y="586" font-size="11">未完成</text>
+<text class="ink" x="340" y="548" font-size="12" font-weight="600">演示前端</text>
+<text class="muted mono" x="340" y="568" font-size="11">Read · synthetic example</text>
+<text class="ok" x="340" y="586" font-size="11">完成 · 合成任务已交付。</text>
+<text class="ink" x="620" y="548" font-size="12" font-weight="600">演示测试</text>
+<text class="muted mono" x="620" y="568" font-size="11">Read · synthetic example</text>
+<text class="ok" x="620" y="586" font-size="11">完成 · 合成任务已交付。</text>
+<text class="ink" x="880" y="548" font-size="12" font-weight="600">演示文档</text>
+<text class="muted mono" x="880" y="568" font-size="11">Read · synthetic example</text>
+<text class="warn" x="880" y="586" font-size="11">这条工具调用已结束</text>
+<rect class="banner" x="0" y="636" width="1080" height="44"/>
+<text class="bannertext" x="540" y="663" font-size="14" font-weight="600" text-anchor="middle">只读演示 · 全部为合成数据 · Read-only demo / synthetic data</text>
+</svg>
