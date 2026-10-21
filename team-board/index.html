@@ -1361,8 +1361,12 @@ function renderTaskBoard(snap) {
   const count = (key) => tasks.filter(task => task.normalizedStatus === key).length;
   $('#task-board-count').textContent = `${count('pending')} 待处理 · ${count('in_progress')} 进行中 · ${count('completed')} 已完成`;
   const warns = (team.warnings || []).filter(Boolean);
+  const synthetic = snap.demo || team.teamName === 'session-demo0001';
+  const sourceNote = synthetic
+    ? '这是合成任务，不读取本机任务目录。'
+    : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
-    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。`;
+    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。` + sourceNote;
   $('#kanban').innerHTML = TASK_COLUMNS.map(col => {
     const items = tasks.filter(task => task.normalizedStatus === col.key).slice().sort(taskSort);
     const cards = items.map(task => {
