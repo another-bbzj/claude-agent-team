@@ -114,8 +114,6 @@ def custom_pets(out: Path):
 
 def import_path(path: Path, out: Path, tag: str = '') -> int:
     """导入一个目录（pet.json + 雪碧图）、一个 zip 包或一张雪碧图。返回导入数量（0/1）。"""
-    import io as _io
-    import zipfile
     try:
         if path.is_dir():
             meta = {}
