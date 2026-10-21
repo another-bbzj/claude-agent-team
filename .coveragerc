@@ -1,0 +1,12 @@
+[run]
+branch = false
+source =
+    team-board
+    tools
+
+[report]
+precision = 1
+show_missing = false
+skip_empty = true
+omit =
+    tests/*

@@ -1,0 +1,9 @@
+# The board and installer use the Python standard library only.
+# There is no pip, npm, or other package manifest to update.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
