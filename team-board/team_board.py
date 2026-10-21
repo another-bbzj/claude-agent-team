@@ -735,7 +735,7 @@ def model_family(model: str) -> str:
             return fam
     # 第三方模型（deepseek / gpt / qwen …）：去掉 provider 前缀（openai/…、deepseek/…）后取首段作为家族名，方便按家族汇总
     low = low.rsplit('/', 1)[-1]
-    head = re.split(r'[-_/:.]', low, 1)[0] if low else ''
+    head = re.split(r'[-_/:.]', low, maxsplit=1)[0] if low else ''
     return head or ''
 
 
@@ -809,7 +809,7 @@ def stable_hash(s: str) -> int:
 
 def avatar_key(identity: str, agent_id: str, secondary: str = '') -> str:
     """先只看 类型+任务描述，命中即定；没命中再看指令正文；都没有则按 id 稳定散列。"""
-    head = re.split(r'[：:·\-—]', identity, 1)[0] if identity else ''
+    head = re.split(r'[：:·\-—]', identity, maxsplit=1)[0] if identity else ''
     for text in (head, identity, secondary):
         low = text.lower()
         for key, pat in AVATAR_RULES:
