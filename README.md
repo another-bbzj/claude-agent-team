@@ -74,6 +74,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 加部门、换模型、换桌宠 | [成员](docs/GUIDE.md#members) · [形象](docs/GUIDE.md#pets) |
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
+| 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
 | 只读导出、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
@@ -86,5 +87,4 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 思路借鉴 [cc-haha](https://github.com/NanmiCoder/cc-haha) 的 Agent Teams 工作台；省 token 的写法借鉴 [ponytail](https://github.com/DietrichGebert/ponytail) 与 [mattpocock/skills](https://github.com/mattpocock/skills)。桌宠格式与 Codex、[petdex](https://petdex.dev) 兼容，感谢社区作者们的形象。
 
 ## 许可证
-
 [MIT](LICENSE) © [another-bbzj](https://github.com/another-bbzj)
