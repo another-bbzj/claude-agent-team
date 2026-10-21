@@ -126,14 +126,15 @@ class EnvironmentCheckTest(unittest.TestCase):
         self.assertIn('PYTHONIOENCODING', item['hint'])
 
     def test_process_tool_follows_the_platform_ensure_uses(self):
-        with mock.patch.object(doctor.os, 'name', 'nt'), \
+        with mock.patch.object(doctor, '_is_windows', return_value=True), \
                 mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: name == 'netstat' and 'netstat.exe'):
             item = doctor.tool_check()
         self.assertEqual(item['status'], 'ok')
         self.assertIn('netstat', item['summary'])
         self.assertNotIn('lsof', item['summary'])
 
-        with mock.patch.object(doctor.os, 'name', 'posix'), mock.patch.object(doctor.shutil, 'which', return_value=None):
+        with mock.patch.object(doctor, '_is_windows', return_value=False), \
+                mock.patch.object(doctor.shutil, 'which', return_value=None):
             item = doctor.tool_check()
         self.assertEqual(item['status'], 'warn')
         self.assertIn('lsof', item['summary'])
@@ -147,7 +148,7 @@ class EnvironmentCheckTest(unittest.TestCase):
         def only(name):
             return '/usr/bin/' + name
 
-        with mock.patch.object(doctor.os, 'name', 'posix'), \
+        with mock.patch.object(doctor, '_is_windows', return_value=False), \
                 mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: only('ss') if name == 'ss' else None):
             ss_only = doctor.tool_check()
         self.assertEqual(ss_only['status'], 'ok')
@@ -155,7 +156,7 @@ class EnvironmentCheckTest(unittest.TestCase):
         self.assertNotIn('lsof', ss_only['summary'])
         self.assertNotIn('fuser', ss_only['summary'])
 
-        with mock.patch.object(doctor.os, 'name', 'posix'), \
+        with mock.patch.object(doctor, '_is_windows', return_value=False), \
                 mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: only('fuser') if name == 'fuser' else None):
             fuser_only = doctor.tool_check()
         self.assertEqual(fuser_only['status'], 'ok')
@@ -211,7 +212,8 @@ class DiagnosisTest(unittest.TestCase):
         def which(name):
             return '/usr/bin/' + name if name in wanted else None
 
-        with mock.patch.object(doctor, 'probe_port', return_value=probed), \
+        with mock.patch.object(doctor, '_is_windows', return_value=False), \
+                mock.patch.object(doctor, 'probe_port', return_value=probed), \
                 mock.patch.object(doctor.shutil, 'which', side_effect=which):
             return doctor.diagnose(self.root, 7788)
 
@@ -296,7 +298,8 @@ class LiveServerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='doctor-live-') as tmp:
             root = write_board(Path(tmp) / 'team-board', version='9.9.9')
             before = doctor._OPENER.open('http://127.0.0.1:%s/snapshot.json' % server.port, timeout=2).read()
-            with mock.patch.object(doctor.shutil, 'which', return_value=None):
+            with mock.patch.object(doctor, '_is_windows', return_value=False), \
+                    mock.patch.object(doctor.shutil, 'which', return_value=None):
                 report = doctor.diagnose(root, server.port)
             after = doctor._OPENER.open('http://127.0.0.1:%s/snapshot.json' % server.port, timeout=2).read()
         self.assertEqual(before, after)
@@ -312,7 +315,8 @@ class CliTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='doctor-cli-') as tmp:
             root = write_board(Path(tmp) / 'team-board')
             probed = {'listening': False, 'board': False, 'version': '', 'error': ''}
-            with mock.patch.object(doctor, 'probe_port', return_value=probed), \
+            with mock.patch.object(doctor, '_is_windows', return_value=False), \
+                    mock.patch.object(doctor, 'probe_port', return_value=probed), \
                     mock.patch.object(doctor.shutil, 'which', side_effect=lambda name: '/usr/bin/lsof' if name == 'lsof' else None), \
                     mock.patch.object(doctor, 'pillow_check', return_value=doctor.check('pillow', 'warn', '未安装 Pillow', 'pip install pillow')):
                 buf = io.StringIO()

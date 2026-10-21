@@ -32,22 +32,27 @@ def check(check_id, status, summary, hint=''):
     return {'id': check_id, 'status': status, 'summary': summary, 'hint': hint}
 
 
+def _is_windows():
+    """测试打这个函数，不要改 os.name：那是进程全局值，会牵动标准库。"""
+    return os.name == 'nt'
+
+
 def _missing_tools_phrase():
     """与 ensure.pids_on_port 一致：Windows 只认 netstat；Unix 上 lsof、ss、fuser 有一个即可。"""
-    if os.name == 'nt':
+    if _is_windows():
         return 'netstat'
     return 'lsof、ss 或 fuser'
 
 
 def tool_install_hint():
-    if os.name == 'nt':
+    if _is_windows():
         return '确认 netstat 在 PATH 中（Windows 通常位于 System32）'
     return ('安装其中之一：lsof，iproute2（提供 ss），或 psmisc（提供 fuser）。'
             'Debian/Ubuntu：sudo apt-get install lsof，或 sudo apt-get install iproute2，或 sudo apt-get install psmisc')
 
 
 def _found_process_tools():
-    if os.name == 'nt':
+    if _is_windows():
         path = shutil.which('netstat')
         return [('netstat', path)] if path else []
     found = []
