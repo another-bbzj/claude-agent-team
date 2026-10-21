@@ -70,23 +70,24 @@ def check() -> dict:
 def apply(restart: bool = False) -> int:
     print(f'下载 {ZIP_URL} …')
     data = fetch(ZIP_URL, timeout=120)
-    tmp = Path(tempfile.mkdtemp(prefix='team-update-'))
-    with zipfile.ZipFile(io.BytesIO(data)) as z:
-        z.extractall(tmp)
-    roots = [d for d in tmp.iterdir() if d.is_dir() and (d / 'install.py').exists()]
-    if not roots:
-        print('压缩包里没有 install.py，放弃')
-        return 1
-    root = roots[0]
-    print(f'安装 v{(root / "VERSION").read_text(encoding="utf-8").strip() if (root / "VERSION").exists() else "?"} …')
-    r = subprocess.run([sys.executable, str(root / 'install.py'), '--no-pets', '--no-restart'], cwd=str(root),   # 重启由本脚本的 --restart 负责
-                       env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, capture_output=True, text=True, encoding='utf-8', errors='replace')
-    print(r.stdout.strip())
-    if r.returncode != 0:
-        print(r.stderr.strip())
-        return r.returncode
+    with tempfile.TemporaryDirectory(prefix='team-update-') as tmp_name:
+        tmp = Path(tmp_name)
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            z.extractall(tmp)
+        roots = [d for d in tmp.iterdir() if d.is_dir() and (d / 'install.py').is_file()]
+        if len(roots) != 1:
+            print('压缩包必须包含一个 install.py 项目目录，放弃')
+            return 1
+        root = roots[0]
+        print(f'安装 v{(root / "VERSION").read_text(encoding="utf-8").strip() if (root / "VERSION").exists() else "?"} …')
+        r = subprocess.run([sys.executable, str(root / 'install.py'), '--no-pets', '--no-restart'], cwd=str(root),
+                           env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        print(r.stdout.strip())
+        if r.returncode != 0:
+            print(r.stderr.strip())
+            return r.returncode
     if restart:
-        restart_board()
+        return restart_board()
     return 0
 
 
@@ -103,8 +104,12 @@ def restart_board():
             urllib.request.urlopen(f'http://127.0.0.1:{PORT}/snapshot.json', timeout=1).read()
         except Exception:
             break
-    subprocess.run([sys.executable, str(HERE / 'ensure.py')], env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+    result = subprocess.run([sys.executable, str(HERE / 'ensure.py')], env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+    if result.returncode != 0:
+        print('看板重启失败，请检查 server.log')
+        return result.returncode
     print('看板已重启到新版本')
+    return 0
 
 
 def main():

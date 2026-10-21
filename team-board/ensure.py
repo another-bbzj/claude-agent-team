@@ -95,19 +95,29 @@ def stop_server(reason: str):
 def start_server():
     exe = Path(sys.executable)
     pyw = exe.with_name('pythonw.exe') if os.name == 'nt' and exe.with_name('pythonw.exe').exists() else exe
-    log = open(HERE / 'server.log', 'ab')
     kwargs = {}
     if os.name == 'nt':
         kwargs['creationflags'] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         kwargs['start_new_session'] = True   # mac / linux：脱离终端会话，关掉终端也不会跟着死
-    subprocess.Popen([str(pyw), str(HERE / 'team_board.py'), '--port', str(PORT)],
-                     stdout=log, stderr=log, stdin=subprocess.DEVNULL, close_fds=True, cwd=str(HERE), **kwargs)
+    with open(HERE / 'server.log', 'ab') as log:
+        child = subprocess.Popen([str(pyw), str(HERE / 'team_board.py'), '--port', str(PORT)],
+                                 stdout=log, stderr=log, stdin=subprocess.DEVNULL, close_fds=True, cwd=str(HERE), **kwargs)
     for _ in range(40):
+        code = child.poll()
+        if code is not None:
+            raise RuntimeError(f'看板启动失败（退出码 {code}），请检查 {HERE / "server.log"}')
         if listening():
-            break
+            print(f'team-board v{local_version() or "?"} started on http://127.0.0.1:{PORT}/')
+            return
         time.sleep(0.25)
-    print(f'team-board v{local_version() or "?"} started on http://127.0.0.1:{PORT}/')
+    child.terminate()
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        child.wait()
+    raise RuntimeError(f'看板启动超时，请检查 {HERE / "server.log"}')
 
 
 def open_board():
@@ -143,10 +153,14 @@ def main():
             if want_open:
                 open_board()
             return
-    start_server()
+    try:
+        start_server()
+    except (OSError, RuntimeError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
     if want_open:
         open_board()
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
