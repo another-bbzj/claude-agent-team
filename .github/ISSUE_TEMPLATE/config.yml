@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy / 安全报告
+    url: https://github.com/another-bbzj/claude-agent-team/blob/main/SECURITY.md
+    about: Read the private reporting guidance before sharing vulnerability details.

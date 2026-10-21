@@ -1,0 +1,47 @@
+name: Bug report / 缺陷报告
+description: Report a reproducible reliability or compatibility problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English and Chinese are welcome. Use synthetic or redacted data; do not attach real transcripts, credentials, private paths or downloaded artwork. Report security issues privately using SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Project version or commit / 项目版本或提交
+      description: Use the VERSION file or the commit you checked out.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version / 系统与 Python 版本
+      placeholder: "Windows 11, Python 3.12; browser and version if UI-related"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction / 最小复现步骤
+      description: Include commands, relevant options and synthetic sample data. State whether this is a repository checkout or an installed copy.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual result / 预期与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics / 脱敏诊断信息
+      description: Optional short error or screenshot. Remove tokens, real session text, names and private paths before posting.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting / 提交前确认
+      options:
+        - label: I checked existing issues and removed private data from this report.
+          required: true
