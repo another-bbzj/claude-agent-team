@@ -377,6 +377,8 @@ python -m unittest discover -s tests -v
 
 ## ❓ 常见问题
 
+同一批问题按主题收在 [docs/FAQ.md](docs/FAQ.md)。公开 issue 里没有另外的问答。版本沿革在 [CHANGELOG.md](CHANGELOG.md)：仓库没有 git tag，记录按提交说明和 `VERSION` 整理。
+
 **Q：`git pull && python install.py` 之后，导入形象提示 `not found` / 顶栏没有版本号和「检查更新」/ 文件夹里的形象没出现？**
 之前启动的看板进程还在跑旧代码（页面已经是新的，服务还是旧的）。1.3.2 起：`install.py` 装完会自动重启看板；`ensure.py`（SessionStart 钩子）每次都会比对在跑的服务版本和本机 `VERSION`，不一致就自动换掉——所以以后不会再遇到。现在手动跑一次 `python ~/.claude/team-board/ensure.py --restart` 即可。顶栏常驻 `v1.x.x` 版本号和「检查更新」按钮，有新版本会变成「⬆ 一键更新」。
 

@@ -44,6 +44,10 @@ Defaults for departments, agent labels, pets and estimated pricing live in `team
 
 The HTTP service binds to `127.0.0.1`. Local transcripts, bus messages, imported artwork and background files can contain private or licensed material. Keep them out of issues and commits; use synthetic fixtures and redact screenshots. Optional update checks, downloads and artwork imports have their own inputs, so review those actions before using them. The board does not require an OpenAI API key.
 
+## Release notes and questions
+
+[CHANGELOG.md](CHANGELOG.md) is reconstructed from commits on `main`. This repository has no git tags; [`VERSION`](VERSION) is 1.4.2. [docs/FAQ.md](docs/FAQ.md) restates the questions already in the [Chinese README](README.md). The public issue list had no threads to add.
+
 ## Integrate and contribute
 
 See [INTEGRATIONS.md](docs/INTEGRATIONS.md) for implemented extension commands and examples, [CONTRIBUTING.md](CONTRIBUTING.md) for focused bug fixes and new features, and [SECURITY.md](SECURITY.md) for security reports. The [roadmap](docs/ROADMAP.md) separates future adapters and automation from current behavior.
