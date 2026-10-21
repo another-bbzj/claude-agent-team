@@ -6,7 +6,7 @@
 
 ## 未发布
 
-`1.4.2` 于 2026-09-25 合入 `main`（[`a3acd71`](https://github.com/another-bbzj/claude-agent-team/commit/a3acd71)）之后，2026-10-21 又合入了 #4、#5、#6、#7、#8、#9、#10、#12。`VERSION` 没有因此改号。
+`1.4.2` 于 2026-09-25 合入 `main`（[`a3acd71`](https://github.com/another-bbzj/claude-agent-team/commit/a3acd71)）之后，2026-10-21 又合入了 #4、#5、#6、#7、#8、#9、#10、#11、#12、#13。`VERSION` 没有因此改号。
 
 ### 修复
 
@@ -31,10 +31,17 @@
 ### 持续集成
 
 - CI 启用 ruff（pyflakes、语法错误、bugbear），并修掉它报出的未使用导入和循环变量迟绑定（[`a07d75f`](https://github.com/another-bbzj/claude-agent-team/commit/a07d75f)，#12）。
+- 测试矩阵加上 Python 3.13；Ubuntu 上卸掉 `lsof` 再跑整套测试；pip 缓存键改为 `requirements-dev.txt`（[`ed76cf5`](https://github.com/another-bbzj/claude-agent-team/commit/ed76cf5)，#11）。
+
+### 测试
+
+- `fetch_petdex.py` 补上清单缓存和失败路径；该文件覆盖率低于 95% 时 CI 失败（[`a14571c`](https://github.com/another-bbzj/claude-agent-team/commit/a14571c)，#13）。
 
 <details>
 <summary>2026-10-21 的非合并提交</summary>
 
+- `ed76cf5` ci: test Python 3.13 and Linux without lsof (#11)
+- `a14571c` test: cover petdex selection, cache and install errors (#13)
 - `1a8b0d0` docs: turn the READMEs into a first screen (#10)
 - `a07d75f` ci: check the tree with ruff (#12)
 - `17d0443` fix(ensure): find stale board PID without lsof; silence re.split maxsplit warning (#9)
