@@ -1,8 +1,8 @@
 # 常见问题
 
-这些问题都来自 [README](../README.md) 的「常见问题」。2026-10-21 查看本仓库的公开 issue 列表时是空的，所以没有从 issue 再收问题，也没有新编问题。下面按主题重排，答案保持原来的说法。
+这些问题都来自指南的 [常见问题](GUIDE.md#faq)。2026-10-21 查看本仓库的公开 issue 列表时是空的，所以没有从 issue 再收问题，也没有新编问题。下面按主题重排，答案保持原来的说法。
 
-English: this page restates the Chinese README’s existing FAQ. The public issue list was empty when it was collected, so no issue thread was added and no new question was invented.
+English: this page restates the FAQ in [GUIDE.md](GUIDE.md#faq). The public issue list was empty when it was collected, so no issue thread was added and no new question was invented.
 
 ## 安装和更新
 
@@ -78,7 +78,7 @@ No. Empty departments say “as needed” while work is in progress. Amber “co
 
 1. 成员在 `.team/inbox/` 里写留言，队长负责转达。
 2. 用 `msg.py`（推荐）：`python ~/.claude/team-board/msg.py send backend-dev "数据库已完成"`。任何能跑 Bash 的环境都行。
-3. 看板上的「通讯频道」汇聚这些消息，你也能在那里直接回复。详见 README 的 [成员之间通信](../README.md#-成员之间通信)。
+3. 看板上的「通讯频道」汇聚这些消息，你也能在那里直接回复。详见指南的 [成员之间通信](GUIDE.md#msg)。
 
 Prefer native `SendMessage` when it exists. Otherwise write `.team/inbox/`, or use `msg.py`. The board’s comms panel collects both.
 

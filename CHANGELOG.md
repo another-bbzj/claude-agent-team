@@ -6,13 +6,14 @@
 
 ## 未发布
 
-`1.4.2` 于 2026-09-25 合入 `main`（[`a3acd71`](https://github.com/another-bbzj/claude-agent-team/commit/a3acd71)）之后，2026-10-21 又合入了 #4、#5、#6、#7、#8。`VERSION` 没有因此改号。
+`1.4.2` 于 2026-09-25 合入 `main`（[`a3acd71`](https://github.com/another-bbzj/claude-agent-team/commit/a3acd71)）之后，2026-10-21 又合入了 #4、#5、#6、#7、#8、#9、#10、#12。`VERSION` 没有因此改号。
 
 ### 修复
 
 - 安装器在合并 `SessionStart` 时保留同一分组里已有的用户钩子（[`78953de`](https://github.com/another-bbzj/claude-agent-team/commit/78953de)）。`--petdex` / `--no-pets` 和是否重启看板不再绑在一起（[`6ae97ff`](https://github.com/another-bbzj/claude-agent-team/commit/6ae97ff)）。
 - 看板拒绝不合法的请求体，并继续使用上一份有效配置（[`a8827d0`](https://github.com/another-bbzj/claude-agent-team/commit/a8827d0)）。回环地址开始监听之前不再做反向 DNS（[`f633846`](https://github.com/another-bbzj/claude-agent-team/commit/f633846)）。
 - 更新脚本在新进程没有起来时报告失败，并清掉临时文件（[`3330767`](https://github.com/another-bbzj/claude-agent-team/commit/3330767)）。
+- `ensure.py` 查找过期看板进程时不再调用 `lsof`，并去掉 `re.split` 的 maxsplit 警告（[`17d0443`](https://github.com/another-bbzj/claude-agent-team/commit/17d0443)，#9）。
 
 ### 新增
 
@@ -25,10 +26,18 @@
 - 贡献说明、分诊路径和私密安全报告（[`6d82022`](https://github.com/another-bbzj/claude-agent-team/commit/6d82022)）。
 - Codex 维护说明和生态路线图（[`87cb76d`](https://github.com/another-bbzj/claude-agent-team/commit/87cb76d)）。
 - 把离线指标和免账号演示写进现有文档（[`a5dbbde`](https://github.com/another-bbzj/claude-agent-team/commit/a5dbbde)）。
+- 中英文首页收成首屏：是什么、为什么、30 秒开始。安装、协作、通信、形象、估价和常见问题进了指南，测试数量与 `tests/` 里的 `test_*` 一致（[`1a8b0d0`](https://github.com/another-bbzj/claude-agent-team/commit/1a8b0d0)，#10）。
+
+### 持续集成
+
+- CI 启用 ruff（pyflakes、语法错误、bugbear），并修掉它报出的未使用导入和循环变量迟绑定（[`a07d75f`](https://github.com/another-bbzj/claude-agent-team/commit/a07d75f)，#12）。
 
 <details>
 <summary>2026-10-21 的非合并提交</summary>
 
+- `1a8b0d0` docs: turn the READMEs into a first screen (#10)
+- `a07d75f` ci: check the tree with ruff (#12)
+- `17d0443` fix(ensure): find stale board PID without lsof; silence re.split maxsplit warning (#9)
 - `78953de` fix(installer): preserve user hooks in shared session groups
 - `a8827d0` fix(board): reject invalid requests and retain valid configuration
 - `3330767` fix(updater): report startup failures and clean temporary files
