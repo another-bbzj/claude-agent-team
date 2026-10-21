@@ -15,6 +15,8 @@
 
 [快速开始](#-三分钟装好) · [它长什么样](#-它长什么样) · [怎么用](#-第一次使用完整走一遍) · [自定义团队](#-添加你自己的部门和成员) · [换形象](#-形象桌宠) · [第三方 API](#-第三方-api-用户) · [常见问题](#-常见问题) · [📖 图文手册](docs/GUIDE.md)
 
+[English](README.en.md) · [参与贡献](CONTRIBUTING.md) · [集成指南](docs/INTEGRATIONS.md) · [用 Codex 维护](docs/CODEX.md) · [路线图](docs/ROADMAP.md) · [安全反馈](SECURITY.md)
+
 </div>
 
 ---
@@ -477,6 +479,20 @@ tools/             发布工具（dist-hashes.json 生成）
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
+
+## 🌱 生态与贡献
+
+欢迎贡献可复现的缺陷报告、测试、文档和小型集成。先看 [贡献指南](CONTRIBUTING.md)，通过 [缺陷表单](https://github.com/another-bbzj/claude-agent-team/issues/new?template=bug_report.yml) 或 [功能建议](https://github.com/another-bbzj/claude-agent-team/issues/new?template=feature_request.yml) 说明使用场景和验收标准；安全问题请走 [私密反馈渠道](SECURITY.md)。
+
+[集成指南](docs/INTEGRATIONS.md) 提供只读聚合快照导出和消息 CLI 的使用方式。离线试用无需安装或运行看板：
+
+```bash
+python tools/export_snapshot.py --input examples/snapshot.synthetic.json
+```
+
+导出采用数字字段白名单，不包含提示词、消息正文、会话标识或本地路径；原始 `/snapshot.json` 仍可能含私密内容，请勿直接公开。
+
+[Codex 维护指南](docs/CODEX.md) 和 [AGENTS.md](AGENTS.md) 用于复现问题、补测试和审查本仓库。当前看板的会话解析面向 **Claude Code**；Codex 会话适配仍属于 [计划中的工作](docs/ROADMAP.md)，不是已实现功能。
 
 ## 🙏 致谢
 
