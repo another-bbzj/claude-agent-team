@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 760" role="img" aria-labelledby="archTitle archDesc">
+  <title id="archTitle">claude-agent-team 本机运行时</title>
+  <desc id="archDesc">主会话把工单写进项目的 .team 目录，成员定义来自 agents，team_board.py 在 127.0.0.1 读取 Claude Code 转录并提供 snapshot.json。演示、Codex exec 指标和聚合导出不读取个人会话。</desc>
+  <style>
+    .bg { fill: #e7e9ed; }
+    .card { fill: #ffffff; stroke: #d2d6de; }
+    .inset { fill: #f7f7f4; stroke: #d2d6de; }
+    .ink { fill: #131722; }
+    .muted { fill: #465066; }
+    .faint { fill: #858c9d; }
+    .line { stroke: #a9b0bf; }
+    .brand { fill: #2c3d9e; stroke: #2c3d9e; }
+    .gold { fill: #9c7818; stroke: #9c7818; }
+    .ok { fill: #2b8466; stroke: #2b8466; }
+    .info { fill: #1c74a8; stroke: #1c74a8; }
+    .gridline { stroke: rgba(22, 28, 48, .06); }
+    text { font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #070a11; }
+      .card { fill: #141926; stroke: #232a3a; }
+      .inset { fill: #0e121c; stroke: #232a3a; }
+      .ink { fill: #eceae3; }
+      .muted { fill: #a6acba; }
+      .faint { fill: #676f83; }
+      .line { stroke: #3b4559; }
+      .brand { fill: #7085f0; stroke: #7085f0; }
+      .gold { fill: #d3b35c; stroke: #d3b35c; }
+      .ok { fill: #62b596; stroke: #62b596; }
+      .info { fill: #5fb1e3; stroke: #5fb1e3; }
+      .gridline { stroke: rgba(236, 234, 227, .05); }
+    }
+  </style>
+  <rect class="bg" width="1160" height="760"/>
+  <g>
+    <path class="gridline" d="M0 40 H1160 M0 80 H1160 M0 720 H1160" fill="none" stroke-width="1"/>
+  </g>
+  <text class="ink" x="36" y="42" font-size="22" font-weight="600">本机运行时</text>
+  <text class="faint mono" x="168" y="40" font-size="12">loopback runtime</text>
+  <text class="muted" x="36" y="66" font-size="13">实线是实时路径。虚线里的工具不读 ~/.claude 会话，也不把 Codex 交互会话画进看板。</text>
+  <g transform="translate(748,28)">
+    <circle class="brand" cx="8" cy="8" r="4"/>
+    <text class="muted" x="18" y="12" font-size="12">派工 / 转录</text>
+    <circle class="gold" cx="118" cy="8" r="4"/>
+    <text class="muted" x="128" y="12" font-size="12">msg.py</text>
+    <path class="line" d="M196 8 H214" fill="none" stroke-width="1.4" stroke-dasharray="3 3"/>
+    <text class="muted" x="220" y="12" font-size="12">旁路</text>
+  </g>
+  <path class="card" d="M36 96 H362 L376 110 V496 H36 Z" stroke-width="1"/>
+  <path class="brand" d="M36 96 H362 L376 110" fill="none" stroke-width="2"/>
+  <text class="faint mono" x="52" y="128" font-size="11">01</text>
+  <text class="ink" x="78" y="128" font-size="16" font-weight="600">主会话</text>
+  <text class="muted" x="52" y="150" font-size="12">队长是当前 Claude Code 会话，不是子代理。</text>
+  <text class="ink" x="52" y="178" font-size="13">你说「用 agent team」</text>
+  <text class="faint mono" x="52" y="198" font-size="11">skills/agent-team/SKILL.md</text>
+  <text class="muted" x="52" y="222" font-size="12">S · 不超过 2 个文件，不开团队</text>
+  <text class="muted" x="52" y="240" font-size="12">M · 队长写 SPEC 和工单</text>
+  <text class="muted" x="52" y="258" font-size="12">L · 先派 team-architect</text>
+  <path class="inset" d="M52 276 H352 V430 H52 Z" stroke-width="1"/>
+  <text class="gold mono" x="66" y="298" font-size="12">.team/</text>
+  <text class="faint" x="118" y="298" font-size="11">写在项目目录里</text>
+  <text class="ink mono" x="66" y="322" font-size="12">SPEC.md</text>
+  <text class="muted" x="150" y="322" font-size="12">契约：签名、数据、测试命令</text>
+  <text class="ink mono" x="66" y="344" font-size="12">tickets/</text>
+  <text class="muted" x="150" y="344" font-size="12">竖切片，files 不重叠</text>
+  <text class="ink mono" x="66" y="366" font-size="12">inbox/</text>
+  <text class="muted" x="150" y="366" font-size="12">按 subagent_type 追加</text>
+  <text class="ink mono" x="66" y="388" font-size="12">handoffs/</text>
+  <text class="muted" x="150" y="388" font-size="12">偏差 / 风险 / 留言</text>
+  <text class="faint" x="66" y="414" font-size="11">派工只给这三处的路径，不粘正文。</text>
+  <text class="faint" x="52" y="470" font-size="12">规则在 office.md、roles.md、lean.md。</text>
+  <path class="card" d="M406 96 H732 L746 110 V496 H406 Z" stroke-width="1"/>
+  <path class="gold" d="M406 96 H732 L746 110" fill="none" stroke-width="2"/>
+  <text class="faint mono" x="422" y="128" font-size="11">02</text>
+  <text class="ink" x="448" y="128" font-size="16" font-weight="600">常驻成员</text>
+  <text class="muted" x="422" y="150" font-size="12">install.py 把 agents/*.md 拷到 ~/.claude/agents/。</text>
+  <g class="mono" font-size="11">
+    <text class="faint" x="422" y="182">指挥</text><text class="ink" x="462" y="182">阿图</text><text class="faint" x="498" y="182">team-architect</text>
+    <text class="faint" x="422" y="204">研发</text><text class="ink" x="462" y="204">阿服</text><text class="faint" x="498" y="204">backend-dev</text>
+    <text class="ink" x="610" y="204">小界</text><text class="faint" x="646" y="204">frontend-dev</text>
+    <text class="faint" x="422" y="226">质量</text><text class="ink" x="462" y="226">测测</text><text class="faint" x="498" y="226">qa-tester</text>
+    <text class="ink" x="610" y="226">老审</text><text class="faint" x="646" y="226">code-reviewer</text>
+    <text class="faint" x="422" y="248">研究</text><text class="ink" x="462" y="248">探探</text><text class="faint" x="498" y="248">researcher</text>
+    <text class="faint" x="422" y="270">文档</text><text class="ink" x="462" y="270">文文</text><text class="faint" x="498" y="270">docs-writer</text>
+    <text class="faint" x="422" y="292">运维</text><text class="ink" x="462" y="292">发发</text><text class="faint" x="498" y="292">release-ops</text>
+  </g>
+  <path class="inset" d="M422 308 H722 V458 H422 Z" stroke-width="1"/>
+  <text class="ink" x="436" y="330" font-size="12">三条路，按环境往下退</text>
+  <text class="brand" x="436" y="354" font-size="12">1</text>
+  <text class="ink" x="454" y="354" font-size="12">SendMessage</text>
+  <text class="faint" x="548" y="354" font-size="11">从转录里的工具调用画出</text>
+  <text class="gold" x="436" y="376" font-size="12">2</text>
+  <text class="ink" x="454" y="376" font-size="12">msg.py</text>
+  <text class="faint mono" x="512" y="376" font-size="11">127.0.0.1:7788</text>
+  <text class="muted" x="454" y="396" font-size="12">send / inbox / who / log</text>
+  <text class="ok" x="436" y="420" font-size="12">3</text>
+  <text class="ink" x="454" y="420" font-size="12">看板没开</text>
+  <text class="faint" x="530" y="420" font-size="11">追加 .team/inbox/&lt;to&gt;.md</text>
+  <text class="faint" x="436" y="444" font-size="11">带 Origin 的 POST 必须是本机回环地址加本端口。</text>
+  <text class="faint" x="422" y="482" font-size="12">部门、档位和单价在 team-board/team.json。</text>
+  <path class="card" d="M776 96 H1102 L1116 110 V496 H776 Z" stroke-width="1"/>
+  <path class="ok" d="M776 96 H1102 L1116 110" fill="none" stroke-width="2"/>
+  <text class="faint mono" x="792" y="128" font-size="11">03</text>
+  <text class="ink" x="818" y="128" font-size="16" font-weight="600">看板</text>
+  <text class="ok mono" x="792" y="152" font-size="12">team_board.py · 127.0.0.1:7788</text>
+  <text class="faint" x="792" y="180" font-size="11">只读这些转录</text>
+  <text class="ink mono" x="792" y="200" font-size="11">projects/&lt;project&gt;/&lt;session&gt;.jsonl</text>
+  <text class="muted" x="792" y="218" font-size="11">队长。parse_lead 读派工和 SendMessage。</text>
+  <text class="ink mono" x="792" y="240" font-size="11">…/subagents/agent-*.jsonl</text>
+  <text class="muted" x="792" y="258" font-size="11">成员。另读 workflows/*/agent-*.jsonl。</text>
+  <text class="faint" x="792" y="286" font-size="11">推成一份快照</text>
+  <text class="ink" x="792" y="306" font-size="12">UsageLedger</text>
+  <text class="muted" x="886" y="306" font-size="12">按 message id / requestId 去重</text>
+  <text class="ink" x="792" y="326" font-size="12">price_for</text>
+  <text class="muted" x="860" y="326" font-size="12">最长前缀。不认识就不计价</text>
+  <path class="inset" d="M792 344 H1092 V470 H792 Z" stroke-width="1"/>
+  <text class="ink mono" x="806" y="368" font-size="12">GET /snapshot.json</text>
+  <text class="muted" x="806" y="390" font-size="12">index.html 约每 1.5 秒轮询一次</text>
+  <text class="muted" x="806" y="412" font-size="12">部门舞台、通讯、成本都来自这一份</text>
+  <text class="faint" x="806" y="440" font-size="11">ensure.py 在 SessionStart 时拉起服务。</text>
+  <text class="faint" x="806" y="458" font-size="11">技能在派工前可以再跑 ensure.py --open。</text>
+  <path class="brand" d="M376 300 H398" fill="none" stroke-width="1.6" stroke-dasharray="4 5">
+    <animate attributeName="stroke-dashoffset" from="0" to="-36" dur="1.4s" repeatCount="indefinite"/>
+  </path>
+  <path class="brand" d="M398 295 L408 300 L398 305" fill="none" stroke-width="1.6"/>
+  <path class="gold" d="M746 380 H768" fill="none" stroke-width="1.6" stroke-dasharray="4 5">
+    <animate attributeName="stroke-dashoffset" from="0" to="-36" dur="1.4s" repeatCount="indefinite"/>
+  </path>
+  <path class="gold" d="M768 375 L778 380 L768 385" fill="none" stroke-width="1.6"/>
+  <circle r="3.2" class="brand">
+    <animateMotion dur="3.6s" repeatCount="indefinite" path="M376 300 H406"/>
+  </circle>
+  <circle r="3.2" class="gold">
+    <animateMotion dur="3.6s" begin="1.2s" repeatCount="indefinite" path="M746 380 H776"/>
+  </circle>
+  <path class="card" d="M36 516 H1146 V612 H36 Z" stroke-width="1"/>
+  <text class="faint mono" x="52" y="542" font-size="11">INSTALL</text>
+  <text class="ink" x="120" y="542" font-size="14" font-weight="600">装进 ~/.claude，不经过托管后端</text>
+  <text class="ink mono" x="52" y="570" font-size="12">install.py</text>
+  <text class="muted" x="52" y="590" font-size="12">合并 team.json、钩子和 CLAUDE.md 标记块。</text>
+  <text class="ink mono" x="430" y="570" font-size="12">ensure.py</text>
+  <text class="muted" x="430" y="590" font-size="12">SessionStart 钩子。版本不一致就换掉旧进程。</text>
+  <text class="ink mono" x="800" y="570" font-size="12">update.py</text>
+  <text class="muted" x="800" y="590" font-size="12">约 12 小时查一次。下载和重装由你点。</text>
+  <path class="line" d="M36 632 H1146 V728 H36 Z" fill="none" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text class="faint mono" x="52" y="658" font-size="11">ASIDE</text>
+  <text class="ink" x="112" y="658" font-size="14">不进入上面的实时解析</text>
+  <text class="ink mono" x="52" y="686" font-size="12">demo_board.py</text>
+  <text class="muted" x="52" y="706" font-size="12">:7790 · 合成快照 · 只读 · 不读家目录</text>
+  <text class="ink mono" x="430" y="686" font-size="12">codex_metrics.py</text>
+  <text class="muted" x="430" y="706" font-size="12">你指定的 exec JSONL · 离线汇总</text>
+  <text class="ink mono" x="800" y="686" font-size="12">export_snapshot.py</text>
+  <text class="muted" x="800" y="706" font-size="12">数字字段白名单 · 不是原始快照</text>
+</svg>

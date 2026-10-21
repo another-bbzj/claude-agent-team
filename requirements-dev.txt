@@ -1,1 +1,6 @@
+# 看板、安装器和测试只用 Python 3.8+ 标准库。
+# 这个文件是 actions/setup-python 的 pip 缓存键。需要开发工具时再写进来，不要加运行时依赖。
 ruff==0.17.1
+# coverage 7.7 起没有 Python 3.8 的发行包。3.12 / 3.13 的覆盖率任务仍用 7.16.2。
+coverage==7.16.2; python_version >= "3.10"
+coverage==7.6.1; python_version < "3.10"
