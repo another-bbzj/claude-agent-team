@@ -10,6 +10,7 @@ Agent Team Board — 本地实时看板服务
 用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600]
 """
 import argparse
+import importlib.util
 import os
 import sys
 import io
@@ -1749,6 +1750,149 @@ def write_backdrop(d: dict) -> dict:
     return {**backdrop_state(), **extra}
 
 
+def _load_teams_adapter():
+    cached = getattr(_load_teams_adapter, 'mod', None)
+    if cached is not None:
+        return cached
+    path = HERE / 'adapters' / 'claude_teams.py'
+    spec = importlib.util.spec_from_file_location('claude_teams_adapter', str(path))
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    _load_teams_adapter.mod = mod
+    return mod
+
+
+def _empty_official_team():
+    return {'available': False, 'teamName': '', 'lead': '', 'warnings': [], 'tasks': [], 'members': []}
+
+
+def _official_team_view(session_id):
+    """按会话 ID 前 8 位读取官方团队。没有目录是正常情况，不产生警告。"""
+    view = _empty_official_team()
+    if not session_id:
+        return view
+    mod = _load_teams_adapter()
+    if mod is None:
+        view['warnings'] = ['没有官方团队适配器']
+        return view
+    try:
+        name = mod.team_name_for_session(session_id)
+        parsed = mod.load_team(PROJECTS.parent, name) if name else None
+    except Exception:
+        view['warnings'] = ['读取官方团队目录失败']
+        return view
+    if not parsed:
+        return view
+    missing = any(item.startswith('没有找到该团队') for item in parsed['warnings'])
+    if missing and not parsed['members'] and not parsed['tasks']:
+        return view
+    lead = next((member.get('name') or '' for member in parsed['members'] if member.get('role') == 'lead'), '')
+    view.update({
+        'available': True,
+        'teamName': parsed['teamName'],
+        'lead': lead,
+        'warnings': list(parsed['warnings']),
+        'tasks': [{
+            'id': task.get('id'),
+            'subject': task.get('subject'),
+            'status': task.get('status'),
+            'normalizedStatus': task.get('normalizedStatus'),
+            'owner': task.get('owner'),
+        } for task in parsed['tasks']],
+        'members': parsed['members'],
+    })
+    return view
+
+
+def _official_status(name, tasks):
+    """owner 只有和成员 name 完全一致才归属。文档没写 owner 一定是名字。"""
+    owned = [task for task in tasks if task.get('owner') and task.get('owner') == name]
+    if any(task.get('normalizedStatus') == 'in_progress' for task in owned):
+        subject = next(task.get('subject') or '' for task in owned if task.get('normalizedStatus') == 'in_progress')
+        return 'running', subject
+    if owned and all(task.get('normalizedStatus') == 'completed' for task in owned):
+        return 'completed', owned[0].get('subject') or ''
+    if any(task.get('normalizedStatus') == 'pending' for task in owned):
+        subject = next(task.get('subject') or '' for task in owned if task.get('normalizedStatus') == 'pending')
+        return 'idle', subject
+    return 'idle', ''
+
+
+def _official_card(person, tasks):
+    name = person.get('name') or person.get('agentId') or '官方成员'
+    agent_type = person.get('agentType') or ''
+    cfg = TEAM_CFG['agents'].get(agent_type) if agent_type else None
+    if cfg:
+        avatar, role = cfg['avatar'], cfg['role']
+    else:
+        avatar = avatar_key(' '.join([agent_type, name]), person.get('agentId') or name)
+        role = agent_type or '官方 teammate'
+    status, subject = _official_status(name, tasks)
+    return {
+        'id': 'official:' + (person.get('agentId') or name),
+        'name': name,
+        'baseName': name,
+        'roleTitle': role,
+        'avatar': avatar,
+        'agentType': agent_type,
+        'officialTeam': True,
+        'model': '',
+        'modelFamily': '',
+        'usage': {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0},
+        'cost': None,
+        'priced': False,
+        'priceKey': '',
+        'messages': [],
+        'writes': [],
+        'reads': [],
+        'toolUseId': None,
+        'group': '',
+        'description': subject or '官方 Agent Team 成员',
+        'prompt': '来自官方 Agent Team 配置。团队文件里没有转录，成本未计算。',
+        'status': status,
+        'startedAt': None,
+        'lastActivityAt': None,
+        'endedAt': None,
+        'toolCount': 0,
+        'thinkingCount': 0,
+        'outputTokens': 0,
+        'current': None,
+        'lastText': '',
+        'timeline': [],
+    }
+
+
+def _merge_official_members(members, view):
+    if not view.get('available'):
+        return
+    known_ids = {member['id'] for member in members}
+    known_names = {member['name'] for member in members}
+    for person in view['members']:
+        if person.get('role') != 'teammate':
+            continue
+        agent_id = person.get('agentId') or ''
+        if agent_id and agent_id in known_ids:
+            for member in members:
+                if member['id'] == agent_id:
+                    member['officialTeam'] = True
+            continue
+        if person.get('name') and person['name'] in known_names:
+            for member in members:
+                if member['name'] == person['name']:
+                    member['officialTeam'] = True
+            continue
+        card = _official_card(person, view['tasks'])
+        members.append(card)
+        known_ids.add(card['id'])
+        known_names.add(card['name'])
+
+
+def _public_official_team(view):
+    return {key: view[key] for key in ('available', 'teamName', 'lead', 'warnings', 'tasks')}
+
+
 def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
@@ -1787,6 +1931,8 @@ def build_snapshot(args):
     else:
         lead_data = None
     members = [m for m in members if m]
+    official_view = _official_team_view(session_info['id'] if session_info else '')
+    _merge_official_members(members, official_view)
 
     # 部门归属 + agent 定义（model/effort 来自 ~/.claude/agents/*.md）
     agent_defs = load_agent_defs()
@@ -1816,7 +1962,7 @@ def build_snapshot(args):
                 elif n['status'] in ('failed', 'error', 'killed', 'cancelled') and m['status'] != 'completed':
                     m['status'] = 'error'
                     m['errorReason'] = error_reason(n.get('summary', ''), n['status'])
-            elif m['status'] == 'completed' and now - m['lastActivityAt'] < 8:
+            elif m['status'] == 'completed' and m.get('lastActivityAt') and now - m['lastActivityAt'] < 8:
                 m['status'] = 'running'  # 刚写完总结、队长还没收到通知的几秒内，仍视作进行中
             d = lead_data['dispatches'].get(m.get('toolUseId'))
             if d:
@@ -2062,6 +2208,7 @@ def build_snapshot(args):
         'feed': feed[:100],
         'comms': comms[:80],
         'bus': bus_info,
+        'officialTeam': _public_official_team(official_view),
         'backdrop': backdrop_state(presets=False),
     }
 

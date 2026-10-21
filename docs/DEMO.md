@@ -11,8 +11,9 @@ Open [the local demo](http://127.0.0.1:7790/) in your browser. The command print
 actual URL; `--port 0` chooses an available port. Stop it with Ctrl+C. It does not
 open a browser automatically or install anything into your home directory.
 
-The page displays four synthetic members and coherent example departments, tool
-activity, token counts and estimated costs. A persistent banner marks it as a
+The page displays four synthetic subagent members and two official Agent Team
+teammates, plus coherent example departments, tool activity, token counts and
+estimated costs. Official teammates are marked with a 官方 Team badge. A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed
@@ -37,8 +38,8 @@ a demonstration. For the real transcript-based workflow, follow the
 [main README](../README.md). For aggregate exports and other integrations, see
 [INTEGRATIONS.md](INTEGRATIONS.md).
 
-![Read-only synthetic demo, four example members](img/demo-readonly.png)
+![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
 
-The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written.
+The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members and does not yet include the official Agent Team teammates.
 
 ![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)

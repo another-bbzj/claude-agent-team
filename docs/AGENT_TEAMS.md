@@ -117,7 +117,7 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 - 分屏从 v2.1.186 起把 lead 的 effort 传给 split-pane teammate；更早的版本不传。
 - v2.1.199 起，看着某个 teammate 时输入 `/model` 或 `/fast` 会提示改的是 lead。
 - in-process teammate 从 v2.1.296 起才会应用 subagent 定义里的 `autoCompactWindow`；split-pane teammate 忽略该字段。
-- 限制：in-process teammate 不能随 `/resume`、`/rewind` 恢复；任务状态可能滞后；关闭可能要等当前请求结束；不能嵌套团队；lead 不能中途更换；teammate 启动时继承 lead 的权限模式；分屏需要 tmux 或 iTerm2。
+- 限制：in-process teammate 不能随 `/resume`、`/rewind` 恢复；任务状态可能滞后；关闭可能要等当前请求结束；不能嵌套团队；lead 不能中途更换；teammate 启动时继承 lead 的权限模式，但 `dontAsk` 模式不继承（[Agent Teams](https://code.claude.com/docs/en/agent-teams) 的 Permissions 一节；该句没有单独的版本号）；分屏需要 tmux 或 iTerm2。
 
 ## 合成 fixture 约定
 
@@ -128,3 +128,11 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 - 邮箱是 JSON 数组。元素是不透明的字符串或对象，用来保证读取方不依赖未公布的键。
 
 测试 `tests/test_agent_teams_fixture.py` 检查这棵树能被解析为 JSON、包含上述角色和状态，并且没有邮箱、家目录路径或密钥样式的字符串。
+
+## 看板怎么用这些文件
+
+`team_board.py` 仍以「有 subagent 转录的会话」作为入口。选中会话后，用会话 ID 的前 8 个字符寻找 `teams/` 和 `tasks/` 里的同名团队，把 teammate 加成成员卡，并带上 `officialTeam: true`。界面在卡片和任务条上显示「官方 Team」。lead 已经是主会话那张卡，不会再占一张 teammate 卡。
+
+这些卡没有转录，所以没有 token，成本保持未知。`owner` 只有和成员 name 完全一致时才用来推断进行中或已完成；对不上就显示待命。快照里的 `officialTeam` 只带团队名、lead 名字、警告和任务的 id / subject / status / owner，不带 `raw` 或未公布的运行时字段。
+
+只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照另外放了两名合成的官方 teammate，不读取本机 `~/.claude`。

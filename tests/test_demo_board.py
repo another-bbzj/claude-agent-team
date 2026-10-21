@@ -28,8 +28,10 @@ class FixtureTest(unittest.TestCase):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
         members = source['members']
         self.assertTrue(source['demo'])
-        self.assertEqual(len(members), 4)
-        self.assertEqual(source['lead']['total'], 4)
+        self.assertEqual(len(members), 6)
+        self.assertEqual(sum(1 for member in members if member.get('officialTeam')), 2)
+        self.assertEqual(sum(1 for member in members if not member.get('officialTeam')), 4)
+        self.assertEqual(source['lead']['total'], 6)
         self.assertEqual(source['lead']['running'], sum(m['status'] == 'running' for m in members))
         self.assertEqual(source['lead']['done'], sum(m['status'] == 'completed' for m in members))
         self.assertAlmostEqual(source['totals']['membersCost'], sum(m['cost'] for m in members))
@@ -93,8 +95,10 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(head_headers['Content-Length'], headers['Content-Length'])
         for asset in ('/sprites/dada-code.webp', '/favicon.png', '/favicon.ico'):
             self.assertEqual(self.request('GET', asset)[0], 200)
+        self.assertIn('官方 Team'.encode('utf-8'), body)
         snapshot = json.loads(self.request('GET', '/snapshot.json')[2])
-        self.assertEqual(len(snapshot['members']), 4)
+        self.assertEqual(len(snapshot['members']), 6)
+        self.assertEqual(sum(1 for member in snapshot['members'] if member.get('officialTeam')), 2)
         self.assertTrue(snapshot['demo'])
         self.assertEqual(self.request('GET', '/?demo=1')[0], 303)
 
