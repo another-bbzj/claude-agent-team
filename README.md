@@ -35,7 +35,7 @@ python tools/demo_board.py --port 7790
 
 打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。
 
-![只读合成演示：synthetic-example 的队长和四名成员。金额、用时和工具标签来自仓库里的合成快照，不是用量基准](docs/img/demo-synthetic.svg)
+![只读合成演示：synthetic-example 的队长和四名成员。金额、用时和工具标签来自仓库里的合成快照，不是用量基准。这张动画不包含官方任务看板；打开演示页才能看到待处理、进行中、已完成三列](docs/img/demo-synthetic.svg)
 
 **装进自己的 Claude Code：**
 
@@ -61,7 +61,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 
 ![看板总览](docs/img/01-overview.png)
 
-<div align="center"><sub>队长在上，各部门分组；飞线是派工、回报、留言和交接。每个面板的说明在 <a href="docs/GUIDE.md#ui">图文手册</a>。</sub></div>
+<div align="center"><sub>队长在上，各部门分组；飞线是派工、回报、留言和交接。这张静图没有官方任务看板。当前会话在 <code>~/.claude/tasks/</code> 里有对应团队时，部门表下方会多出一行只读三列（待处理 / 进行中 / 已完成）。合成演示页里有这三列；<code>docs/img/demo-synthetic.svg</code> 仍只画成员，不画任务板。每个面板的说明在 <a href="docs/GUIDE.md#ui">图文手册</a>。</sub></div>
 
 ## 接着读
 

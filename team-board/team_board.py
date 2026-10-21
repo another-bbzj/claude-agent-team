@@ -1797,9 +1797,14 @@ def _official_team_view(session_id):
         'tasks': [{
             'id': task.get('id'),
             'subject': task.get('subject'),
+            'description': task.get('description'),
             'status': task.get('status'),
             'normalizedStatus': task.get('normalizedStatus'),
             'owner': task.get('owner'),
+            'blockedBy': task.get('blockedBy'),
+            'blocks': task.get('blocks'),
+            'source': task.get('source'),
+            'sourceMtime': task.get('sourceMtime'),
         } for task in parsed['tasks']],
         'members': parsed['members'],
     })
@@ -1889,8 +1894,101 @@ def _merge_official_members(members, view):
         known_names.add(card['name'])
 
 
-def _public_official_team(view):
-    return {key: view[key] for key in ('available', 'teamName', 'lead', 'warnings', 'tasks')}
+_TASK_COLUMNS = ('pending', 'in_progress', 'completed')
+_TASK_STATE_CLOCK = {}  # (team, id) -> (status, since, kind)；只在本进程里记，不写任务目录
+
+
+def _task_id_list(value):
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _task_clock_key(team_name, task):
+    ident = task.get('id')
+    if ident:
+        return (team_name, ident)
+    return (team_name, '', task.get('source') or '', task.get('subject') or '')
+
+
+def _task_state_since(clock, team_name, task, now, single_file):
+    """官方文件没有「进入当前状态」的时间。
+
+    第一次见到某状态时：任务独占一个文件，用该文件 mtime；多条任务共用一个文件，
+    也用这份文件的 mtime，但 kind 标成 file-shared（不能区分是哪一条被改写）。
+    之后只有状态变了才改记为现在，kind 为 observed。mtime 晚于 now 时截到 now。
+    """
+    status = task.get('normalizedStatus')
+    key = _task_clock_key(team_name, task)
+    previous = clock.get(key)
+    if previous and previous[0] == status:
+        return previous[1], previous[2]
+    if previous:
+        since, kind = float(now), 'observed'
+    else:
+        mtime = task.get('sourceMtime')
+        if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) and mtime > 0:
+            since = min(float(mtime), float(now))
+            kind = 'file' if single_file else 'file-shared'
+        else:
+            since, kind = float(now), 'observed'
+    clock[key] = (status, since, kind)
+    return since, kind
+
+
+def task_board_rows(tasks, team_name, now, clock=None):
+    """把已解析的任务收成只读看板行。不含 raw、source、sourceMtime。"""
+    if clock is None:
+        clock = _TASK_STATE_CLOCK
+    team_name = team_name if isinstance(team_name, str) else ''
+    tasks = list(tasks or [])
+    counts = {}
+    for task in tasks:
+        if isinstance(task, dict):
+            source = task.get('source')
+            counts[source] = counts.get(source, 0) + 1
+    completed = set()
+    for task in tasks:
+        if isinstance(task, dict) and task.get('normalizedStatus') == 'completed' and task.get('id'):
+            completed.add(task.get('id'))
+    rows = []
+    seen = set()
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        status = task.get('normalizedStatus')
+        if status not in _TASK_COLUMNS:
+            continue
+        blocked_by = _task_id_list(task.get('blockedBy'))
+        blocks = _task_id_list(task.get('blocks'))
+        waiting = [item for item in blocked_by if item not in completed]
+        since, kind = _task_state_since(clock, team_name, task, now, counts.get(task.get('source'), 0) == 1)
+        seen.add(_task_clock_key(team_name, task))
+        rows.append({
+            'id': task.get('id'),
+            'subject': task.get('subject'),
+            'description': task.get('description'),
+            'status': task.get('status'),
+            'normalizedStatus': status,
+            'owner': task.get('owner') if isinstance(task.get('owner'), str) else None,
+            'blockedBy': blocked_by,
+            'blocks': blocks,
+            'blocked': status == 'pending' and bool(waiting),
+            'waitingOn': waiting,
+            'stateSince': since,
+            'stateSinceKind': kind,
+            'stateSeconds': max(0, int(now - since)),
+        })
+    for key in [key for key in clock if key and key[0] == team_name and key not in seen]:
+        del clock[key]
+    return rows
+
+
+def _public_official_team(view, now):
+    public = {key: view[key] for key in ('available', 'teamName', 'lead', 'warnings')}
+    public['readOnly'] = True
+    public['tasks'] = task_board_rows(view.get('tasks') or [], view.get('teamName') or '', now)
+    return public
 
 
 def build_snapshot(args):
@@ -2208,7 +2306,7 @@ def build_snapshot(args):
         'feed': feed[:100],
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _public_official_team(official_view),
+        'officialTeam': _public_official_team(official_view, now),
         'backdrop': backdrop_state(presets=False),
     }
 
@@ -2383,6 +2481,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({'error': '请求体必须是 JSON 对象'}, 400)
         try:
             reload_team_cfg()
+            if u.path == '/api/tasks' or u.path.startswith('/api/tasks/'):
+                return self._json({'error': '官方任务看板是只读的'}, 405)
             if u.path == '/api/agents':
                 out = write_agent(payload)
                 Handler._cache = (0.0, None)

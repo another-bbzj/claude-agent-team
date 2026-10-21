@@ -1,6 +1,6 @@
 # 合成的 Agent Teams 目录
 
-这棵目录是假数据，用来对照 [`docs/AGENT_TEAMS.md`](../../docs/AGENT_TEAMS.md)。不要把它复制进真实的 `~/.claude`。
+这棵目录是假数据，用来对照 [`docs/AGENT_TEAMS.md`](../../docs/AGENT_TEAMS.md)，也给只读任务看板的测试当任务文件。不要把它复制进真实的 `~/.claude`。
 
 `claude-home/` 对应官方文档里的 `~/.claude`，团队名 `session-a1b2c3d4` 取自 hooks 文档的示例，不是某个真实会话。
 

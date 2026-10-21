@@ -23,7 +23,7 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/favicon.ico': ('favicon.ico', 'image/x-icon')}
 STATIC.update({'/sprites/' + pet + '.webp': ('sprites/' + pet + '.webp', 'image/webp')
                for pet in SHIPPED_PETS})
-TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts'}
+TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts', 'stateSince'}
 BANNER = ('<aside id="synthetic-demo-notice" role="status" '
           'style="position:fixed;bottom:0;left:0;right:0;z-index:1000;text-align:center;'
           'padding:7px;background:#153d50;color:#fff;font:14px sans-serif">'

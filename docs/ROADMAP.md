@@ -6,7 +6,7 @@ This is a working list of extension directions, not a release schedule. Proposal
 
 The current board parses local Claude Code transcripts and exposes local snapshots and a message bus. The message CLI can fall back to `.team/inbox` files when the board is unreachable. Tests exercise synthetic transcripts, temporary-home installation and local HTTP behavior. Contributor instructions and review prompts are available in [AGENTS.md](../AGENTS.md) and [the Codex maintenance guide](CODEX.md).
 
-Implemented extension tools include the [versioned aggregate snapshot export](INTEGRATIONS.md), a [Codex exec JSONL metrics adapter](CODEX_METRICS.md) with synthetic fixtures, and a [read-only no-account board demo](DEMO.md). The exec adapter is an offline event summary, with its supported format and limits documented separately.
+Implemented extension tools include the [versioned aggregate snapshot export](INTEGRATIONS.md), a [Codex exec JSONL metrics adapter](CODEX_METRICS.md) with synthetic fixtures, and a [read-only no-account board demo](DEMO.md). The exec adapter is an offline event summary, with its supported format and limits documented separately. The board also shows a read-only kanban of the official Agent Teams task list for the selected session (`~/.claude/tasks/<team>/`), refreshed through the existing snapshot poll. See [AGENT_TEAMS.md](AGENT_TEAMS.md).
 
 ## Planned work
 

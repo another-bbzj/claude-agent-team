@@ -131,6 +131,13 @@ def _safe_file(root, path):
     return resolved.is_file() and _within(root, resolved)
 
 
+def _mtime(path):
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
 def _relative(root, path):
     try:
         return path.resolve().relative_to(Path(root).resolve()).as_posix()
@@ -215,7 +222,11 @@ def _read_tasks(root, directory, team):
         if error:
             team['warnings'].append(path.name + ' ' + error)
             continue
-        team['tasks'].extend(_tasks_from_value(data, source, team['warnings']))
+        found = _tasks_from_value(data, source, team['warnings'])
+        mtime = _mtime(path)
+        for task in found:
+            task['sourceMtime'] = mtime
+        team['tasks'].extend(found)
 
 
 def _tasks_from_value(value, source, warnings):
