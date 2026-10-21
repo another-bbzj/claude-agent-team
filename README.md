@@ -1,6 +1,9 @@
 <div align="center">
 
-# claude-agent-team
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/readme-cover-light.svg">
+  <img src="docs/img/readme-cover.svg" width="100%" alt="claude-agent-team · Claude Code 部门制 Agent 团队与本机实时看板">
+</picture>
 
 **让 Claude Code 像一家小公司一样干活，而且你能看见它在干活。**
 
@@ -35,7 +38,7 @@ python tools/demo_board.py --port 7790
 
 打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。
 
-![只读合成演示：synthetic-example 的队长和四名成员。金额、用时和工具标签来自仓库里的合成快照，不是用量基准。这张动画不包含官方任务看板；打开演示页才能看到待处理、进行中、已完成三列](docs/img/demo-synthetic.svg)
+> 演示使用合成数据，不读取你的会话，也不是用量基准。[查看演示画面](docs/img/demo-synthetic.svg) · [演示说明](docs/DEMO.md)
 
 **装进自己的 Claude Code：**
 
@@ -59,9 +62,14 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 
 和「每次临时描述角色」的逐项对照、第一次任务从定规模到验收的走法，在 [开工之前](docs/GUIDE.md#why) 和 [第一次使用](docs/GUIDE.md#first-run)。
 
+<details>
+<summary>查看真实看板界面与操作说明</summary>
+
 ![看板总览](docs/img/01-overview.png)
 
-<div align="center"><sub>队长在上，各部门分组；飞线是派工、回报、留言和交接。这张静图没有官方任务看板。当前会话在 <code>~/.claude/tasks/</code> 里有对应团队时，部门表下方会多出一行只读三列（待处理 / 进行中 / 已完成）。合成演示页里有这三列；<code>docs/img/demo-synthetic.svg</code> 仍只画成员，不画任务板。每个面板的说明在 <a href="docs/GUIDE.md#ui">图文手册</a>。</sub></div>
+队长在上，各部门分组；飞线表示派工、回报、留言和交接。截图用于说明实际界面，图中示例用量不代表基准。[查看图文手册](docs/GUIDE.md#ui)。这张静图没有官方任务看板。
+
+</details>
 
 ## 接着读
 
