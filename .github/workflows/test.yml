@@ -1,11 +1,14 @@
 name: test
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ['3.8', '3.12']
+        python: ['3.8', '3.12', '3.13']
         exclude:
           - os: macos-latest
             python: '3.8'
@@ -15,6 +18,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dev requirements
+        run: python -m pip install -r requirements-dev.txt
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node -e "const s=require('fs').readFileSync('team-board/index.html','utf8'); new Function(s.slice(s.indexOf('<script>')+8, s.lastIndexOf('</script>'))); console.log('index.html js ok')"
+
+  # ubuntu-latest 预装 lsof。卸掉后再跑整套测试，覆盖没有 lsof 的 Linux。
+  linux-without-lsof:
+    name: ubuntu / lsof removed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Uninstall lsof
+        run: |
+          sudo apt-get update
+          sudo apt-get remove -y lsof
+          if command -v lsof >/dev/null 2>&1; then
+            echo "lsof is still on PATH" >&2
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dev requirements
+        run: python -m pip install -r requirements-dev.txt
       - run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with:
