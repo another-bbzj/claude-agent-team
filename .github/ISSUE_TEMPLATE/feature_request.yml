@@ -1,0 +1,33 @@
+name: Feature request / 功能建议
+description: Describe a concrete user need, integration or workflow improvement.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: English and Chinese are welcome. Describe a real workflow; avoid including private conversations or credentials.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User and problem / 用户与问题
+      description: Who needs this, and what are they trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior / 建议行为
+      description: Include the current workaround and alternatives you considered.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria / 验收标准
+      description: Give observable examples of success and relevant platform or compatibility constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Privacy, dependencies and compatibility / 隐私、依赖与兼容性
+      description: Does this need external services, new dependencies, private data or a change to existing behavior?
