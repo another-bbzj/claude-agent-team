@@ -23,8 +23,12 @@ match, or hover a member to light that person's tasks. Tasks with no owner, and
 one owner that only differs by a trailing space, stay unchanged; tasks owned by
 someone else dim. A plain click opens the drawer and does not pin. Alt-click, or
 the「钉」control on a matched card, pins that exact name; doing it again clears
-the pin. Esc closes the drawer first, then clears the pin. A persistent banner
-marks it as a
+the pin. Esc closes the drawer first, then clears the pin. Above the columns are
+four filters: 全部, 阻塞中, 未对上人, and 已对上. A filter only hides cards. The
+heading counts still include every task. The choice stays in this tab's
+`sessionStorage`, keyed by session id and team name, and is not written to the
+fixture. If a pinned name has no visible card, the pin clears. The schematic
+does not draw these chips. A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed

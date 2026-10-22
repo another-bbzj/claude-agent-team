@@ -2,6 +2,8 @@
 import io
 import json
 import os
+import shutil
+import subprocess
 import threading
 import time
 import unittest
@@ -574,5 +576,172 @@ class TaskApiStatusTest(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=5)
                 board._TASK_STATE_CLOCK.clear()
+        finally:
+            env.cleanup()
+
+
+class TaskBoardFilterTest(unittest.TestCase):
+    def test_blocked_matched_and_unmatched_are_separate(self):
+        env = BoardEnv()
+        try:
+            board = env.load()
+            matched = {'id': '1', 'owner': '合成研究员', 'ownerMatch': '合成研究员', 'blocked': False, 'flags': []}
+            blocked_flag = {'id': '2', 'owner': None, 'ownerMatch': None, 'blocked': False, 'flags': ['blocked']}
+            blocked_bool = {'id': '3', 'owner': '合成研究员 ', 'ownerMatch': None, 'blocked': True, 'flags': ['approximate']}
+            blocked_object = {'id': '4', 'owner': 'synthetic-lead', 'ownerMatch': 'synthetic-lead', 'blocked': False, 'flags': {'blocked': True}}
+            quiet_object = {'id': '5', 'ownerMatch': '', 'blocked': False, 'flags': {'blocked': False, 'approximate': True}}
+            missing = {'id': '6', 'owner': '不是成员', 'blocked': False}
+            tasks = [matched, blocked_flag, blocked_bool, blocked_object, quiet_object, missing]
+            original = json.dumps(tasks, ensure_ascii=False, sort_keys=True)
+
+            def ids(filt):
+                return [task['id'] for task in tasks if board.task_matches_board_filter(task, filt)]
+
+            self.assertEqual(ids('all'), ['1', '2', '3', '4', '5', '6'])
+            self.assertEqual(ids(''), ['1', '2', '3', '4', '5', '6'])
+            self.assertEqual(ids(None), ['1', '2', '3', '4', '5', '6'])
+            self.assertEqual(ids('other'), ['1', '2', '3', '4', '5', '6'])
+            self.assertEqual(ids('blocked'), ['2', '3', '4'])
+            self.assertEqual(ids('unmatched'), ['2', '3', '5', '6'])
+            self.assertEqual(ids('matched'), ['1', '4'])
+            self.assertEqual(board.task_owner_match_name(matched), '合成研究员')
+            self.assertEqual(board.task_owner_match_name(blocked_bool), '')
+            self.assertFalse(board.task_is_blocked(quiet_object))
+            self.assertFalse(board.task_is_blocked(None))
+            self.assertTrue(board.task_matches_board_filter(None, 'all'))
+            self.assertTrue(board.task_matches_board_filter(None, 'unmatched'))
+            self.assertFalse(board.task_matches_board_filter(None, 'matched'))
+            self.assertEqual(json.dumps(tasks, ensure_ascii=False, sort_keys=True), original)
+            self.assertEqual(board.link_pin_after_filter('合成研究员', tasks, 'matched'), '合成研究员')
+            self.assertEqual(board.link_pin_after_filter('合成研究员', tasks, 'blocked'), '')
+            self.assertEqual(board.link_pin_after_filter('synthetic-lead', tasks, 'blocked'), 'synthetic-lead')
+            self.assertEqual(board.link_pin_after_filter('synthetic-lead', tasks, 'unmatched'), '')
+            self.assertEqual(board.link_pin_after_filter('', tasks, 'all'), '')
+            self.assertEqual(board.link_pin_after_filter(None, tasks, 'matched'), '')
+            self.assertEqual(board.link_pin_after_filter('合成研究员', None, 'all'), '')
+        finally:
+            env.cleanup()
+
+    def test_visible_rows_keep_their_files_when_filtered(self):
+        env = BoardEnv()
+        try:
+            tasks = env.claude / 'tasks' / 'session-sess-000'
+            tasks.mkdir(parents=True)
+            path = tasks / 'tasks.json'
+            path.write_text(json.dumps({'tasks': [
+                {'id': '1', 'subject': 'Survey the synthetic module', 'status': 'completed', 'owner': '合成研究员'},
+                {'id': '2', 'subject': 'Wait for the synthetic survey', 'status': 'pending', 'owner': None, 'blockedBy': ['9']},
+                {'id': '3', 'subject': 'Near-miss owner', 'status': 'pending', 'owner': '合成研究员 '},
+                {'id': '4', 'subject': 'Ask the synthetic lead', 'status': 'in_progress', 'owner': 'synthetic-lead', 'blockedBy': ['1']},
+            ]}, ensure_ascii=False), encoding='utf-8')
+            original = path.read_bytes()
+            board = env.load()
+            rows = board.task_board_rows(
+                adapter.load_team(env.claude, 'session-sess-000')['tasks'], 'session-sess-000', 30, clock={})
+            board.annotate_owner_matches(rows, ['合成研究员'], 'synthetic-lead')
+            by_id = {row['id']: row for row in rows}
+            self.assertEqual(by_id['1']['ownerMatch'], '合成研究员')
+            self.assertFalse(by_id['1']['blocked'])
+            self.assertIsNone(by_id['2']['ownerMatch'])
+            self.assertIn('blocked', by_id['2']['flags'])
+            self.assertTrue(by_id['2']['blocked'])
+            self.assertIsNone(by_id['3']['ownerMatch'])
+            self.assertFalse(by_id['3']['blocked'])
+            self.assertEqual(by_id['4']['ownerMatch'], 'synthetic-lead')
+            self.assertFalse(by_id['4']['blocked'])
+            self.assertEqual(
+                [row['id'] for row in rows if board.task_matches_board_filter(row, 'blocked')],
+                ['2'],
+            )
+            self.assertEqual(
+                [row['id'] for row in rows if board.task_matches_board_filter(row, 'unmatched')],
+                ['2', '3'],
+            )
+            self.assertEqual(
+                [row['id'] for row in rows if board.task_matches_board_filter(row, 'matched')],
+                ['1', '4'],
+            )
+            self.assertEqual(board.link_pin_after_filter('合成研究员', rows, 'blocked'), '')
+            self.assertEqual(board.link_pin_after_filter('合成研究员', rows, 'matched'), '合成研究员')
+            self.assertEqual(path.read_bytes(), original)
+            self.assertNotIn('ownerMatch', original.decode('utf-8'))
+        finally:
+            env.cleanup()
+
+    def test_page_filter_is_session_storage_and_matches_python(self):
+        html = (ROOT / 'team-board' / 'index.html').read_text(encoding='utf-8')
+        start = html.index('/* task-board-filter:start */')
+        end = html.index('/* task-board-filter:end */')
+        self.assertLess(start, end)
+        block = html[start:end]
+        self.assertIn('data-task-filter="all"', html)
+        self.assertIn('data-task-filter="blocked"', html)
+        self.assertIn('data-task-filter="unmatched"', html)
+        self.assertIn('data-task-filter="matched"', html)
+        self.assertIn('sessionStorage.getItem(TASK_FILTER_STORE)', html)
+        self.assertIn("const TASK_FILTER_STORE = 'team-board-task-filter'", html)
+        self.assertNotIn('localStorage.getItem(TASK_FILTER_STORE)', html)
+        self.assertNotIn('document.cookie', html)
+        self.assertIn('.task-board-filters { display: flex; flex-wrap: wrap;', html)
+        self.assertIn('@media (max-width: 420px)', html)
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('node is not installed')
+        env = BoardEnv()
+        try:
+            board = env.load()
+            cases = [
+                {
+                    'task': {'ownerMatch': None, 'blocked': True, 'flags': ['approximate']},
+                    'filter': 'blocked',
+                    'pin': '合成研究员',
+                    'tasks': [{'ownerMatch': '合成研究员', 'blocked': False, 'flags': []}],
+                },
+                {
+                    'task': {'ownerMatch': None, 'blocked': False, 'flags': ['blocked']},
+                    'filter': 'unmatched',
+                    'pin': '合成研究员',
+                    'tasks': [{'ownerMatch': '合成研究员', 'blocked': False, 'flags': ['blocked']}],
+                },
+                {
+                    'task': {'ownerMatch': '合成写手', 'blocked': False, 'flags': {'blocked': True}},
+                    'filter': 'matched',
+                    'pin': '合成写手',
+                    'tasks': [{'ownerMatch': '合成写手', 'blocked': False, 'flags': {'blocked': True}}],
+                },
+                {'task': {'ownerMatch': '', 'blocked': False}, 'filter': 'unmatched', 'pin': '', 'tasks': []},
+                {
+                    'task': {'blocked': False, 'flags': []},
+                    'filter': 'matched',
+                    'pin': '合成研究员',
+                    'tasks': [{'ownerMatch': None, 'blocked': True}],
+                },
+                {
+                    'task': {'ownerMatch': '队长', 'blocked': False, 'flags': []},
+                    'filter': 'all',
+                    'pin': '队长',
+                    'tasks': [
+                        {'ownerMatch': '队长', 'blocked': False},
+                        {'ownerMatch': None, 'blocked': True, 'flags': ['blocked']},
+                    ],
+                },
+                {'task': None, 'filter': 'blocked', 'pin': '队长', 'tasks': None},
+            ]
+            script = block + '\nconst cases = ' + json.dumps(cases) + ''';
+const out = cases.map(function (item) {
+  return {
+    show: taskMatchesBoardFilter(item.task, item.filter),
+    pin: linkPinAfterFilter(item.pin, item.tasks, item.filter)
+  };
+});
+process.stdout.write(JSON.stringify(out));
+'''
+            proc = subprocess.run([node, '-'], input=script, capture_output=True, encoding='utf-8')
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            got = json.loads(proc.stdout)
+            self.assertEqual(len(got), len(cases))
+            for case, row in zip(cases, got):
+                self.assertEqual(row['show'], board.task_matches_board_filter(case['task'], case['filter']))
+                self.assertEqual(row['pin'], board.link_pin_after_filter(case['pin'], case['tasks'], case['filter']))
         finally:
             env.cleanup()

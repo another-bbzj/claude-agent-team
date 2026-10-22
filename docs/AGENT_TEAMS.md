@@ -139,6 +139,10 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 悬停或聚焦一张看板卡时，若 `owner` 与某位成员的 name，或与 lead 的名字完全一致，舞台上对应的人会被点亮；下方那张成员任务卡也会一起亮。反过来，悬停或聚焦舞台上的人，或下方的成员任务卡，会点亮 `owner` 完全等于这个名字的全部看板卡。点舞台上成员名字一带（点形象仍然打开成员抽屉）可以把这次高亮钉住。看板卡的普通点击，以及聚焦后按 Enter 或空格，打开只读详情，不改变钉住。要对上了名字的看板卡钉住或取消，用 Alt+点击，或点卡片上的「钉」。再做一次同样的操作，或按 Esc，取消钉住。弹窗或任务详情还开着时，Esc 先关掉它们，再按一次才取消钉住。钉住期间再去悬停另一张卡，会临时换成那一条，移开后回到钉住的名字。
 
+看板标题下面有一排筛选：全部、阻塞中、未对上人、已对上。阻塞中指 `flags` 里有 `blocked`，或 `flags.blocked` 为真，或任务上的 `blocked` 为真。未对上人指 `ownerMatch` 为 `null`、没有这个字段，或是空字符串，包括没有 owner，以及 owner 和成员 name、lead 名字不完全一致。已对上指 `ownerMatch` 是非空字符串。点一下只决定哪些卡片画出来，不改 `/snapshot.json`，也不写任务目录。标题上的待处理、进行中、已完成数量仍按全部任务计。当前选择记在这个标签页的 `sessionStorage`（键 `team-board-task-filter`）里，按会话 id 和团队名分开；换会话或换团队就读那一组，没有记录就回到全部。不用 cookie。关掉标签页后不保留。
+
+钉住按名字，不按某一张卡。换筛选之后，如果这个名字已经没有任何可见卡片，钉住会取消，舞台上的人和下面的成员卡不再为它亮着。从舞台上钉一个当前筛选里没有可见卡片的名字，也钉不住。只要还有一张看得见，钉住就留着，高亮只加在看得见的卡上；被滤掉的卡不留在页面上，所以不会带着钉住或打开的样式。换筛选时，如果临时悬停的那个名字已经没有可见卡片，这次悬停高亮也清掉。详情不跟着筛选关，任务还在这份快照里就可以继续看。关掉详情时，卡还在就回到那张卡；卡被滤掉了，焦点回到当前筛选。Esc 仍先关详情，再取消钉住。
+
 没有 `owner` 的任务，以及 `owner` 和任何成员 name、lead 名字都不完全一致的任务，保持原来的样子，不会变淡。已经对上别人的任务会变淡。不做模糊匹配。快照里每条任务多一个 `ownerMatch`：对上了就是那个名字，否则为 `null`。它只存在于这份快照，不写回任务目录。
 
 单个任务文件超过 2MB 会跳过并警告，不把内容读进内存。三列合计超过 500 条时只显示前面的 500 条，并警告。同一个任务 id 出现多次时，只保留文件修改时间较新的那一条；时间相同或都没有，就留后读到的那条。警告里只写 id，不写路径。是否算完成，按留下来的那条计算，所以较旧的 completed 不会把较新的 pending 依赖当成已经完成。一个文件里有几条，按去重之前的条数算：两条里丢掉一条，剩下的仍按「大约」计时。
@@ -147,4 +151,4 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。每行还有从这些可见行推导的 `blockedByDetail` / `blocksDetail`（`id`、`subject`、`resolved`、`normalizedStatus`）、`flags`（`blocked`、`approximate`）和 `notices`（警告原文里用「：」后的「、」点到这条 id 的那些）。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板和已经打开的详情跟着这一次刷新走，没有另外的写入接口。
 
-只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。五张卡都带只读详情用的 `blockedByDetail`、`blocksDetail`、`flags`、`notices`。静态示意图是 [`docs/img/task-board.svg`](img/task-board.svg)。`docs/img/01-overview.png`、`docs/img/03-lower.png` 和 `docs/img/demo-synthetic.svg` 画的是舞台、下半区或四名子代理，不包含这一行。可点击的看板是 `python tools/demo_board.py`，不读取本机 `~/.claude`。
+只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。五张卡都带只读详情用的 `blockedByDetail`、`blocksDetail`、`flags`、`notices`。静态示意图是 [`docs/img/task-board.svg`](img/task-board.svg)。`docs/img/01-overview.png`、`docs/img/03-lower.png` 和 `docs/img/demo-synthetic.svg` 画的是舞台、下半区或四名子代理，不包含这一行。可点击的看板是 `python tools/demo_board.py`，用的是同一份页面，所以也有全部、阻塞中、未对上人、已对上。示意图没有这排按钮。演示不读取本机 `~/.claude`。
