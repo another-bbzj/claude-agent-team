@@ -1,0 +1,11 @@
+{
+  "task": {
+    "id": "12",
+    "subject": "Revise the synthetic chain note",
+    "description": "Newer TaskGet copy of the same id. Offline tests set this file mtime later than task-list.json.",
+    "status": "in_progress",
+    "owner": "synthetic-writer",
+    "blocks": ["13"],
+    "blockedBy": ["11"]
+  }
+}

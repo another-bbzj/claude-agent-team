@@ -121,13 +121,13 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 ## 合成 fixture 约定
 
-`examples/agent-teams.synthetic/claude-home/` 模仿 `~/.claude` 的相对布局，团队名使用文档示例 `session-a1b2c3d4`。
+`examples/agent-teams.synthetic/claude-home/` 模仿 `~/.claude` 的相对布局。团队名 `session-a1b2c3d4` 取自 hooks 文档的示例。`session-c0ffee01` 是本仓库另起的合成团队，用来离线复现只读看板的依赖链、跨文件重复任务 id、TaskList 与 TaskGet 两种形状，以及一名没有任务 owner 对上的 teammate。文件清单在 [`examples/agent-teams.synthetic/README.md`](../examples/agent-teams.synthetic/README.md)。超过 2MB 的任务文件不进 git，测试在临时目录里生成。
 
-- `config.json` 的 `members` 里有一名 `team-lead`、一名写了 agent type 的 teammate，以及一名省略 agent type 的 teammate。两名有类型的成员分别使用上表里的两套候选键。
-- 任务目录同时放了 `TaskList` 输出形状（`tasks` 数组）和 `TaskGet` 输出形状（`task` 对象）。文件名是本仓库起的。
-- 邮箱是 JSON 数组。元素是不透明的字符串或对象，用来保证读取方不依赖未公布的键。
+- `config.json` 的 `members` 里，`session-a1b2c3d4` 有一名 `team-lead`、一名写了 agent type 的 teammate，以及一名省略 agent type 的 teammate。两名有类型的成员分别使用上表里的两套候选键。`session-c0ffee01` 在 lead 和两名有任务的 teammate 之外还有 `synthetic-observer`，没有任何任务的 `owner` 等于这个名字。
+- 两个团队的任务目录都同时放了 `TaskList` 输出形状（`tasks` 数组）和 `TaskGet` 输出形状（`task` 对象）。文件名是本仓库起的。
+- `session-a1b2c3d4` 的邮箱是 JSON 数组。元素是不透明的字符串或对象，用来保证读取方不依赖未公布的键。
 
-测试 `tests/test_agent_teams_fixture.py` 检查这棵树能被解析为 JSON、包含上述角色和状态，并且没有邮箱、家目录路径或密钥样式的字符串。
+测试 `tests/test_agent_teams_fixture.py` 检查这棵树能被解析为 JSON，包含上述角色、状态和 `session-c0ffee01` 的看板情形，并且拒绝绝对家目录、邮箱样式、`sk-` 以及其它密钥样式。
 
 ## 看板怎么用这些文件
 

@@ -8,6 +8,8 @@ The current board parses local Claude Code transcripts and exposes local snapsho
 
 Implemented extension tools include the [versioned aggregate snapshot export](INTEGRATIONS.md), a [Codex exec JSONL metrics adapter](CODEX_METRICS.md) with synthetic fixtures, and a [read-only no-account board demo](DEMO.md). The exec adapter is an offline event summary, with its supported format and limits documented separately. The board also shows a read-only kanban of the official Agent Teams task list for the selected session (`~/.claude/tasks/<team>/`), refreshed through the existing snapshot poll. See [AGENT_TEAMS.md](AGENT_TEAMS.md).
 
+The synthetic tree in [`examples/agent-teams.synthetic/`](../examples/agent-teams.synthetic/README.md) reproduces that command room offline: a blocked dependency chain, the same task id in two files, mixed TaskList and TaskGet shapes, and a teammate whose name matches no task owner. Tests reject credential-like strings, absolute home paths, email-shaped text, and `sk-` / API key patterns under `examples/`. The over-2MB skip uses a temporary file generated during the test. The planned shared collection below still applies that bar to every future fixture family.
+
 ## Planned work
 
 | Priority | Direction | Acceptance criteria before calling it supported |
