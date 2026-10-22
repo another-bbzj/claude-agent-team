@@ -76,6 +76,12 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(board['tasks'][3]['waitingOn'], [])
         self.assertTrue(board['tasks'][3]['blockedByDetail'][0]['resolved'])
         self.assertEqual(board['tasks'][3]['blockedByDetail'][0]['normalizedStatus'], 'completed')
+        for task in board['tasks']:
+            for key in ('blockedByDetail', 'blocksDetail', 'flags', 'notices'):
+                self.assertIsInstance(task[key], list)
+        self.assertEqual(board['tasks'][3]['flags'], [])
+        self.assertEqual(board['tasks'][4]['notices'], [])
+        self.assertIsNone(board['tasks'][4]['ownerMatch'])
 
     def test_time_refresh_is_in_memory_and_preserves_durations(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
@@ -124,6 +130,8 @@ class DemoHttpTest(unittest.TestCase):
         for asset in ('/sprites/dada-code.webp', '/favicon.png', '/favicon.ico'):
             self.assertEqual(self.request('GET', asset)[0], 200)
         self.assertIn('官方 Team'.encode('utf-8'), body)
+        self.assertIn(b'id="task-board"', body)
+        self.assertIn(b'id="kanban"', body)
         self.assertIn(b'id="task-detail"', body)
         self.assertIn(b'function openTaskDetail', body)
         self.assertIn(b'function closeTaskDetail', body)
@@ -135,6 +143,7 @@ class DemoHttpTest(unittest.TestCase):
         self.assertIn('没有说明'.encode('utf-8'), body)
         self.assertIn('计时大约'.encode('utf-8'), body)
         served = json.loads(self.request('GET', '/snapshot.json')[2])
+        self.assertEqual(len(served['officialTeam']['tasks']), 5)
         pending = next(task for task in served['officialTeam']['tasks'] if task['id'] == '3')
         self.assertIn('完整说明', pending['description'])
         self.assertEqual(pending['flags'], ['blocked', 'approximate'])
