@@ -621,11 +621,13 @@
         "owner": "合成写手",
         "ownerMatch": "合成写手",
         "blockedBy": [],
-        "blocks": [],
+        "blocks": ["4"],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [],
-        "blocksDetail": [],
+        "blocksDetail": [
+          {"id": "4", "subject": "Ask the synthetic lead", "resolved": true, "normalizedStatus": "pending"}
+        ],
         "flags": [],
         "notices": [],
         "stateSince": 1767261000,
@@ -663,11 +665,13 @@
         "normalizedStatus": "pending",
         "owner": "演示队长",
         "ownerMatch": "演示队长",
-        "blockedBy": [],
+        "blockedBy": ["2"],
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
-        "blockedByDetail": [],
+        "blockedByDetail": [
+          {"id": "2", "subject": "Draft synthetic notes", "resolved": true, "normalizedStatus": "completed"}
+        ],
         "blocksDetail": [],
         "flags": [],
         "notices": [],

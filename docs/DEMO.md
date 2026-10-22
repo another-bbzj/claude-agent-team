@@ -27,8 +27,11 @@ the pin. Esc closes the drawer first, then clears the pin. Above the columns are
 four filters: 全部, 阻塞中, 未对上人, and 已对上. A filter only hides cards. The
 heading counts still include every task. The choice stays in this tab's
 `sessionStorage`, keyed by session id and team name, and is not written to the
-fixture. If a pinned name has no visible card, the pin clears. The schematic
-does not draw these chips. A persistent banner marks it as a
+fixture. If a pinned name has no visible card, the pin clears. Hovering, focusing,
+or opening a card draws arcs to dependencies still visible after the current filter:
+unfinished prerequisites are emphasized, completed ones are fainter, a filtered-out
+card is not an endpoint, and clicking an arc opens that card without changing the pin.
+The schematic does not draw these chips or the arcs. A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed

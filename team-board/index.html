@@ -424,7 +424,22 @@
   .kcard .kpin:focus { outline: none; }
   .kcard .kpin:focus-visible { outline: 1px solid var(--gold); outline-offset: 1px; }
   .kcard .kpin.on { border-color: var(--gold); background: var(--gold); color: #1a1406; }
-  @media (max-width: 800px) { .kanban { grid-template-columns: minmax(0, 1fr); } }
+  .kanban-wrap { position: relative; }
+  .kdeps { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 4; }
+  .kdeps .kdep-link { pointer-events: none; }
+  .kdeps .kdep-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+  .kdeps .kdep-case { fill: none; stroke: var(--bg); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+  .kdeps .kdep, .kdeps .kdep-arrow { fill: none; pointer-events: none; stroke-linecap: round; stroke-linejoin: round; }
+  .kdeps .kdep.open, .kdeps .kdep-arrow.open { stroke: var(--warn); stroke-width: 2.6; }
+  .kdeps .kdep.done, .kdeps .kdep-arrow.done { stroke: color-mix(in srgb, var(--text-2) 78%, var(--text-3)); stroke-width: 1.6; }
+  .kdeps .kdep.done { stroke-dasharray: 1.4 4.4; }
+  .kdeps .kdep-end { pointer-events: auto; cursor: pointer; stroke: var(--bg); stroke-width: 2; }
+  .kdeps .kdep-end.open { fill: var(--warn); }
+  .kdeps .kdep-end.done { fill: color-mix(in srgb, var(--text-2) 78%, var(--text-3)); }
+  .kdeps .kdep-link:focus { outline: none; }
+  .kdeps .kdep-link:focus-visible .kdep, .kdeps .kdep-link:focus-visible .kdep-arrow { stroke: var(--gold); }
+  .kdeps .kdep-link:focus-visible .kdep-end { stroke: var(--gold); stroke-width: 2.5; }
+  @media (max-width: 800px) { .kanban { grid-template-columns: minmax(0, 1fr); } .kdeps .kdep.open, .kdeps .kdep-arrow.open { stroke-width: 3; } }
 
   /* 官方任务详情：只读侧栏，不改任务目录 */
   .task-detail[hidden] { display: none !important; }
@@ -822,14 +837,17 @@
   <section class="panel task-board" id="task-board" hidden aria-readonly="true">
     <h2><span class="no">AT</span>官方任务<span class="en">Task Board</span><span class="pill">只读</span><span class="count" id="task-board-count"></span></h2>
     <p class="task-board-note" id="task-board-note"></p>
-    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点卡片打开只读详情；Alt+点击或卡片上的「钉」钉住，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
+    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停、聚焦或打开详情时，用弧线连出当前筛选后仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片；被滤掉的对端不画线。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
     <div class="task-board-filters" id="task-board-filters" role="toolbar" aria-label="筛选官方任务，只隐藏卡片">
       <button type="button" data-task-filter="all" class="on" aria-pressed="true">全部 <span class="n">0</span></button>
       <button type="button" data-task-filter="blocked" aria-pressed="false">阻塞中 <span class="n">0</span></button>
       <button type="button" data-task-filter="unmatched" aria-pressed="false">未对上人 <span class="n">0</span></button>
       <button type="button" data-task-filter="matched" aria-pressed="false">已对上 <span class="n">0</span></button>
     </div>
-    <div class="kanban" id="kanban"></div>
+    <div class="kanban-wrap" id="kanban-wrap">
+      <div class="kanban" id="kanban"></div>
+      <svg class="kdeps" id="kdeps" aria-hidden="true"></svg>
+    </div>
   </section>
 
   <div class="lower">
@@ -1518,6 +1536,87 @@ function taskDetailView(task, tasks, warnings) {
     notices: noticesFromWarnings(task, warnings),
   };
 }
+/* 只连当前三列里仍有卡片的依赖。前置任务还没 completed 时算未完成。 */
+function depEdgeList(task, tasks, visibleIds) {
+  const view = taskDetailView(task, tasks || [], []);
+  const visible = {};
+  const list = visibleIds instanceof Set ? Array.from(visibleIds) : (visibleIds || []);
+  for (let i = 0; i < list.length; i++) visible[String(list[i])] = true;
+  const edges = [], index = {};
+  const add = (item, role) => {
+    if (!item || item.resolved === false) return;
+    const id = item.id == null ? '' : String(item.id);
+    if (!id || !visible[id] || String(task && task.id) === id) return;
+    const blockerStatus = role === 'blockedBy' ? item.normalizedStatus : (task && task.normalizedStatus);
+    const open = blockerStatus !== 'completed';
+    if (Object.prototype.hasOwnProperty.call(index, id)) {
+      const edge = edges[index[id]];
+      edge.open = edge.open || open;
+      if (edge.roles.indexOf(role) < 0) edge.roles.push(role);
+      return;
+    }
+    index[id] = edges.length;
+    edges.push({
+      id: id,
+      key: 'id:' + id,
+      roles: [role],
+      open: open,
+      subject: item.subject || '',
+      normalizedStatus: role === 'blockedBy' ? (item.normalizedStatus || '') : ((task && task.normalizedStatus) || ''),
+    });
+  };
+  const blockedBy = view.blockedBy || [], blocks = view.blocks || [];
+  for (let i = 0; i < blockedBy.length; i++) add(blockedBy[i], 'blockedBy');
+  for (let i = 0; i < blocks.length; i++) add(blocks[i], 'blocks');
+  return edges;
+}
+function depNum(value) { return (Math.round(value * 10) / 10).toFixed(1); }
+function depArcPath(a, b, slot) {
+  const t = typeof slot === 'number' ? Math.min(0.82, Math.max(0.18, slot)) : 0.5;
+  const y1 = a.top + (a.bottom - a.top) * t;
+  const y2 = (b.top + b.bottom) / 2;
+  const overlap = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  if (overlap > 24) {
+    const down = (b.top + b.bottom) / 2 >= (a.top + a.bottom) / 2;
+    const gutter = Math.max(4, Math.min(a.left, b.left) - 6);
+    const yStart = down ? a.bottom : a.top;
+    const yEnd = down ? b.top : b.bottom;
+    const x1 = a.left + 12, x2 = b.left + 12;
+    return {
+      d: 'M ' + depNum(x1) + ' ' + depNum(yStart) + ' L ' + depNum(gutter) + ' ' + depNum(yStart) + ' L ' + depNum(gutter) + ' ' + depNum(yEnd) + ' L ' + depNum(x2) + ' ' + depNum(yEnd),
+      x: +depNum(x2), y: +depNum(yEnd), c2x: +depNum(gutter), c2y: +depNum(yEnd), side: 'stack',
+    };
+  }
+  const toRight = b.left >= a.left;
+  const gap = toRight ? b.left - a.right : a.left - b.right;
+  if (gap >= -4 && gap < 72) {
+    const x1 = toRight ? a.right : a.left;
+    const x2 = toRight ? b.left : b.right;
+    const dx = Math.max(18, Math.abs(x2 - x1) * 0.45);
+    const c1x = toRight ? x1 + dx : x1 - dx;
+    const c2x = toRight ? x2 - dx : x2 + dx;
+    return {
+      d: 'M ' + depNum(x1) + ' ' + depNum(y1) + ' C ' + depNum(c1x) + ' ' + depNum(y1) + ', ' + depNum(c2x) + ' ' + depNum(y2) + ', ' + depNum(x2) + ' ' + depNum(y2),
+      x: +depNum(x2), y: +depNum(y2), c2x: +depNum(c2x), c2y: +depNum(y2), side: toRight ? 'right' : 'left',
+    };
+  }
+  const rail = 5;
+  const xOut = toRight ? a.right : a.left;
+  const xIn = toRight ? b.left : b.right;
+  const gutterA = Math.max(4, toRight ? a.right + 8 : a.left - 8);
+  const gutterB = Math.max(4, toRight ? b.left - 8 : b.right + 8);
+  return {
+    d: 'M ' + depNum(xOut) + ' ' + depNum(y1) + ' L ' + depNum(gutterA) + ' ' + depNum(y1) + ' L ' + depNum(gutterA) + ' ' + depNum(rail) + ' L ' + depNum(gutterB) + ' ' + depNum(rail) + ' L ' + depNum(gutterB) + ' ' + depNum(y2) + ' L ' + depNum(xIn) + ' ' + depNum(y2),
+    x: +depNum(xIn), y: +depNum(y2), c2x: +depNum(gutterB), c2y: +depNum(y2), side: 'rail',
+  };
+}
+function depArrow(x, y, c2x, c2y) {
+  const angle = Math.atan2(y - c2y, x - c2x);
+  const len = 7.5, spread = 0.55;
+  const point = (delta) => [x - Math.cos(angle + delta) * len, y - Math.sin(angle + delta) * len];
+  const left = point(-spread), right = point(spread);
+  return 'M ' + depNum(left[0]) + ' ' + depNum(left[1]) + ' L ' + depNum(x) + ' ' + depNum(y) + ' L ' + depNum(right[0]) + ' ' + depNum(right[1]);
+}
 function relationHtml(details) {
   const list = Array.isArray(details) ? details : [];
   if (!list.length) return '<p class="td-empty">无</p>';
@@ -1618,6 +1717,7 @@ function openTaskDetail(key) {
     card.classList.toggle('open', on);
     card.setAttribute('aria-expanded', on ? 'true' : 'false');
   });
+  drawDepArcs();
 }
 function closeTaskDetail(restore) {
   const key = taskDetailKey;
@@ -1626,10 +1726,13 @@ function closeTaskDetail(restore) {
   const root = $('#task-detail');
   if (root) root.hidden = true;
   document.querySelectorAll('#kanban .kcard.open').forEach(card => { card.classList.remove('open'); card.setAttribute('aria-expanded', 'false'); });
-  if (!restore) return;
-  if (focusTaskCard(key)) return;
-  const chip = document.querySelector('#task-board-filters button.on');
-  if (chip) chip.focus();
+  if (restore) {
+    if (!focusTaskCard(key)) {
+      const chip = document.querySelector('#task-board-filters button.on');
+      if (chip) chip.focus();
+    }
+  }
+  drawDepArcs();
 }
 /* task-board-filter:start */
 function taskIsBlocked(task) {
@@ -1722,6 +1825,7 @@ function setTaskBoardFilter(next) {
   renderTaskBoard(prev);
 }
 function renderTaskBoard(snap) {
+  depSnap = snap;
   syncTaskFilter(snap);
   const panel = $('#task-board');
   const team = snap.officialTeam || {};
@@ -1731,6 +1835,7 @@ function renderTaskBoard(snap) {
     $('#kanban').innerHTML = '';
     linkHold = false;
     if (taskDetailKey) closeTaskDetail(false);
+    else drawDepArcs(snap);
     return;
   }
   panel.hidden = false;
@@ -1745,7 +1850,7 @@ function renderTaskBoard(snap) {
     ? '这是合成任务，不读取本机任务目录。'
     : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
-    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。` + sourceNote;
+    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。悬停、聚焦或打开详情时，只画出这张卡在当前筛选后仍在三列里的依赖。` + sourceNote;
   const active = document.activeElement;
   const focusedCard = active && active.closest && active.closest('#kanban .kcard');
   const focusedKey = focusedCard ? focusedCard.dataset.taskKey || '' : '';
@@ -1790,6 +1895,7 @@ function renderTaskBoard(snap) {
     }
   } else if (focusedKey && focusedKey !== taskDetailKey) focusTaskCard(focusedKey);
   if (taskDetailKey) renderTaskDetail(snap);
+  drawDepArcs(snap);
 }
 $('#kanban').addEventListener('click', (e) => {
   const pin = e.target.closest('.kpin');
@@ -1816,6 +1922,165 @@ $('#kanban').addEventListener('keydown', (e) => {
   openTaskDetail(card.dataset.taskKey);
 });
 $('#kanban').addEventListener('dragstart', (e) => { e.preventDefault(); });
+/* 依赖弧线：只在悬停、聚焦或详情打开时，连当前筛选后仍可见的卡。被滤掉的对端不画线。点线或端点打开对方的只读详情，不钉住。 */
+let depHoverKey = '', depFocusKey = '', depSnap = null, depSig = '';
+function depCardFrom(node) {
+  if (!node || !node.closest) return null;
+  return node.closest('#kanban .kcard');
+}
+function depCardByKey(key) {
+  if (!key) return null;
+  const cards = document.querySelectorAll('#kanban .kcard');
+  for (let i = 0; i < cards.length; i++) if (cards[i].dataset.taskKey === key) return cards[i];
+  return null;
+}
+function depCardById(id) {
+  const text = id == null ? '' : String(id);
+  if (!text) return null;
+  const cards = document.querySelectorAll('#kanban .col .kcard');
+  for (let i = 0; i < cards.length; i++) if ((cards[i].dataset.task || '') === text) return cards[i];
+  return null;
+}
+function depVisibleIds() {
+  const ids = [], cards = document.querySelectorAll('#kanban .col .kcard');
+  for (let i = 0; i < cards.length; i++) if (cards[i].dataset.task) ids.push(cards[i].dataset.task);
+  return ids;
+}
+function activeDepKey() {
+  if (depHoverKey && !depCardByKey(depHoverKey)) depHoverKey = '';
+  if (depFocusKey && !depCardByKey(depFocusKey)) depFocusKey = '';
+  if (depHoverKey) return depHoverKey;
+  if (depFocusKey) return depFocusKey;
+  if (taskDetailKey && depCardByKey(taskDetailKey)) return taskDetailKey;
+  return '';
+}
+function depBox(el, base) {
+  const rect = el.getBoundingClientRect();
+  return { left: rect.left - base.left, top: rect.top - base.top, right: rect.right - base.left, bottom: rect.bottom - base.top };
+}
+function depArcLabel(edge) {
+  const subject = edge.subject || '未命名任务';
+  let verb = '挡住';
+  if (edge.roles.indexOf('blockedBy') >= 0 && edge.roles.indexOf('blocks') >= 0) verb = '关联';
+  else if (edge.roles.indexOf('blockedBy') >= 0) verb = '依赖';
+  return verb + ' #' + edge.id + ' ' + subject + '，' + (edge.open ? '尚未完成' : '已经完成') + '。打开这张只读详情';
+}
+function clearDepArcs() {
+  const svg = $('#kdeps');
+  if (!svg) return;
+  depSig = '';
+  if (!svg.childElementCount && svg.getAttribute('aria-hidden') === 'true') return;
+  svg.textContent = '';
+  svg.setAttribute('aria-hidden', 'true');
+  svg.removeAttribute('data-dep-for');
+}
+function drawDepArcs(snap) {
+  const svg = $('#kdeps');
+  if (!svg) return;
+  const data = snap || depSnap || prev;
+  const key = activeDepKey();
+  const task = key && data ? findOfficialTask(data, key) : null;
+  const source = key ? depCardByKey(key) : null;
+  const root = $('#kanban-wrap');
+  if (!task || !source || !root) { clearDepArcs(); return; }
+  const base = root.getBoundingClientRect();
+  if (base.width < 2 || base.height < 2) { clearDepArcs(); return; }
+  const edges = depEdgeList(task, (data.officialTeam || {}).tasks || [], depVisibleIds());
+  const active = document.activeElement;
+  const restore = active && svg.contains(active) ? (active.getAttribute('data-dep-target') || '') : '';
+  if (!edges.length) { clearDepArcs(); return; }
+  const placed = [];
+  for (let i = 0; i < edges.length; i++) {
+    const card = depCardById(edges[i].id);
+    if (!card || card === source) continue;
+    const a = depBox(source, base), b = depBox(card, base);
+    placed.push({ edge: edges[i], a: a, b: b, path: depArcPath(a, b) });
+  }
+  if (!placed.length) { clearDepArcs(); return; }
+  const groups = {};
+  for (let i = 0; i < placed.length; i++) {
+    const side = placed[i].path.side;
+    if (!groups[side]) groups[side] = [];
+    groups[side].push(placed[i]);
+  }
+  Object.keys(groups).forEach(side => {
+    const items = groups[side];
+    if (items.length < 2) return;
+    for (let i = 0; i < items.length; i++) items[i].path = depArcPath(items[i].a, items[i].b, (i + 1) / (items.length + 1));
+  });
+  const sig = key + '\n' + Math.round(base.width) + 'x' + Math.round(base.height) + '\n' + placed.map(item => item.edge.key + (item.edge.open ? ':open:' : ':done:') + item.path.d).join('\n');
+  if (sig === depSig && svg.childElementCount) return;
+  depSig = sig;
+  svg.setAttribute('viewBox', '0 0 ' + depNum(base.width) + ' ' + depNum(base.height));
+  svg.setAttribute('data-dep-for', key);
+  svg.setAttribute('aria-hidden', 'false');
+  svg.innerHTML = placed.map(item => {
+    const edge = item.edge, path = item.path;
+    const tone = edge.open ? 'open' : 'done';
+    return '<g class="kdep-link" tabindex="0" role="button" data-dep-target="' + esc(edge.key) + '" data-dep-open="' + (edge.open ? '1' : '0') + '" data-dep-side="' + esc(path.side) + '" aria-label="' + esc(depArcLabel(edge)) + '"><title>' + esc(depArcLabel(edge)) + '</title><path class="kdep-case" d="' + path.d + '"/><path class="kdep-hit" d="' + path.d + '"/><path class="kdep ' + tone + '" d="' + path.d + '"/><path class="kdep-arrow ' + tone + '" d="' + depArrow(path.x, path.y, path.c2x, path.c2y) + '"/><circle class="kdep-end ' + tone + '" cx="' + path.x + '" cy="' + path.y + '" r="6"/></g>';
+  }).join('');
+  if (!restore) return;
+  const links = svg.querySelectorAll('[data-dep-target]');
+  for (let i = 0; i < links.length; i++) if (links[i].getAttribute('data-dep-target') === restore) { links[i].focus(); break; }
+}
+function activateDepTarget(key) {
+  if (!key) return;
+  depHoverKey = '';
+  openTaskDetail(key);
+}
+$('#kdeps').addEventListener('click', (e) => {
+  const hit = e.target.closest && e.target.closest('[data-dep-target]');
+  if (!hit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  activateDepTarget(hit.getAttribute('data-dep-target') || '');
+});
+$('#kdeps').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const hit = e.target.closest && e.target.closest('[data-dep-target]');
+  if (!hit || document.activeElement !== hit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  activateDepTarget(hit.getAttribute('data-dep-target') || '');
+});
+document.addEventListener('pointerover', (e) => {
+  if (linkHold) return;
+  const card = depCardFrom(e.target);
+  if (!card) return;
+  const key = card.dataset.taskKey || '';
+  if (key === depHoverKey) return;
+  depHoverKey = key;
+  drawDepArcs();
+});
+document.addEventListener('pointerout', (e) => {
+  if (linkHold) return;
+  const card = depCardFrom(e.target);
+  if (!card) return;
+  const next = depCardFrom(e.relatedTarget);
+  if (next === card) return;
+  if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#kdeps')) return;
+  depHoverKey = next ? (next.dataset.taskKey || '') : '';
+  drawDepArcs();
+});
+document.addEventListener('focusin', (e) => {
+  if (linkHold) return;
+  const card = depCardFrom(e.target);
+  if (!card) return;
+  const key = card.dataset.taskKey || '';
+  if (key === depFocusKey) return;
+  depFocusKey = key;
+  drawDepArcs();
+});
+document.addEventListener('focusout', (e) => {
+  if (linkHold) return;
+  if (!depCardFrom(e.target)) return;
+  const next = depCardFrom(e.relatedTarget);
+  if (next && next === depCardFrom(e.target)) return;
+  if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#kdeps')) return;
+  depFocusKey = next ? (next.dataset.taskKey || '') : '';
+  drawDepArcs();
+});
+if (window.ResizeObserver) new ResizeObserver(() => { if (!linkHold) drawDepArcs(); }).observe($('#kanban-wrap'));
 $('#task-board-filters').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-task-filter]');
   if (!btn) return;
@@ -1833,7 +2098,7 @@ $('#task-detail').addEventListener('click', (e) => {
    钉住之后，悬停另一张卡会临时换成那一条；移开后回到钉住的名字。
    筛选只决定哪些卡画出来。钉住的名字如果一张可见卡都没有，就取消钉住。
    没认领、或名字对不上的任务不加 xdim，保持原样。其他人名下的任务变淡。 */
-const LINK_HINT = '悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点卡片打开只读详情；Alt+点击或卡片上的「钉」钉住，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
+const LINK_HINT = '悬停、聚焦或打开详情时，用弧线连出当前筛选后仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片；被滤掉的对端不画线。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
 let linkPin = '', linkHover = '', linkScope = '', linkHold = false;
 const linkPinTitle = (name) => name ? `点一下钉住「${name}」名下的任务，再点或 Esc 取消` : '';
 function activeLinkName() { return linkHover || linkPin; }
@@ -2885,9 +3150,9 @@ function demoAugment(s) {
       available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
       tasks: [
         { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
-        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
         { id: '3', subject: 'Wait for the synthetic survey', description: '合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1', '9'], blocks: [], blocked: true, waitingOn: ['1', '9'], stateSince: now - 40, stateSinceKind: 'file-shared' },
-        { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
+        { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: ['2'], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
         { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
       ],
     };
@@ -2931,7 +3196,7 @@ tick(); setInterval(tick, 1500);
     if (shot === 'drawer' && prev) { const m = prev.members[0]; if (m) openDrawer(m.id); }
   }, 2500);
 })();
-window.addEventListener('resize', () => prev && layout(prev));
+window.addEventListener('resize', () => { if (prev) layout(prev); drawDepArcs(); });
 </script>
 </body>
 </html>
