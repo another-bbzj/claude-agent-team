@@ -132,6 +132,68 @@ class StateClockTest(unittest.TestCase):
             env.cleanup()
 
 
+class TaskDetailFieldsTest(unittest.TestCase):
+    def test_relations_flags_and_notices_stay_on_the_visible_rows(self):
+        env = BoardEnv()
+        try:
+            board = env.load()
+            warnings = []
+            rows = board.task_board_rows([
+                {
+                    'id': '2', 'subject': 'Older copy', 'description': 'drop me',
+                    'status': 'completed', 'normalizedStatus': 'completed',
+                    'source': 'shared.json', 'sourceMtime': 1, 'blocks': ['1'],
+                },
+                {
+                    'id': '2', 'subject': 'Newer pending copy',
+                    'description': 'Synthetic task stored in the TaskGet output shape.',
+                    'status': 'pending', 'normalizedStatus': 'pending',
+                    'blockedBy': ['1', 'missing'], 'blocks': ['12'],
+                    'source': 'newer.json', 'sourceMtime': 5,
+                },
+                {
+                    'id': '1', 'subject': 'Survey the synthetic module',
+                    'status': 'completed', 'normalizedStatus': 'completed',
+                    'source': 'shared.json', 'sourceMtime': 1,
+                },
+                {
+                    'id': '12', 'subject': '',
+                    'status': 'in_progress', 'normalizedStatus': 'in_progress',
+                    'source': 'alone.json', 'sourceMtime': 3, 'blockedBy': ['2'],
+                },
+            ], 'session-detail', 20, clock={}, warnings=warnings)
+            by_id = {row['id']: row for row in rows}
+            self.assertEqual(set(by_id), {'1', '2', '12'})
+            self.assertEqual(by_id['2']['subject'], 'Newer pending copy')
+            self.assertEqual(by_id['2']['description'], 'Synthetic task stored in the TaskGet output shape.')
+            self.assertEqual(by_id['2']['blockedByDetail'], [
+                {'id': '1', 'subject': 'Survey the synthetic module', 'resolved': True, 'normalizedStatus': 'completed'},
+                {'id': 'missing', 'subject': None, 'resolved': False, 'normalizedStatus': None},
+            ])
+            self.assertEqual(by_id['2']['blocksDetail'], [
+                {'id': '12', 'subject': None, 'resolved': True, 'normalizedStatus': 'in_progress'},
+            ])
+            self.assertEqual(by_id['2']['flags'], ['blocked'])
+            self.assertEqual(by_id['2']['stateSinceKind'], 'file')
+            self.assertEqual(by_id['1']['flags'], ['approximate'])
+            self.assertEqual(by_id['1']['stateSinceKind'], 'file-shared')
+            self.assertEqual(by_id['12']['flags'], [])
+            self.assertFalse(by_id['12']['blocked'])
+            self.assertEqual(by_id['12']['blockedByDetail'][0]['subject'], 'Newer pending copy')
+            self.assertEqual(len(warnings), 1)
+            self.assertEqual(by_id['2']['notices'], warnings)
+            self.assertEqual(by_id['12']['notices'], [])
+            self.assertEqual(by_id['1']['notices'], [])
+            self.assertNotIn('shared.json', warnings[0])
+            self.assertNotIn('/', warnings[0])
+            blob = json.dumps(rows, ensure_ascii=False)
+            self.assertNotIn('sourceMtime', blob)
+            self.assertNotIn('shared.json', blob)
+            self.assertNotIn('newer.json', blob)
+        finally:
+            env.cleanup()
+
+
 class OwnerMatchTest(unittest.TestCase):
     def test_exact_string_only(self):
         env = BoardEnv()

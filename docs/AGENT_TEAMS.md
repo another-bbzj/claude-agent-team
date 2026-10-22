@@ -135,9 +135,9 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 这些卡没有转录，所以没有 token，成本保持未知。`owner` 只有和成员 name 完全一致时才用来推断进行中或已完成；对不上就显示待命。
 
-选中的会话能对上 `tasks/{team-name}/` 时，部门表下面多一行**只读看板**。三列是 pending、in progress、completed（界面写作待处理、进行中、已完成）。`deleted` 和认不出的状态不进这三列。每张卡片有负责人（没有 `owner` 就是未认领；`owner` 和成员 name 或 lead 名字完全一致时算对上了人）、依赖或阻塞，以及在当前状态停留了多久。阻塞只指 pending 且 `blockedBy` 里还有没完成的 id，对应文档里「依赖完成前不能认领」。卡片不能拖。`/api/tasks` 的任意方法都返回 405，并带 `Allow: GET`；正文不是 JSON 时也是 405，不会改任务目录。
+选中的会话能对上 `tasks/{team-name}/` 时，部门表下面多一行**只读看板**。三列是 pending、in progress、completed（界面写作待处理、进行中、已完成）。`deleted` 和认不出的状态不进这三列。每张卡片有负责人（没有 `owner` 就是未认领；`owner` 和成员 name 或 lead 名字完全一致时算对上了人）、依赖或阻塞，以及在当前状态停留了多久。阻塞只指 pending 且 `blockedBy` 里还有没完成的 id，对应文档里「依赖完成前不能认领」。卡片不能拖。点卡片，或聚焦后按 Enter，打开只读详情：标题、完整说明、状态、负责人、`blockedBy` / `blocks`（当前列表里对得上 id 时带上那条的 subject）、在当前状态停留了多久，以及阻塞、计时大约、负责人对不上成员这些标记。重复 id 的警告如果点名了这条 id，也会写在详情里。Esc、点外面或关闭按钮都会关掉。不能在详情里改状态。`/api/tasks` 的任意方法都返回 405，并带 `Allow: GET`；正文不是 JSON 时也是 405，不会改任务目录。
 
-悬停或聚焦一张看板卡时，若 `owner` 与某位成员的 name，或与 lead 的名字完全一致，舞台上对应的人会被点亮；下方那张成员任务卡也会一起亮。反过来，悬停或聚焦舞台上的人，或下方的成员任务卡，会点亮 `owner` 完全等于这个名字的全部看板卡。点看板卡，或点舞台上成员名字一带（点形象仍然打开抽屉），可以把这次高亮钉住；再点一次，或按 Esc，取消钉住。弹窗或抽屉还开着时，Esc 先关掉它们。钉住期间再去悬停另一张卡，会临时换成那一条，移开后回到钉住的名字。
+悬停或聚焦一张看板卡时，若 `owner` 与某位成员的 name，或与 lead 的名字完全一致，舞台上对应的人会被点亮；下方那张成员任务卡也会一起亮。反过来，悬停或聚焦舞台上的人，或下方的成员任务卡，会点亮 `owner` 完全等于这个名字的全部看板卡。点舞台上成员名字一带（点形象仍然打开成员抽屉）可以把这次高亮钉住。看板卡的普通点击，以及聚焦后按 Enter 或空格，打开只读详情，不改变钉住。要对上了名字的看板卡钉住或取消，用 Alt+点击，或点卡片上的「钉」。再做一次同样的操作，或按 Esc，取消钉住。弹窗或任务详情还开着时，Esc 先关掉它们，再按一次才取消钉住。钉住期间再去悬停另一张卡，会临时换成那一条，移开后回到钉住的名字。
 
 没有 `owner` 的任务，以及 `owner` 和任何成员 name、lead 名字都不完全一致的任务，保持原来的样子，不会变淡。已经对上别人的任务会变淡。不做模糊匹配。快照里每条任务多一个 `ownerMatch`：对上了就是那个名字，否则为 `null`。它只存在于这份快照，不写回任务目录。
 
@@ -145,6 +145,6 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 官方文件没有「进入当前状态」的时间。看板进程第一次读到某条任务的当前状态时，用它所在文件的修改时间当作起点：文件里只有这一条，就按这个时间计；同一个文件里有多条，界面会标成大约，因为分不出是哪一条被改写。之后只有状态变了，才从看板看到变化的那一刻重新计时。这个记忆只在看板进程里，重启后回到文件修改时间，也不会写回 `~/.claude/tasks/`。换到另一个会话时，上一支团队的计时会清掉；当前会话没有任务目录时同样清掉。
 
-快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板跟着这一次刷新走，没有另外的写入接口。
+快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。每行还有从这些可见行推导的 `blockedByDetail` / `blocksDetail`（`id`、`subject`、`resolved`、`normalizedStatus`）、`flags`（`blocked`、`approximate`）和 `notices`（警告原文里用「：」后的「、」点到这条 id 的那些）。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板和已经打开的详情跟着这一次刷新走，没有另外的写入接口。
 
 只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。不读取本机 `~/.claude`。

@@ -390,14 +390,14 @@
   .kanban .col.in_progress { border-top: 2px solid var(--brand); }
   .kanban .col.completed { border-top: 2px solid var(--ok); }
   .kanban .kempty { color: var(--text-3); font-size: 12px; padding: 8px 2px; }
-  .kcard { --k: var(--line-2); position: relative; background: var(--card); border: 1px solid var(--line); padding: 8px 10px 8px 12px; cursor: default; user-select: text; transition: opacity .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .kcard { --k: var(--line-2); position: relative; background: var(--card); border: 1px solid var(--line); padding: 8px 10px 8px 12px; cursor: pointer; user-select: text; transition: opacity .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .kcard:hover, .kcard.open { border-color: var(--line-2); box-shadow: var(--shadow); }
   .kcard:focus { outline: none; }
   .kcard:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
-  .kcard.linkable { cursor: pointer; }
-  .kcard.xhi { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-  .kcard.xhi::before { background: var(--gold); }
+  .kcard.xhi, .kcard.xhi:hover, .kcard.xhi.open { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
   .kcard.xdim { opacity: .38; }
   .kcard::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 2px; background: var(--k); }
+  .kcard.xhi::before { background: var(--gold); }
   .kcard.pending { --k: var(--info); }
   .kcard.in_progress { --k: var(--brand); }
   .kcard.completed { --k: var(--ok); }
@@ -410,7 +410,45 @@
   .kcard .kdeps { color: var(--text-2); }
   .kcard.blocked .kdeps { color: var(--warn); }
   .kcard .kage { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  .kcard .kpin { margin-left: auto; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font: 700 11px var(--mono); padding: 0 6px; line-height: 18px; cursor: pointer; }
+  .kcard .kpin:hover { border-color: var(--gold); color: var(--gold); }
+  .kcard .kpin:focus { outline: none; }
+  .kcard .kpin:focus-visible { outline: 1px solid var(--gold); outline-offset: 1px; }
+  .kcard .kpin.on { border-color: var(--gold); background: var(--gold); color: #1a1406; }
   @media (max-width: 800px) { .kanban { grid-template-columns: minmax(0, 1fr); } }
+
+  /* 官方任务详情：只读侧栏，不改任务目录 */
+  .task-detail[hidden] { display: none !important; }
+  .task-detail { position: fixed; inset: 0; z-index: 45; }
+  .task-detail-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; margin: 0; background: color-mix(in srgb, #03050a 48%, transparent); cursor: pointer; }
+  .task-detail-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 1; width: min(440px, 100%); display: flex; flex-direction: column; background: var(--bg-2); color: var(--text); border-left: 1px solid var(--line-2); box-shadow: var(--shadow); }
+  .td-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .td-titles { min-width: 0; flex: 1; }
+  .td-kicker { font: 11px var(--mono); letter-spacing: .08em; color: var(--text-3); }
+  .td-head h2 { margin: 3px 0 0; font-size: 16px; line-height: 1.45; word-break: break-word; }
+  .td-body { padding: 4px 16px 28px; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
+  .task-detail h3 { font-size: 12px; color: var(--text); letter-spacing: .06em; margin: 16px 0 8px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .task-detail h3::before { content: ""; width: 6px; height: 6px; background: var(--gold); transform: rotate(45deg); flex: none; }
+  .task-detail h3 small { font-weight: 400; color: var(--text-3); letter-spacing: 0; }
+  .td-kv { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); gap: 8px 12px; margin: 12px 0 0; font-size: 13px; }
+  .td-kv dt { color: var(--text-3); }
+  .td-kv dd { margin: 0; min-width: 0; }
+  .td-raw { margin-left: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+  .td-note { display: block; margin-top: 4px; color: var(--text-3); font-size: 11.5px; line-height: 1.45; }
+  .td-desc { white-space: pre-wrap; word-break: break-word; background: var(--card); border: 1px solid var(--line); padding: 10px 12px; font-size: 13px; line-height: 1.55; color: var(--text); }
+  .td-desc.empty, .td-empty { color: var(--text-3); }
+  .td-empty { margin: 0; font-size: 12.5px; }
+  .td-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .td-notices { margin: 8px 0 0; padding-left: 1.1em; color: var(--text-2); font-size: 12.5px; line-height: 1.5; }
+  .td-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .td-links button, .td-links .miss { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font: inherit; line-height: 1.4; }
+  .td-links button { cursor: pointer; }
+  .td-links button:hover, .td-links button:focus-visible { border-color: var(--line-2); }
+  .td-links .miss { color: var(--text-2); }
+  .td-links .tid { font-family: var(--mono); color: var(--text-3); flex: none; }
+  .td-links .tsub { flex: 1; min-width: 8em; word-break: break-word; }
+  @media (max-width: 520px) { .task-detail-panel { width: 100%; border-left: 0; } }
+  body:has(#synthetic-demo-notice) .task-detail-panel { bottom: 38px; }
 
   .feed { display: flex; flex-direction: column; gap: 1px; max-height: 520px; overflow-y: auto; font-size: 12px; }
   .feed .row { display: grid; grid-template-columns: 56px 22px 58px minmax(0, 1fr); align-items: center; gap: 8px; padding: 4px 6px; border-left: 2px solid transparent; transition: background-color .15s; }
@@ -497,8 +535,8 @@
     clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
   .modal-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-weight: 700; background: var(--bg-2); flex-wrap: wrap; }
   .modal-head::before { content: ""; width: 4px; align-self: stretch; background: var(--gold); margin: 2px 0; }
-  .modal-head .close, .drawer .head .close { margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--line); background: var(--card); color: var(--text-2); transition: border-color .15s, color .15s; }
-  .modal-head .close:hover, .drawer .head .close:hover { border-color: var(--err); color: var(--err); }
+  .modal-head .close, .drawer .head .close, .task-detail .close { margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--line); background: var(--card); color: var(--text-2); transition: border-color .15s, color .15s; flex: none; }
+  .modal-head .close:hover, .drawer .head .close:hover, .task-detail .close:hover { border-color: var(--err); color: var(--err); }
   .am-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 16px 18px; }
   .am-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); min-width: 0; }
   .am-grid label small { color: var(--text-3); font-size: 10.5px; }
@@ -775,7 +813,7 @@
   <section class="panel task-board" id="task-board" hidden aria-readonly="true">
     <h2><span class="no">AT</span>官方任务<span class="en">Task Board</span><span class="pill">只读</span><span class="count" id="task-board-count"></span></h2>
     <p class="task-board-note" id="task-board-note"></p>
-    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点一下钉住，<kbd>Esc</kbd> 取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
+    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点卡片打开只读详情；Alt+点击或卡片上的「钉」钉住，<kbd>Esc</kbd> 先关详情再取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
     <div class="kanban" id="kanban"></div>
   </section>
 
@@ -916,6 +954,19 @@
   </div>
   <div class="body" id="d-body"></div>
 </aside>
+<div class="task-detail" id="task-detail" hidden>
+  <button type="button" class="task-detail-backdrop" tabindex="-1" aria-label="关闭任务详情"></button>
+  <aside class="task-detail-panel" role="dialog" aria-modal="true" aria-labelledby="td-title">
+    <div class="td-head">
+      <div class="td-titles">
+        <div class="td-kicker">官方任务 · 只读</div>
+        <h2 id="td-title"></h2>
+      </div>
+      <button type="button" class="close" id="task-detail-close" aria-label="关闭">✕</button>
+    </div>
+    <div class="td-body" id="task-detail-body"></div>
+  </aside>
+</div>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -1391,6 +1442,176 @@ function taskAgeTitle(task) {
   if (task.stateSinceKind === 'file-shared') return '官方文件没有单独的状态时间。这条和同一文件里的其他任务共用最近写入时间，直到看板看到状态变化';
   return '官方任务文件没有状态时间';
 }
+const TASK_STATUS_LABEL = { pending: '待处理', in_progress: '进行中', completed: '已完成' };
+const TASK_STATUS_PILL = { pending: 'info', in_progress: 'brand', completed: 'ok' };
+const TASK_FLAG_LABEL = { blocked: '阻塞', approximate: '计时大约' };
+let taskDetailKey = null, taskDetailSig = '';
+function taskKey(task, index) {
+  if (task && task.id != null && String(task.id) !== '') return 'id:' + String(task.id);
+  return 'row:' + index;
+}
+function findOfficialTask(snap, key) {
+  const tasks = ((snap || {}).officialTeam || {}).tasks || [];
+  for (let i = 0; i < tasks.length; i++) if (taskKey(tasks[i], i) === key) return tasks[i];
+  return null;
+}
+function focusTaskCard(key) {
+  if (!key) return;
+  const cards = document.querySelectorAll('#kanban .kcard');
+  for (const card of cards) if (card.dataset.taskKey === key) { card.focus(); return; }
+}
+function relationFromIds(ids, tasks) {
+  const list = Array.isArray(ids) ? ids : [];
+  return list.map(id => {
+    const text = id == null ? '' : String(id);
+    const found = tasks.find(item => item && String(item.id) === text);
+    if (!found) return { id: text, subject: null, resolved: false, normalizedStatus: null };
+    return { id: text, subject: found.subject || null, resolved: true, normalizedStatus: found.normalizedStatus || null };
+  });
+}
+function noticesFromWarnings(task, warnings) {
+  const id = task.id == null ? '' : String(task.id);
+  if (!id) return [];
+  const out = [];
+  for (const warning of warnings || []) {
+    const text = String(warning || '');
+    const cut = text.indexOf('：');
+    if (cut < 0) continue;
+    const listed = text.slice(cut + 1).split('、').map(part => part.trim()).filter(Boolean);
+    if (listed.indexOf(id) >= 0) out.push(text);
+  }
+  return out;
+}
+function taskDetailView(task, tasks, warnings) {
+  const server = Array.isArray(task.blockedByDetail) && Array.isArray(task.blocksDetail) && Array.isArray(task.flags) && Array.isArray(task.notices);
+  if (server) {
+    return {
+      blockedBy: task.blockedByDetail,
+      blocks: task.blocksDetail,
+      flags: task.flags,
+      notices: task.notices.filter(item => typeof item === 'string'),
+    };
+  }
+  const flags = [];
+  if (task.blocked) flags.push('blocked');
+  if (task.stateSinceKind === 'file-shared') flags.push('approximate');
+  return {
+    blockedBy: relationFromIds(task.blockedBy, tasks),
+    blocks: relationFromIds(task.blocks, tasks),
+    flags: flags,
+    notices: noticesFromWarnings(task, warnings),
+  };
+}
+function relationHtml(details) {
+  const list = Array.isArray(details) ? details : [];
+  if (!list.length) return '<p class="td-empty">无</p>';
+  return '<ul class="td-links">' + list.map(item => {
+    const id = item && item.id != null ? String(item.id) : '';
+    const tid = '#' + id;
+    if (!item || !item.resolved) return `<li><span class="miss"><span class="tid">${esc(tid)}</span><span>当前列表里没有这条</span></span></li>`;
+    const subject = item.subject || '未命名任务';
+    const label = TASK_STATUS_LABEL[item.normalizedStatus] || '';
+    const pill = TASK_STATUS_PILL[item.normalizedStatus] || '';
+    const open = id ? ` data-task-open="${esc('id:' + id)}"` : '';
+    return `<li><button type="button"${open}><span class="tid">${esc(tid)}</span><span class="tsub">${esc(subject)}</span>${label ? `<span class="pill ${pill}">${esc(label)}</span>` : ''}</button></li>`;
+  }).join('') + '</ul>';
+}
+function flagHtml(task, view, owner) {
+  const chips = [];
+  for (const flag of view.flags || []) if (TASK_FLAG_LABEL[flag]) chips.push(`<span class="pill warn">${esc(TASK_FLAG_LABEL[flag])}</span>`);
+  if (task.owner && owner && !owner.known) chips.push('<span class="pill warn">负责人对不上成员</span>');
+  const notes = (view.notices || []).map(text => `<li>${esc(text)}</li>`).join('');
+  if (!chips.length && !notes) return '<p class="td-empty">没有警告</p>';
+  return (chips.length ? `<div class="td-flags">${chips.join('')}</div>` : '') + (notes ? `<ul class="td-notices">${notes}</ul>` : '');
+}
+function taskDetailHtml(task, snap) {
+  const team = snap.officialTeam || {};
+  const tasks = team.tasks || [];
+  const owner = taskOwnerLabel(task, snap);
+  const view = taskDetailView(task, tasks, team.warnings || []);
+  const status = TASK_STATUS_LABEL[task.normalizedStatus] || (task.normalizedStatus || '未知');
+  const pill = TASK_STATUS_PILL[task.normalizedStatus] || '';
+  const raw = task.status && task.status !== task.normalizedStatus && task.status !== status ? `<span class="td-raw">${esc(task.status)}</span>` : '';
+  const desc = task.description && String(task.description).trim()
+    ? `<div class="td-desc">${esc(task.description)}</div>`
+    : '<div class="td-desc empty">没有说明</div>';
+  const ownerNote = task.owner && !owner.known ? `<span class="td-note">${esc(owner.title)}</span>` : '';
+  return `<dl class="td-kv">
+      <dt>状态</dt><dd><span class="pill ${pill}">${esc(status)}</span>${raw}</dd>
+      <dt>负责人</dt><dd>${esc(owner.text)}${ownerNote}</dd>
+      <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
+    </dl>
+    <h3>说明</h3>${desc}
+    <h3>依赖 <small>blockedBy</small></h3>${relationHtml(view.blockedBy)}
+    <h3>挡住 <small>blocks</small></h3>${relationHtml(view.blocks)}
+    <h3>标记</h3>${flagHtml(task, view, owner)}`;
+}
+function taskDetailSignature(task, snap) {
+  const team = snap.officialTeam || {};
+  const owner = taskOwnerLabel(task, snap);
+  return JSON.stringify({
+    key: taskDetailKey,
+    subject: task.subject || '',
+    description: task.description || '',
+    status: task.status || '',
+    normalizedStatus: task.normalizedStatus || '',
+    owner: owner.text,
+    known: owner.known,
+    ageTitle: taskAgeTitle(task),
+    view: taskDetailView(task, team.tasks || [], team.warnings || []),
+  });
+}
+function renderTaskDetail(snap) {
+  const root = $('#task-detail');
+  if (!taskDetailKey) { root.hidden = true; return; }
+  const task = findOfficialTask(snap, taskDetailKey);
+  if (!task) {
+    if (taskDetailSig !== 'missing') {
+      taskDetailSig = 'missing';
+      $('#td-title').textContent = '任务不在列表里';
+      $('#task-detail-body').innerHTML = '<p class="td-empty">这条任务已经不在当前只读列表里。</p>';
+    }
+    const focusClose = root.hidden || !root.contains(document.activeElement);
+    root.hidden = false;
+    if (focusClose) $('#task-detail-close').focus();
+    return;
+  }
+  const sig = taskDetailSignature(task, snap);
+  const age = taskAgeLabel(task);
+  if (sig === taskDetailSig && !root.hidden) {
+    const ageEl = $('#td-age');
+    if (ageEl) ageEl.textContent = age;
+    return;
+  }
+  const previous = document.activeElement;
+  const focusClose = root.hidden || !root.contains(previous) || !!(previous && previous.closest && previous.closest('#task-detail-body'));
+  taskDetailSig = sig;
+  $('#td-title').textContent = task.subject || '未命名任务';
+  $('#task-detail-body').innerHTML = taskDetailHtml(task, snap);
+  root.hidden = false;
+  if (focusClose) $('#task-detail-close').focus();
+}
+function openTaskDetail(key) {
+  if (!key) return;
+  if (taskDetailKey !== key) taskDetailSig = '';
+  taskDetailKey = key;
+  if (!prev) return;
+  renderTaskDetail(prev);
+  document.querySelectorAll('#kanban .kcard').forEach(card => {
+    const on = card.dataset.taskKey === key;
+    card.classList.toggle('open', on);
+    card.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+}
+function closeTaskDetail(restore) {
+  const key = taskDetailKey;
+  taskDetailKey = null;
+  taskDetailSig = '';
+  const root = $('#task-detail');
+  if (root) root.hidden = true;
+  document.querySelectorAll('#kanban .kcard.open').forEach(card => { card.classList.remove('open'); card.setAttribute('aria-expanded', 'false'); });
+  if (restore) focusTaskCard(key);
+}
 function renderTaskBoard(snap) {
   const panel = $('#task-board');
   const team = snap.officialTeam || {};
@@ -1399,6 +1620,7 @@ function renderTaskBoard(snap) {
     linkHold = true;
     $('#kanban').innerHTML = '';
     linkHold = false;
+    if (taskDetailKey) closeTaskDetail(false);
     return;
   }
   panel.hidden = false;
@@ -1411,7 +1633,11 @@ function renderTaskBoard(snap) {
     ? '这是合成任务，不读取本机任务目录。'
     : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
-    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。` + sourceNote;
+    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。` + sourceNote;
+  const active = document.activeElement;
+  const focusedCard = active && active.closest && active.closest('#kanban .kcard');
+  const focusedKey = focusedCard ? focusedCard.dataset.taskKey || '' : '';
+  const focusedPin = !!(active && active.classList && active.classList.contains('kpin'));
   linkHold = true;
   try {
   $('#kanban').innerHTML = TASK_COLUMNS.map(col => {
@@ -1420,10 +1646,18 @@ function renderTaskBoard(snap) {
       const owner = taskOwnerLabel(task, snap);
       const match = ownerMatchOf(task, snap);
       const desc = task.description ? `<div class="kdesc">${esc(task.description)}</div>` : '';
-      const cardTitle = match ? ` title="${esc('负责人 ' + match + '。点一下钉住，Esc 取消')}"` : '';
-      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${match ? ' linkable' : ''}" draggable="false" tabindex="0" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}"${cardTitle}>
+      const key = taskKey(task, tasks.indexOf(task));
+      const open = key === taskDetailKey;
+      const cardTitle = match
+        ? `点此打开只读详情。Alt+点击，或点「钉」，钉住「${match}」的高亮`
+        : '查看任务详情，只读';
+      const pinned = !!(match && linkPin === match);
+      const pin = match
+        ? `<button type="button" class="kpin${pinned ? ' on' : ''}" data-pin="${esc(match)}" aria-pressed="${pinned ? 'true' : 'false'}" title="${esc(pinned ? '取消钉住「' + match + '」' : '钉住「' + match + '」，不打开详情')}">钉</button>`
+        : '';
+      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
-        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span></div>
+        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${pin}</div>
         <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
       </article>`;
     }).join('') || '<div class="kempty">空</div>';
@@ -1433,12 +1667,54 @@ function renderTaskBoard(snap) {
     linkHold = false;
   }
   applyLinkHighlight();
+  if (focusedPin && focusedKey) {
+    const cards = document.querySelectorAll('#kanban .kcard');
+    for (const card of cards) {
+      if (card.dataset.taskKey !== focusedKey) continue;
+      const pin = card.querySelector('.kpin');
+      if (pin) pin.focus();
+      break;
+    }
+  } else if (focusedKey && focusedKey !== taskDetailKey) focusTaskCard(focusedKey);
+  if (taskDetailKey) renderTaskDetail(snap);
 }
+$('#kanban').addEventListener('click', (e) => {
+  const pin = e.target.closest('.kpin');
+  if (pin) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleLinkPin(pin.dataset.pin || '');
+    return;
+  }
+  const card = e.target.closest('.kcard');
+  if (!card) return;
+  if (e.altKey && (card.dataset.ownerMatch || '')) {
+    e.preventDefault();
+    toggleLinkPin(card.dataset.ownerMatch);
+    return;
+  }
+  openTaskDetail(card.dataset.taskKey);
+});
+$('#kanban').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('.kcard');
+  if (!card || document.activeElement !== card) return;
+  e.preventDefault();
+  openTaskDetail(card.dataset.taskKey);
+});
+$('#kanban').addEventListener('dragstart', (e) => { e.preventDefault(); });
+$('#task-detail').addEventListener('click', (e) => {
+  const jump = e.target.closest('[data-task-open]');
+  if (jump) { openTaskDetail(jump.dataset.taskOpen); return; }
+  if (e.target.closest('#task-detail-close, .task-detail-backdrop')) closeTaskDetail(true);
+});
 
 /* 看板卡 ↔ 成员卡：只按 owner 与成员 name / lead 名字的完全一致互相关联。
+   普通点击看板卡打开只读详情，不钉住。Alt+点击，或卡片上的「钉」，才钉住。
+   舞台上点成员名字一带仍然钉住（点形象打开成员抽屉）。
    钉住之后，悬停另一张卡会临时换成那一条；移开后回到钉住的名字。
    没认领、或名字对不上的任务不加 xdim，保持原样。其他人名下的任务变淡。 */
-const LINK_HINT = '悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点一下钉住，<kbd>Esc</kbd> 取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
+const LINK_HINT = '悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点卡片打开只读详情；Alt+点击或卡片上的「钉」钉住，<kbd>Esc</kbd> 先关详情再取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
 let linkPin = '', linkHover = '', linkScope = '', linkHold = false;
 const linkPinTitle = (name) => name ? `点一下钉住「${name}」名下的任务，再点或 Esc 取消` : '';
 function activeLinkName() { return linkHover || linkPin; }
@@ -1466,13 +1742,20 @@ function applyLinkHighlight() {
     el.classList.toggle('xdim', !!(key && match && match !== key));
     el.classList.toggle('xpin', on && linkPin === match);
   });
+  document.querySelectorAll('#kanban .kpin').forEach(btn => {
+    const name = btn.dataset.pin || '';
+    const on = !!(name && linkPin === name);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.title = on ? `取消钉住「${name}」` : `钉住「${name}」，不打开详情`;
+  });
   const hint = $('#task-board-link');
   if (!hint) return;
   if (linkPin) {
     if (hint.dataset.pin === linkPin) return;
     hint.dataset.pin = linkPin;
     hint.classList.add('pinned');
-    hint.innerHTML = `已钉住「${esc(linkPin)}」· 再点一次或按 <kbd>Esc</kbd> 取消`;
+    hint.innerHTML = `已钉住「${esc(linkPin)}」· 再按 Alt+点击、「钉」或舞台上的名字取消，<kbd>Esc</kbd> 先关详情`;
   } else if (hint.dataset.pin) {
     delete hint.dataset.pin;
     hint.classList.remove('pinned');
@@ -1519,8 +1802,6 @@ document.addEventListener('focusout', (e) => {
   applyLinkHighlight();
 });
 document.addEventListener('click', (e) => {
-  const card = e.target.closest && e.target.closest('#kanban .kcard');
-  if (card) { toggleLinkPin(card.dataset.ownerMatch || ''); return; }
   const person = e.target.closest && e.target.closest('#stage .person');
   if (!person || (e.target.closest && e.target.closest('.avatar-wrap'))) return;
   toggleLinkPin(person.dataset.link || '');
@@ -1924,11 +2205,11 @@ document.addEventListener('click', async (e) => {
 });
 document.addEventListener('pointerdown', (e) => {
   const dr = $('#drawer'); if (!dr.classList.contains('open')) return;
-  if (dr.contains(e.target) || e.target.closest('.person, .task, .msg, .ra, .modal, #pm-file, #toasts')) return;   // 点人物 / 卡片是切换，不是关闭
+  if (dr.contains(e.target) || e.target.closest('.person, .task, .msg, .ra, .modal, #pm-file, #toasts, #task-detail')) return;   // 点人物 / 卡片是切换，不是关闭
   selectedId = null; dr.classList.remove('open'); if (prev) layout(prev);
 });
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });
-$('#session-select').addEventListener('change', (e) => { selectedSession = e.target.value; prev = null; firstLoad = true; commsSig = ''; commsOpen.clear(); seenComms.clear(); seenFeed.clear(); for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); } personEls.clear(); for (const el of deptEls.values()) el.remove(); deptEls.clear(); for (const el of taskEls.values()) el.remove(); taskEls.clear(); tick(); });
+$('#session-select').addEventListener('change', (e) => { selectedSession = e.target.value; prev = null; firstLoad = true; commsSig = ''; commsOpen.clear(); seenComms.clear(); seenFeed.clear(); closeTaskDetail(false); for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); } personEls.clear(); for (const el of deptEls.values()) el.remove(); deptEls.clear(); for (const el of taskEls.values()) el.remove(); taskEls.clear(); tick(); });
 
 let failing = 0;
 async function tick() {
@@ -2099,17 +2380,18 @@ document.addEventListener('keydown', (e) => {
     if (!$('#bdq-pop').hidden) { closeQuickOp(); e.preventDefault(); return; }
     const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
     if (open) { open.hidden = true; e.preventDefault(); return; }
+    if (!$('#task-detail').hidden) { closeTaskDetail(true); e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
     if (linkPin) { linkPin = ''; applyLinkHighlight(); e.preventDefault(); return; }
     if (typing) e.target.blur();
     return;
   }
+  if (!$('#task-detail').hidden) return;
   if (!typing && (e.key === 'Enter' || e.key === ' ') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing) {
-    const card = e.target.classList && e.target.classList.contains('kcard') ? e.target : null;
     const person = e.target.classList && e.target.classList.contains('person') ? e.target : null;
-    if (card || person) {
+    if (person) {
       e.preventDefault();
-      toggleLinkPin(card ? (card.dataset.ownerMatch || '') : (person.dataset.link || ''));
+      toggleLinkPin(person.dataset.link || '');
       return;
     }
   }
@@ -2483,7 +2765,7 @@ function demoAugment(s) {
       tasks: [
         { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
         { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
-        { id: '3', subject: 'Wait for the synthetic survey', description: '依赖 1 完成前不能认领。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1'], blocks: [], blocked: true, waitingOn: ['1'], stateSince: now - 40, stateSinceKind: 'file-shared' },
+        { id: '3', subject: 'Wait for the synthetic survey', description: '合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1', '9'], blocks: [], blocked: true, waitingOn: ['1', '9'], stateSince: now - 40, stateSinceKind: 'file-shared' },
         { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
         { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
       ],
