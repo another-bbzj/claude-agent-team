@@ -23,7 +23,7 @@ match, or hover a member to light that person's tasks. Tasks with no owner, and
 one owner that only differs by a trailing space, stay unchanged; tasks owned by
 someone else dim. A plain click opens the drawer and does not pin. Alt-click, or
 the「钉」control on a matched card, pins that exact name; doing it again clears
-the pin. Esc closes the drawer first, then clears the pin. A persistent banner
+the pin. Esc closes the drawer first, then clears the pin. Hovering, focusing, or opening a card draws arcs to dependencies that are still on the board: unfinished prerequisites are emphasized, completed ones are fainter, and clicking an arc opens that card without changing the pin. A persistent banner
 marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times

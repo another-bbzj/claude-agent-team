@@ -69,6 +69,13 @@ class FixtureTest(unittest.TestCase):
         self.assertTrue(board['tasks'][2]['blockedByDetail'][0]['resolved'])
         self.assertFalse(board['tasks'][2]['blockedByDetail'][1]['resolved'])
         self.assertIsNone(board['tasks'][2]['blockedByDetail'][1]['subject'])
+        self.assertEqual(board['tasks'][1]['blocks'], ['4'])
+        self.assertEqual(board['tasks'][1]['blocksDetail'][0]['normalizedStatus'], 'pending')
+        self.assertEqual(board['tasks'][3]['blockedBy'], ['2'])
+        self.assertFalse(board['tasks'][3]['blocked'])
+        self.assertEqual(board['tasks'][3]['waitingOn'], [])
+        self.assertTrue(board['tasks'][3]['blockedByDetail'][0]['resolved'])
+        self.assertEqual(board['tasks'][3]['blockedByDetail'][0]['normalizedStatus'], 'completed')
 
     def test_time_refresh_is_in_memory_and_preserves_durations(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
@@ -120,6 +127,9 @@ class DemoHttpTest(unittest.TestCase):
         self.assertIn(b'id="task-detail"', body)
         self.assertIn(b'function openTaskDetail', body)
         self.assertIn(b'function closeTaskDetail', body)
+        self.assertIn(b'id="kdeps"', body)
+        self.assertIn(b'function depEdgeList', body)
+        self.assertIn(b'function drawDepArcs', body)
         self.assertNotIn(b'/api/tasks', body)
         self.assertIn('当前列表里没有这条'.encode('utf-8'), body)
         self.assertIn('没有说明'.encode('utf-8'), body)

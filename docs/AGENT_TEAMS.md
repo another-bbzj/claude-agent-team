@@ -139,6 +139,8 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 悬停或聚焦一张看板卡时，若 `owner` 与某位成员的 name，或与 lead 的名字完全一致，舞台上对应的人会被点亮；下方那张成员任务卡也会一起亮。反过来，悬停或聚焦舞台上的人，或下方的成员任务卡，会点亮 `owner` 完全等于这个名字的全部看板卡。点舞台上成员名字一带（点形象仍然打开成员抽屉）可以把这次高亮钉住。看板卡的普通点击，以及聚焦后按 Enter 或空格，打开只读详情，不改变钉住。要对上了名字的看板卡钉住或取消，用 Alt+点击，或点卡片上的「钉」。再做一次同样的操作，或按 Esc，取消钉住。弹窗或任务详情还开着时，Esc 先关掉它们，再按一次才取消钉住。钉住期间再去悬停另一张卡，会临时换成那一条，移开后回到钉住的名字。
 
+悬停、聚焦一张看板卡，或者它的只读详情还开着时，看板只为这张卡画依赖线。线连到 `blockedByDetail` / `blocksDetail` 里、当前三列仍然有卡片的那些任务。`resolved` 为 false，或者这个 id 当前不在三列里，就不画。前置任务的 `normalizedStatus` 还不是 `completed` 时用强调色实线，箭头指向对方；前置任务已经完成时用更淡的虚线。没有悬停、没有聚焦、也没有打开详情时，不把全部依赖铺满。点这条线或线端的圆点，和点那张卡片一样打开只读详情，不改钉住。Esc 仍然先关详情或弹窗，再取消钉住。
+
 没有 `owner` 的任务，以及 `owner` 和任何成员 name、lead 名字都不完全一致的任务，保持原来的样子，不会变淡。已经对上别人的任务会变淡。不做模糊匹配。快照里每条任务多一个 `ownerMatch`：对上了就是那个名字，否则为 `null`。它只存在于这份快照，不写回任务目录。
 
 单个任务文件超过 2MB 会跳过并警告，不把内容读进内存。三列合计超过 500 条时只显示前面的 500 条，并警告。同一个任务 id 出现多次时，只保留文件修改时间较新的那一条；时间相同或都没有，就留后读到的那条。警告里只写 id，不写路径。是否算完成，按留下来的那条计算，所以较旧的 completed 不会把较新的 pending 依赖当成已经完成。一个文件里有几条，按去重之前的条数算：两条里丢掉一条，剩下的仍按「大约」计时。
@@ -147,4 +149,4 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。每行还有从这些可见行推导的 `blockedByDetail` / `blocksDetail`（`id`、`subject`、`resolved`、`normalizedStatus`）、`flags`（`blocked`、`approximate`）和 `notices`（警告原文里用「：」后的「、」点到这条 id 的那些）。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板和已经打开的详情跟着这一次刷新走，没有另外的写入接口。
 
-只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。不读取本机 `~/.claude`。
+只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。其中一张还在等进行中的任务，另一张的前置任务已经完成，用来区分两种依赖线。不读取本机 `~/.claude`。
