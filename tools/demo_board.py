@@ -47,6 +47,10 @@ BANNER = ('<aside id="synthetic-demo-notice" role="status" '
 def snapshot_at(source, now=None):
     """Refresh display times in memory; never read transcripts or write fixtures."""
     snapshot = copy.deepcopy(source)
+    # Age is invariant under the display-clock shift, but the dismiss key must
+    # stay on the fixture clock. Shifting first would move lastActivityAt on
+    # every request and bring a dismissed alert back.
+    _stall_alerts().attach_stall_alerts(snapshot, snapshot.get('generatedAt'))
     delta = (time.time() if now is None else now) - snapshot['generatedAt']
 
     def shift(value):
@@ -60,7 +64,6 @@ def snapshot_at(source, now=None):
             for item in value:
                 shift(item)
     shift(snapshot)
-    _stall_alerts().attach_stall_alerts(snapshot, snapshot.get('generatedAt'))
     return snapshot
 
 

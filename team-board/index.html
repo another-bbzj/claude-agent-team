@@ -3061,7 +3061,7 @@ function stallDismiss(index) {
   const keys = Object.keys(bag);
   if (keys.length > 80) keys.slice(0, keys.length - 80).forEach(key => { delete bag[key]; });
   try { localStorage.setItem(STALL_DISMISS_KEY, JSON.stringify(bag)); } catch (e) {}
-  stallListSig = '';
+  stallListSig = null;
   if (prev) renderStallAlerts(prev, false);
 }
 async function stallToggleNotify() {
@@ -3103,7 +3103,7 @@ $('#stall-minutes').addEventListener('change', () => {
     return;
   }
   try { localStorage.setItem('team-board-stall-min', String(Math.round(n))); } catch (e) {}
-  stallListSig = '';
+  stallListSig = null;
   if (prev) renderStallAlerts(prev, false);
 });
 $('#stall-notify').addEventListener('click', () => { stallToggleNotify(); });

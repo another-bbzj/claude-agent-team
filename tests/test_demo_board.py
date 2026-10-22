@@ -95,6 +95,15 @@ class FixtureTest(unittest.TestCase):
             ('synthetic-member-4', '演示文档', 900, 'lastActivityAt'),
         ])
         self.assertTrue(all(item['status'] in ('idle', 'error', 'stalled') for item in alerts['candidates']))
+        later = demo.snapshot_at(source, source['generatedAt'] + 80)
+        again = next(item for item in later['stallAlerts']['candidates'] if item['id'] == 'synthetic-member-4')
+        first = next(item for item in alerts['candidates'] if item['id'] == 'synthetic-member-4')
+        self.assertEqual(again['anchor'], first['anchor'])
+        self.assertEqual(again['idleSeconds'], first['idleSeconds'])
+        self.assertNotEqual(
+            next(m for m in snapshot['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+            next(m for m in later['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+        )
 
     def test_stall_annotation_does_not_import_the_live_backend(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
