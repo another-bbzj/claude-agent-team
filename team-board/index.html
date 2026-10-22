@@ -382,6 +382,15 @@
   .task-board-note { margin: -4px 0 8px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
   .task-board-link { margin: 0 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
   .task-board-link.pinned { color: var(--text-2); }
+  .task-board-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .task-board-filters button { font-family: var(--mono); font-size: 12px; line-height: 1.3; padding: 4px 10px; border: 1px solid var(--line); background: var(--card); color: var(--text-2); letter-spacing: .02em; white-space: nowrap; }
+  .task-board-filters button:hover:not(.on) { color: var(--text); border-color: var(--line-2); }
+  .task-board-filters button.on { color: var(--plate-text); background: var(--plate); border-color: var(--plate); }
+  .task-board-filters .n { margin-left: 4px; color: inherit; opacity: .75; }
+  @media (max-width: 420px) {
+    .task-board-filters { gap: 6px; }
+    .task-board-filters button { flex: 1 1 calc(50% - 6px); text-align: center; padding: 8px 6px; }
+  }
   .kanban { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .kanban .col { min-width: 0; min-height: 132px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 72%, transparent); display: flex; flex-direction: column; gap: 8px; }
   .kanban .col h3 { margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
@@ -828,7 +837,13 @@
   <section class="panel task-board" id="task-board" hidden aria-readonly="true">
     <h2><span class="no">AT</span>官方任务<span class="en">Task Board</span><span class="pill">只读</span><span class="count" id="task-board-count"></span></h2>
     <p class="task-board-note" id="task-board-note"></p>
-    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停、聚焦或打开详情时，用弧线连出仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
+    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停、聚焦或打开详情时，用弧线连出当前筛选后仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片；被滤掉的对端不画线。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
+    <div class="task-board-filters" id="task-board-filters" role="toolbar" aria-label="筛选官方任务，只隐藏卡片">
+      <button type="button" data-task-filter="all" class="on" aria-pressed="true">全部 <span class="n">0</span></button>
+      <button type="button" data-task-filter="blocked" aria-pressed="false">阻塞中 <span class="n">0</span></button>
+      <button type="button" data-task-filter="unmatched" aria-pressed="false">未对上人 <span class="n">0</span></button>
+      <button type="button" data-task-filter="matched" aria-pressed="false">已对上 <span class="n">0</span></button>
+    </div>
     <div class="kanban-wrap" id="kanban-wrap">
       <div class="kanban" id="kanban"></div>
       <svg class="kdeps" id="kdeps" aria-hidden="true"></svg>
@@ -1474,9 +1489,10 @@ function findOfficialTask(snap, key) {
   return null;
 }
 function focusTaskCard(key) {
-  if (!key) return;
+  if (!key) return false;
   const cards = document.querySelectorAll('#kanban .kcard');
-  for (const card of cards) if (card.dataset.taskKey === key) { card.focus(); return; }
+  for (const card of cards) if (card.dataset.taskKey === key) { card.focus(); return true; }
+  return false;
 }
 function relationFromIds(ids, tasks) {
   const list = Array.isArray(ids) ? ids : [];
@@ -1710,11 +1726,107 @@ function closeTaskDetail(restore) {
   const root = $('#task-detail');
   if (root) root.hidden = true;
   document.querySelectorAll('#kanban .kcard.open').forEach(card => { card.classList.remove('open'); card.setAttribute('aria-expanded', 'false'); });
-  if (restore) focusTaskCard(key);
+  if (restore) {
+    if (!focusTaskCard(key)) {
+      const chip = document.querySelector('#task-board-filters button.on');
+      if (chip) chip.focus();
+    }
+  }
   drawDepArcs();
+}
+/* task-board-filter:start */
+function taskIsBlocked(task) {
+  if (!task || typeof task !== 'object') return false;
+  const flags = task.flags;
+  if (Array.isArray(flags) && flags.indexOf('blocked') !== -1) return true;
+  if (flags && typeof flags === 'object' && !Array.isArray(flags) && flags.blocked) return true;
+  return !!task.blocked;
+}
+function taskOwnerMatchName(task) {
+  if (!task || typeof task !== 'object' || !Object.prototype.hasOwnProperty.call(task, 'ownerMatch')) return '';
+  const match = task.ownerMatch;
+  return typeof match === 'string' && match ? match : '';
+}
+function taskMatchesBoardFilter(task, filter) {
+  if (filter !== 'blocked' && filter !== 'unmatched' && filter !== 'matched') return true;
+  if (filter === 'blocked') return taskIsBlocked(task);
+  const matched = !!taskOwnerMatchName(task);
+  return filter === 'matched' ? matched : !matched;
+}
+function linkPinAfterFilter(pin, tasks, filter) {
+  if (!pin) return '';
+  const list = Array.isArray(tasks) ? tasks : [];
+  for (let i = 0; i < list.length; i++) {
+    if (taskMatchesBoardFilter(list[i], filter) && taskOwnerMatchName(list[i]) === pin) return pin;
+  }
+  return '';
+}
+/* task-board-filter:end */
+const TASK_FILTER_KEYS = ['all', 'blocked', 'unmatched', 'matched'];
+const TASK_FILTER_STORE = 'team-board-task-filter';
+let taskBoardFilter = 'all', taskFilterScope = '';
+function taskFilterStorageKey(snap) {
+  const session = (snap && snap.session && typeof snap.session.id === 'string') ? snap.session.id : '';
+  const team = (snap && snap.officialTeam && typeof snap.officialTeam.teamName === 'string') ? snap.officialTeam.teamName : '';
+  return JSON.stringify([session, team]);
+}
+function loadTaskFilter(snap) {
+  try {
+    const map = JSON.parse(sessionStorage.getItem(TASK_FILTER_STORE) || '{}');
+    const value = map && map[taskFilterStorageKey(snap)];
+    if (TASK_FILTER_KEYS.indexOf(value) >= 0) return value;
+  } catch (e) {}
+  return 'all';
+}
+function saveTaskFilter(snap) {
+  if (!snap) return;
+  try {
+    const raw = sessionStorage.getItem(TASK_FILTER_STORE);
+    const map = raw ? JSON.parse(raw) : {};
+    const next = map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+    next[taskFilterStorageKey(snap)] = taskBoardFilter;
+    sessionStorage.setItem(TASK_FILTER_STORE, JSON.stringify(next));
+  } catch (e) {}
+}
+function syncTaskFilter(snap) {
+  const key = taskFilterStorageKey(snap);
+  if (key === taskFilterScope) return;
+  taskFilterScope = key;
+  taskBoardFilter = loadTaskFilter(snap);
+}
+function paintTaskFilterButtons(tasks) {
+  const list = tasks || [];
+  const counts = { all: list.length, blocked: 0, unmatched: 0, matched: 0 };
+  for (let i = 0; i < list.length; i++) {
+    if (taskMatchesBoardFilter(list[i], 'blocked')) counts.blocked += 1;
+    if (taskMatchesBoardFilter(list[i], 'unmatched')) counts.unmatched += 1;
+    if (taskMatchesBoardFilter(list[i], 'matched')) counts.matched += 1;
+  }
+  const wrap = $('#task-board-filters');
+  if (!wrap) return;
+  wrap.querySelectorAll('button[data-task-filter]').forEach(btn => {
+    const key = btn.dataset.taskFilter;
+    const on = key === taskBoardFilter;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const n = btn.querySelector('.n');
+    if (n && Object.prototype.hasOwnProperty.call(counts, key)) n.textContent = String(counts[key]);
+  });
+}
+function setTaskBoardFilter(next) {
+  if (TASK_FILTER_KEYS.indexOf(next) < 0) next = 'all';
+  if (next === taskBoardFilter) return;
+  taskBoardFilter = next;
+  if (!prev) return;
+  saveTaskFilter(prev);
+  const tasks = (prev.officialTeam && prev.officialTeam.tasks) || [];
+  linkPin = linkPinAfterFilter(linkPin, tasks, taskBoardFilter);
+  if (linkHover && !linkPinAfterFilter(linkHover, tasks, taskBoardFilter)) linkHover = '';
+  renderTaskBoard(prev);
 }
 function renderTaskBoard(snap) {
   depSnap = snap;
+  syncTaskFilter(snap);
   const panel = $('#task-board');
   const team = snap.officialTeam || {};
   if (!team.available) {
@@ -1728,6 +1840,8 @@ function renderTaskBoard(snap) {
   }
   panel.hidden = false;
   const tasks = team.tasks || [];
+  linkPin = linkPinAfterFilter(linkPin, tasks, taskBoardFilter);
+  paintTaskFilterButtons(tasks);
   const count = (key) => tasks.filter(task => task.normalizedStatus === key).length;
   $('#task-board-count').textContent = `${count('pending')} 待处理 · ${count('in_progress')} 进行中 · ${count('completed')} 已完成`;
   const warns = (team.warnings || []).filter(Boolean);
@@ -1736,7 +1850,7 @@ function renderTaskBoard(snap) {
     ? '这是合成任务，不读取本机任务目录。'
     : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
-    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。悬停、聚焦或打开详情时，只画出这张卡仍在三列里的依赖。` + sourceNote;
+    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。悬停、聚焦或打开详情时，只画出这张卡在当前筛选后仍在三列里的依赖。` + sourceNote;
   const active = document.activeElement;
   const focusedCard = active && active.closest && active.closest('#kanban .kcard');
   const focusedKey = focusedCard ? focusedCard.dataset.taskKey || '' : '';
@@ -1744,7 +1858,8 @@ function renderTaskBoard(snap) {
   linkHold = true;
   try {
   $('#kanban').innerHTML = TASK_COLUMNS.map(col => {
-    const items = tasks.filter(task => task.normalizedStatus === col.key).slice().sort(taskSort);
+    const inColumn = tasks.filter(task => task.normalizedStatus === col.key);
+    const items = inColumn.filter(task => taskMatchesBoardFilter(task, taskBoardFilter)).slice().sort(taskSort);
     const cards = items.map(task => {
       const owner = taskOwnerLabel(task, snap);
       const match = ownerMatchOf(task, snap);
@@ -1763,7 +1878,7 @@ function renderTaskBoard(snap) {
         <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${pin}</div>
         <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
       </article>`;
-    }).join('') || '<div class="kempty">空</div>';
+    }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;
     return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
   }).join('');
   } finally {
@@ -1807,8 +1922,7 @@ $('#kanban').addEventListener('keydown', (e) => {
   openTaskDetail(card.dataset.taskKey);
 });
 $('#kanban').addEventListener('dragstart', (e) => { e.preventDefault(); });
-
-/* 依赖弧线：只在悬停、聚焦或详情打开时画当前这张卡。点线或端点等于点开对方的只读详情，不钉住。 */
+/* 依赖弧线：只在悬停、聚焦或详情打开时，连当前筛选后仍可见的卡。被滤掉的对端不画线。点线或端点打开对方的只读详情，不钉住。 */
 let depHoverKey = '', depFocusKey = '', depSnap = null, depSig = '';
 function depCardFrom(node) {
   if (!node || !node.closest) return null;
@@ -1833,8 +1947,10 @@ function depVisibleIds() {
   return ids;
 }
 function activeDepKey() {
-  if (depHoverKey && depCardByKey(depHoverKey)) return depHoverKey;
-  if (depFocusKey && depCardByKey(depFocusKey)) return depFocusKey;
+  if (depHoverKey && !depCardByKey(depHoverKey)) depHoverKey = '';
+  if (depFocusKey && !depCardByKey(depFocusKey)) depFocusKey = '';
+  if (depHoverKey) return depHoverKey;
+  if (depFocusKey) return depFocusKey;
   if (taskDetailKey && depCardByKey(taskDetailKey)) return taskDetailKey;
   return '';
 }
@@ -1965,6 +2081,11 @@ document.addEventListener('focusout', (e) => {
   drawDepArcs();
 });
 if (window.ResizeObserver) new ResizeObserver(() => { if (!linkHold) drawDepArcs(); }).observe($('#kanban-wrap'));
+$('#task-board-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-task-filter]');
+  if (!btn) return;
+  setTaskBoardFilter(btn.dataset.taskFilter || 'all');
+});
 $('#task-detail').addEventListener('click', (e) => {
   const jump = e.target.closest('[data-task-open]');
   if (jump) { openTaskDetail(jump.dataset.taskOpen); return; }
@@ -1975,8 +2096,9 @@ $('#task-detail').addEventListener('click', (e) => {
    普通点击看板卡打开只读详情，不钉住。Alt+点击，或卡片上的「钉」，才钉住。
    舞台上点成员名字一带仍然钉住（点形象打开成员抽屉）。
    钉住之后，悬停另一张卡会临时换成那一条；移开后回到钉住的名字。
+   筛选只决定哪些卡画出来。钉住的名字如果一张可见卡都没有，就取消钉住。
    没认领、或名字对不上的任务不加 xdim，保持原样。其他人名下的任务变淡。 */
-const LINK_HINT = '悬停、聚焦或打开详情时，用弧线连出仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
+const LINK_HINT = '悬停、聚焦或打开详情时，用弧线连出当前筛选后仍在这三列里的依赖：没完成的更醒目，已经完成的更淡。点弧线或端点打开那张卡。点卡片打开只读详情；Alt+点击或「钉」钉住名字，<kbd>Esc</kbd> 先关详情再取消。筛选只隐藏卡片；被滤掉的对端不画线。钉住的名字要是一张可见卡都没有，钉住会取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
 let linkPin = '', linkHover = '', linkScope = '', linkHold = false;
 const linkPinTitle = (name) => name ? `点一下钉住「${name}」名下的任务，再点或 Esc 取消` : '';
 function activeLinkName() { return linkHover || linkPin; }
@@ -2027,6 +2149,8 @@ function applyLinkHighlight() {
 function toggleLinkPin(name) {
   if (!name) return;
   linkPin = linkPin === name ? '' : name;
+  const tasks = prev && prev.officialTeam && prev.officialTeam.tasks;
+  if (Array.isArray(tasks)) linkPin = linkPinAfterFilter(linkPin, tasks, taskBoardFilter);
   applyLinkHighlight();
 }
 function linkSurface(node) {

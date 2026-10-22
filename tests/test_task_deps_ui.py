@@ -162,6 +162,18 @@ class DepEdgeTest(unittest.TestCase):
         self.assertEqual(report['held'][0]['subject'], 'Survey')
         self.assertEqual(report['self'], [])
 
+    def test_filtered_out_counterpart_is_not_an_edge(self):
+        task = {
+            'id': '3', 'subject': 'Wait', 'normalizedStatus': 'pending',
+            'blockedByDetail': [
+                {'id': '1', 'subject': 'Survey', 'resolved': True, 'normalizedStatus': 'in_progress'},
+            ],
+            'blocksDetail': [],
+        }
+        tasks = [task, {'id': '1', 'subject': 'Survey', 'normalizedStatus': 'in_progress'}]
+        report = self.run_case('depEdgeList(%s, %s, ["3"])' % (json.dumps(task), json.dumps(tasks)))
+        self.assertEqual(report, [])
+
     def test_arc_path_uses_the_gap_the_gutter_or_the_top_rail(self):
         report = self.run_case(
             '({right: depArcPath(%s, %s), left: depArcPath(%s, %s), stack: depArcPath(%s, %s), rail: depArcPath(%s, %s)})'
@@ -288,6 +300,33 @@ class DepBrowserTest(unittest.TestCase):
         self.assertTrue(narrow['centerInCard'])
         self.assertTrue(narrow['endInArc'])
         self.assertNotEqual(narrow['light'], report['narrowDark'])
+        filt = wide['filter']
+        self.assertEqual(filt['blockedHidden']['ids'], ['3'])
+        self.assertEqual(filt['blockedHidden']['arcs'], 0)
+        self.assertIsNone(filt['blockedHidden']['depFor'])
+        self.assertTrue(filt['blockedHidden']['detailOpen'])
+        self.assertEqual(filt['blockedHidden']['title'], 'Survey the synthetic module')
+        self.assertFalse(filt['blockedHidden']['pinned'])
+        self.assertFalse(filt['escToChip']['detailOpen'])
+        self.assertFalse(filt['escToChip']['pinned'])
+        self.assertEqual(filt['escToChip']['focus'], 'blocked')
+        self.assertTrue(filt['pinnedBefore'])
+        self.assertFalse(filt['pinCleared']['pinned'])
+        self.assertEqual(filt['pinCleared']['ids'], ['3'])
+        self.assertEqual(filt['pinCleared']['arcs'], 0)
+        self.assertFalse(filt['pinCleared']['detailOpen'])
+        self.assertFalse(filt['escAfterPinClear']['pinned'])
+        self.assertFalse(filt['escAfterPinClear']['detailOpen'])
+        self.assertEqual(filt['matchedFromBlocker']['ids'], ['4', '1', '2'])
+        self.assertEqual(filt['matchedFromBlocker']['arcs'], [])
+        self.assertEqual(filt['matchedDone']['for'], 'id:2')
+        self.assertEqual(filt['matchedDone']['arcs'][0]['target'], 'id:4')
+        self.assertEqual(filt['matchedDone']['arcs'][0]['open'], '0')
+        self.assertEqual(filt['unmatched']['ids'], ['3', '5'])
+        self.assertEqual(filt['unmatched']['arcs'], 0)
+        self.assertEqual(filt['restored']['for'], 'id:3')
+        self.assertEqual(filt['restored']['arcs'][0]['target'], 'id:1')
+        self.assertEqual(filt['restored']['arcs'][0]['open'], '1')
 
     def _keep_shots(self, shots):
         destination = Path('/opt/cursor/artifacts/task-deps')

@@ -182,7 +182,58 @@ const PAGE = `(function () {
     hover(id);
     return { arcs: arcs(), for: document.querySelector('#kdeps').getAttribute('data-dep-for') };
   }
-  return { idle: idle, alt: alt, openEdge: openEdge, openHit: openHit, afterArc: afterArc, afterEsc: afterEsc, afterUnpin: afterUnpin, cleared: cleared, doneEdge: doneEdge, afterKey: afterKey, doneFromBlocker: doneFromBlocker, openFromBlocker: openFromBlocker, light: light, dark: dark, doneStroke: doneStroke };
+  function clickFilter(name) {
+    const btn = document.querySelector('#task-board-filters button[data-task-filter="' + name + '"]');
+    btn.click();
+    return btn;
+  }
+  function ids() {
+    return Array.from(document.querySelectorAll('#kanban .kcard')).map((el) => el.dataset.task);
+  }
+  document.documentElement.setAttribute('data-theme', 'light');
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  leave(card('1'));
+  card('1').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  clickFilter('blocked');
+  const blockedHidden = {
+    ids: ids(),
+    arcs: arcs().length,
+    detailOpen: detail().open,
+    title: detail().title,
+    pinned: pinned(),
+    depFor: document.querySelector('#kdeps').getAttribute('data-dep-for'),
+  };
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  const escToChip = {
+    detailOpen: detail().open,
+    pinned: pinned(),
+    focus: document.activeElement ? (document.activeElement.getAttribute('data-task-filter') || '') : '',
+  };
+  clickFilter('all');
+  card('1').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
+  const pinnedBefore = pinned();
+  clickFilter('blocked');
+  const pinCleared = { pinned: pinned(), ids: ids(), arcs: arcs().length, detailOpen: detail().open };
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  const escAfterPinClear = { pinned: pinned(), detailOpen: detail().open };
+  clickFilter('matched');
+  hover('1');
+  const matchedFromBlocker = { ids: ids(), arcs: arcs() };
+  hover('2');
+  const matchedDone = { arcs: arcs(), for: document.querySelector('#kdeps').getAttribute('data-dep-for') };
+  clickFilter('unmatched');
+  hover('3');
+  const unmatched = { ids: ids(), arcs: arcs().length };
+  clickFilter('all');
+  hover('3');
+  const restored = { arcs: arcs(), for: document.querySelector('#kdeps').getAttribute('data-dep-for') };
+  const filter = {
+    blockedHidden: blockedHidden, escToChip: escToChip, pinnedBefore: pinnedBefore,
+    pinCleared: pinCleared, escAfterPinClear: escAfterPinClear,
+    matchedFromBlocker: matchedFromBlocker, matchedDone: matchedDone,
+    unmatched: unmatched, restored: restored,
+  };
+  return { idle: idle, alt: alt, openEdge: openEdge, openHit: openHit, afterArc: afterArc, afterEsc: afterEsc, afterUnpin: afterUnpin, cleared: cleared, doneEdge: doneEdge, afterKey: afterKey, doneFromBlocker: doneFromBlocker, openFromBlocker: openFromBlocker, light: light, dark: dark, doneStroke: doneStroke, filter: filter };
 })()`;
 
 function prepare(theme, id) {
