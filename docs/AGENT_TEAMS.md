@@ -137,10 +137,14 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 选中的会话能对上 `tasks/{team-name}/` 时，部门表下面多一行**只读看板**。三列是 pending、in progress、completed（界面写作待处理、进行中、已完成）。`deleted` 和认不出的状态不进这三列。每张卡片有负责人（没有 `owner` 就是未认领；`owner` 和成员 name 或 lead 名字完全一致时算对上了人）、依赖或阻塞，以及在当前状态停留了多久。阻塞只指 pending 且 `blockedBy` 里还有没完成的 id，对应文档里「依赖完成前不能认领」。卡片不能拖。`/api/tasks` 的任意方法都返回 405，并带 `Allow: GET`；正文不是 JSON 时也是 405，不会改任务目录。
 
+悬停或聚焦一张看板卡时，若 `owner` 与某位成员的 name，或与 lead 的名字完全一致，舞台上对应的人会被点亮；下方那张成员任务卡也会一起亮。反过来，悬停或聚焦舞台上的人，或下方的成员任务卡，会点亮 `owner` 完全等于这个名字的全部看板卡。点看板卡，或点舞台上成员名字一带（点形象仍然打开抽屉），可以把这次高亮钉住；再点一次，或按 Esc，取消钉住。弹窗或抽屉还开着时，Esc 先关掉它们。钉住期间再去悬停另一张卡，会临时换成那一条，移开后回到钉住的名字。
+
+没有 `owner` 的任务，以及 `owner` 和任何成员 name、lead 名字都不完全一致的任务，保持原来的样子，不会变淡。已经对上别人的任务会变淡。不做模糊匹配。快照里每条任务多一个 `ownerMatch`：对上了就是那个名字，否则为 `null`。它只存在于这份快照，不写回任务目录。
+
 单个任务文件超过 2MB 会跳过并警告，不把内容读进内存。三列合计超过 500 条时只显示前面的 500 条，并警告。同一个任务 id 出现多次时，只保留文件修改时间较新的那一条；时间相同或都没有，就留后读到的那条。警告里只写 id，不写路径。是否算完成，按留下来的那条计算，所以较旧的 completed 不会把较新的 pending 依赖当成已经完成。一个文件里有几条，按去重之前的条数算：两条里丢掉一条，剩下的仍按「大约」计时。
 
 官方文件没有「进入当前状态」的时间。看板进程第一次读到某条任务的当前状态时，用它所在文件的修改时间当作起点：文件里只有这一条，就按这个时间计；同一个文件里有多条，界面会标成大约，因为分不出是哪一条被改写。之后只有状态变了，才从看板看到变化的那一刻重新计时。这个记忆只在看板进程里，重启后回到文件修改时间，也不会写回 `~/.claude/tasks/`。换到另一个会话时，上一支团队的计时会清掉；当前会话没有任务目录时同样清掉。
 
-快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板跟着这一次刷新走，没有另外的写入接口。
+快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板跟着这一次刷新走，没有另外的写入接口。
 
-只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及三张合成任务卡，不读取本机 `~/.claude`。
+只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。不读取本机 `~/.claude`。
