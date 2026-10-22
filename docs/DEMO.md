@@ -51,6 +51,10 @@ a demonstration. For the real transcript-based workflow, follow the
 
 ![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
 
-The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members. It does not draw the official Agent Team teammates or the task kanban; those appear on the live demo page, not in this SVG.
+The animation below draws the same fixture's four synthetic subagent members. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. This animation does not draw the two official teammates or the task kanban.
+
+The five synthetic task cards, including the blocked task's read-only detail and the exact-name highlight, are drawn in the schematic under the animation. That SVG does not respond to the pointer. Click, Enter, Alt-click and the「钉」control work on the live demo page.
 
 ![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)
+
+![Synthetic official task board from examples/board-demo.synthetic.json](img/task-board.svg)

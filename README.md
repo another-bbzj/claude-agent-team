@@ -10,7 +10,7 @@
 常驻的分部门 Agent、写在项目里的办公协议，加上只绑定本机回环地址的实时看板。子代理派出去之后，不再是一个等到最后才响的黑盒。
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.4.2-8A2BE2)
+![version](https://img.shields.io/badge/version-1.4.3-8A2BE2)
 ![python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -36,9 +36,9 @@ cd claude-agent-team
 python tools/demo_board.py --port 7790
 ```
 
-打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。
+打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。页面上有一行只读官方任务看板：待处理、进行中、已完成。点卡片或按 Enter 打开只读详情；`owner` 与成员名字完全一致时，悬停会互相点亮，Alt+点击或卡片上的「钉」可以钉住。
 
-> 演示使用合成数据，不读取你的会话，也不是用量基准。[查看演示画面](docs/img/demo-synthetic.svg) · [演示说明](docs/DEMO.md)
+> 演示使用合成数据，不读取你的 `~/.claude/tasks/`，也不是用量基准。[成员动画](docs/img/demo-synthetic.svg) · [官方任务看板示意图](docs/img/task-board.svg) · [演示说明](docs/DEMO.md)
 
 **装进自己的 Claude Code：**
 
@@ -58,7 +58,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 |---|---|
 | **分工** | 8 位常驻成员，各带名字、职责和模型档位。说「用 agent team」（「团队」「多代理」「分头做」「并行开发」也行）就按技能上岗。 |
 | **协作** | 契约、工单、收件箱、交接单写在项目的 `.team/`。即时的话走 `msg.py`；看板没开时，退回追加收件箱文件。你也可以在看板上直接发话。 |
-| **可见** | 浏览器里看部门、当前工具、进度、token 和估算成本。单价在 `team-board/team.json`，**是估算，不是服务商账单**。 |
+| **可见** | 浏览器里看部门、当前工具、进度、token 和估算成本。当前会话对得上 `~/.claude/tasks/` 时，部门表下还有只读官方任务看板，点开可看说明和依赖。单价在 `team-board/team.json`，**是估算，不是服务商账单**。 |
 
 和「每次临时描述角色」的逐项对照、第一次任务从定规模到验收的走法，在 [开工之前](docs/GUIDE.md#why) 和 [第一次使用](docs/GUIDE.md#first-run)。
 
@@ -67,7 +67,11 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 
 ![看板总览](docs/img/01-overview.png)
 
-队长在上，各部门分组；飞线表示派工、回报、留言和交接。截图用于说明实际界面，图中示例用量不代表基准。[查看图文手册](docs/GUIDE.md#ui)。这张静图没有官方任务看板。
+队长在上，各部门分组；飞线表示派工、回报、留言和交接。截图用于说明实际界面，图中示例用量不代表基准。[查看图文手册](docs/GUIDE.md#ui)。
+
+总览截图拍的是舞台和部门。官方任务看板在部门汇总下面另起一行，只读。下面这张图用合成快照里的五张卡画出三列和只读详情；可点击的互亮、钉住和详情在 `python tools/demo_board.py`。
+
+![合成官方任务看板：三列、只读详情、按完全相同的名字互亮](docs/img/task-board.svg)
 
 </details>
 

@@ -667,6 +667,10 @@
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [],
+        "flags": [],
+        "notices": [],
         "stateSince": 1767261680,
         "stateSinceKind": "observed",
         "stateSeconds": 60
@@ -683,6 +687,10 @@
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [],
+        "flags": [],
+        "notices": [],
         "stateSince": 1767261690,
         "stateSinceKind": "observed",
         "stateSeconds": 50
