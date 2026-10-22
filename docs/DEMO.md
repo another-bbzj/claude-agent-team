@@ -31,6 +31,20 @@ are shifted in memory so the example remains readable. The example is a fixed
 scenario, not live work or evidence of project adoption. Its numbers are not a
 benchmark or a real bill. The kanban in this demo does not read `~/.claude/tasks/`.
 
+The synthetic member 演示文档 is stalled on purpose. The fixture clock is 15 minutes
+after that member's last event (a finished `Read`, then silence). The stall alert
+threshold defaults to **10 minutes** (`600` seconds; `--stall-alert` on the live
+board, or the minutes field on the alert bar). Opening this demo therefore shows
+one alert: a header count, a `(1)` prefix on the tab title, a badge on the
+favicon, and a bar under the mission line. 「知道了」dismisses that episode in
+this browser until the activity timestamp changes; clear
+`localStorage['team-board-stall-dismissed']` to see it again. Quiet mode defaults
+to off. Turning it on keeps the count but does not auto-open the bar or post a
+desktop notification. The page does not call `Notification.requestPermission`
+on load — only the「桌面通知」button does, and only after a click. Running and
+finished members are not alerted. An idle or errored member with no
+`lastActivityAt` and no event timestamp is not alerted either.
+
 The demo serves the existing `team-board/index.html`, the fixture snapshot and
 only the shipped sprite/favicon allowlist. It never imports the live backend,
 reads a personal `~/.claude` or `~/.codex`, scans local transcripts, downloads
@@ -51,6 +65,6 @@ a demonstration. For the real transcript-based workflow, follow the
 
 ![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
 
-The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members. It does not draw the official Agent Team teammates or the task kanban; those appear on the live demo page, not in this SVG.
+The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. That read sits 15 minutes before the fixture clock, which is past the 10 minute stall-alert default. The animation still shows only the four synthetic subagent members. It does not draw the official Agent Team teammates or the task kanban; those appear on the live demo page, not in this SVG.
 
 ![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)
