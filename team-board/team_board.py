@@ -1811,9 +1811,39 @@ def _official_team_view(session_id):
     return view
 
 
+def exact_owner_name(owner, names):
+    """owner 与 names 里某一项完全一致时返回 owner，否则 None。
+
+    不折叠大小写，不去空白，不做子串或包含匹配。空字符串和非字符串都不算。
+    """
+    if not isinstance(owner, str) or not owner:
+        return None
+    for name in names or ():
+        if isinstance(name, str) and name == owner:
+            return owner
+    return None
+
+
+def annotate_owner_matches(tasks, member_names, lead_name=''):
+    """给每条任务写上 ownerMatch。
+
+    成员 name 和 lead 名字放在同一份名单里。对上了就是那个字符串；
+    没有 owner，或对不上任何人，就是 None。不改 owner 本身。
+    """
+    names = []
+    for name in list(member_names or ()) + [lead_name]:
+        if isinstance(name, str) and name and name not in names:
+            names.append(name)
+    for task in tasks or ():
+        if not isinstance(task, dict):
+            continue
+        task['ownerMatch'] = exact_owner_name(task.get('owner'), names)
+    return tasks
+
+
 def _official_status(name, tasks):
     """owner 只有和成员 name 完全一致才归属。文档没写 owner 一定是名字。"""
-    owned = [task for task in tasks if task.get('owner') and task.get('owner') == name]
+    owned = [task for task in tasks if exact_owner_name(task.get('owner'), [name])]
     if any(task.get('normalizedStatus') == 'in_progress' for task in owned):
         subject = next(task.get('subject') or '' for task in owned if task.get('normalizedStatus') == 'in_progress')
         return 'running', subject
@@ -2144,6 +2174,17 @@ def _public_official_team(view, now):
     return public
 
 
+def _snapshot_official_team(view, members, now):
+    """公开快照上的官方团队。ownerMatch 只在这里写，不写回任务目录。"""
+    public = _public_official_team(view, now)
+    annotate_owner_matches(
+        public.get('tasks') or [],
+        [member.get('name') for member in members or ()],
+        public.get('lead') or '',
+    )
+    return public
+
+
 def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
@@ -2459,7 +2500,7 @@ def build_snapshot(args):
         'feed': feed[:100],
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _public_official_team(official_view, now),
+        'officialTeam': _snapshot_official_team(official_view, members, now),
         'backdrop': backdrop_state(presets=False),
     }
 

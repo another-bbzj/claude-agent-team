@@ -194,6 +194,102 @@ class TaskDetailFieldsTest(unittest.TestCase):
             env.cleanup()
 
 
+class OwnerMatchTest(unittest.TestCase):
+    def test_exact_string_only(self):
+        env = BoardEnv()
+        try:
+            board = env.load()
+            names = ['合成研究员', '合成写手', '阿服']
+            self.assertEqual(board.exact_owner_name('合成研究员', names), '合成研究员')
+            self.assertEqual(board.exact_owner_name('阿服', names), '阿服')
+            self.assertIsNone(board.exact_owner_name('合成研究员 ', names))
+            self.assertIsNone(board.exact_owner_name('合成研究', names))
+            self.assertIsNone(board.exact_owner_name(' 合成研究员', names))
+            self.assertIsNone(board.exact_owner_name('Synthetic-Lead', ['synthetic-lead']))
+            self.assertIsNone(board.exact_owner_name('', names))
+            self.assertIsNone(board.exact_owner_name(' ', names))
+            self.assertIsNone(board.exact_owner_name(None, names))
+            self.assertIsNone(board.exact_owner_name(1, names))
+            tasks = [
+                {'id': '1', 'owner': '合成研究员'},
+                {'id': '2', 'owner': 'synthetic-lead'},
+                {'id': '3', 'owner': None},
+                {'id': '4', 'owner': ''},
+                {'id': '5', 'owner': '合成研究员 '},
+                {'id': '6', 'owner': '不是成员'},
+                {'id': '7', 'owner': '队长 · Claude'},
+                {'id': '8', 'owner': '阿服'},
+            ]
+            board.annotate_owner_matches(tasks, names, 'synthetic-lead')
+            self.assertEqual(
+                [task['ownerMatch'] for task in tasks],
+                ['合成研究员', 'synthetic-lead', None, None, None, None, None, '阿服'],
+            )
+            self.assertEqual(tasks[4]['owner'], '合成研究员 ')
+            self.assertEqual(tasks[6]['owner'], '队长 · Claude')
+            idle, subject = board._official_status('合成研究员', [
+                {'owner': '合成研究员 ', 'normalizedStatus': 'in_progress', 'subject': 'near miss'},
+                {'owner': '合成研究', 'normalizedStatus': 'in_progress', 'subject': 'prefix'},
+            ])
+            self.assertEqual(idle, 'idle')
+            self.assertEqual(subject, '')
+            running, subject = board._official_status('合成研究员', [
+                {'owner': '合成研究员', 'normalizedStatus': 'in_progress', 'subject': 'Survey'},
+            ])
+            self.assertEqual((running, subject), ('running', 'Survey'))
+        finally:
+            env.cleanup()
+
+    def test_snapshot_marks_member_and_lead_and_leaves_near_misses(self):
+        env = BoardEnv()
+        try:
+            team = env.claude / 'teams' / 'session-sess-000'
+            (team / 'inboxes').mkdir(parents=True)
+            tasks = env.claude / 'tasks' / 'session-sess-000'
+            tasks.mkdir(parents=True)
+            (team / 'config.json').write_text(json.dumps({
+                'members': [
+                    {'name': 'synthetic-lead', 'agentType': 'team-lead', 'agentId': 'synthetic-agent-lead'},
+                    {'name': '合成研究员', 'agentType': 'researcher', 'agentId': 'synthetic-agent-researcher'},
+                    {'name': '合成写手'},
+                ],
+            }, ensure_ascii=False), encoding='utf-8')
+            payload = json.dumps({
+                'tasks': [
+                    {'id': '1', 'subject': 'Owned by teammate', 'status': 'in_progress', 'owner': '合成研究员'},
+                    {'id': '2', 'subject': 'Owned by lead', 'status': 'pending', 'owner': 'synthetic-lead'},
+                    {'id': '3', 'subject': 'Unowned', 'status': 'pending'},
+                    {'id': '4', 'subject': 'Trailing space', 'status': 'pending', 'owner': '合成研究员 '},
+                    {'id': '5', 'subject': 'Owned by writer', 'status': 'completed', 'owner': '合成写手'},
+                    {'id': '6', 'subject': 'Stage label is not the lead name', 'status': 'pending', 'owner': '队长 · Claude'},
+                    {'id': '7', 'subject': 'Case differs', 'status': 'pending', 'owner': 'Synthetic-Lead'},
+                    {'id': '8', 'subject': 'Owned by a subagent display name', 'status': 'pending', 'owner': '阿服'},
+                ],
+            }, ensure_ascii=False)
+            (tasks / 'tasks.json').write_text(payload, encoding='utf-8')
+            original = (tasks / 'tasks.json').read_bytes()
+            board = env.load()
+            board._TASK_STATE_CLOCK.clear()
+            official = snapshot(board)['officialTeam']
+            self.assertTrue(official['readOnly'])
+            self.assertEqual(official['lead'], 'synthetic-lead')
+            rows = {row['id']: row for row in official['tasks']}
+            self.assertEqual(rows['1']['ownerMatch'], '合成研究员')
+            self.assertEqual(rows['2']['ownerMatch'], 'synthetic-lead')
+            self.assertIsNone(rows['3']['owner'])
+            self.assertIsNone(rows['3']['ownerMatch'])
+            self.assertEqual(rows['4']['owner'], '合成研究员 ')
+            self.assertIsNone(rows['4']['ownerMatch'])
+            self.assertEqual(rows['5']['ownerMatch'], '合成写手')
+            self.assertIsNone(rows['6']['ownerMatch'])
+            self.assertIsNone(rows['7']['ownerMatch'])
+            self.assertEqual(rows['8']['ownerMatch'], '阿服')
+            self.assertEqual((tasks / 'tasks.json').read_bytes(), original)
+            self.assertNotIn('ownerMatch', original.decode('utf-8'))
+        finally:
+            env.cleanup()
+
+
 class ReadOnlyHttpTest(unittest.TestCase):
     def test_post_does_not_change_task_files(self):
         env = BoardEnv()

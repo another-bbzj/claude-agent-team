@@ -1,0 +1,24 @@
+{
+  "members": [
+    {
+      "name": "synthetic-lead",
+      "agentId": "synthetic-agent-lead",
+      "agentType": "team-lead"
+    },
+    {
+      "name": "synthetic-researcher",
+      "agentId": "synthetic-agent-researcher",
+      "agentType": "researcher"
+    },
+    {
+      "name": "synthetic-writer",
+      "agentId": "synthetic-agent-writer",
+      "agentType": "writer"
+    },
+    {
+      "name": "synthetic-observer",
+      "agentId": "synthetic-agent-observer",
+      "agentType": "observer"
+    }
+  ]
+}

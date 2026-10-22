@@ -52,8 +52,14 @@ class FixtureTest(unittest.TestCase):
         board = source['officialTeam']
         self.assertTrue(board['available'])
         self.assertTrue(board['readOnly'])
-        self.assertEqual([task['normalizedStatus'] for task in board['tasks']], ['in_progress', 'completed', 'pending'])
+        self.assertEqual([task['normalizedStatus'] for task in board['tasks']], ['in_progress', 'completed', 'pending', 'pending', 'pending'])
         self.assertEqual(board['tasks'][0]['owner'], '合成研究员')
+        self.assertEqual(
+            [task['ownerMatch'] for task in board['tasks']],
+            ['合成研究员', '合成写手', None, '演示队长', None],
+        )
+        self.assertIsNone(board['tasks'][2]['owner'])
+        self.assertEqual(board['tasks'][4]['owner'], '合成研究员 ')
         self.assertTrue(board['tasks'][2]['blocked'])
         self.assertEqual(board['tasks'][2]['waitingOn'], ['1', '9'])
         self.assertTrue(any(isinstance(task.get('description'), str) and task['description'].strip() for task in board['tasks']))

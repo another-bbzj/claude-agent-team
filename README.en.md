@@ -60,7 +60,7 @@ The side-by-side comparison and the first full task are in the guide: [before yo
 
 ![Board overview](docs/img/01-overview.png)
 
-The still above does not include the official task kanban. That read-only row (pending / in progress / completed) appears under the department table when the selected session has a team directory in `~/.claude/tasks/`. The synthetic demo page includes three example cards; `docs/img/demo-synthetic.svg` still draws members only.
+The still above does not include the official task kanban. That read-only row (pending / in progress / completed) appears under the department table when the selected session has a team directory in `~/.claude/tasks/`. The synthetic demo page includes example cards for owned, unowned and near-miss tasks; `docs/img/demo-synthetic.svg` still draws members only.
 
 ## Read next
 

@@ -18,7 +18,13 @@ fixture includes `officialTeam.tasks`, the page also shows a read-only kanban wi
 pending, in progress and completed columns (owner, dependencies or blocked, and
 time in the current state). Clicking a card opens a read-only detail drawer; at
 least one synthetic task has a full description so that drawer can be opened
-offline. A persistent banner marks it as a
+offline. Hover or focus a card to light the stage member whose name is an exact
+match, or hover a member to light that person's tasks. Tasks with no owner, and
+one owner that only differs by a trailing space, stay unchanged; tasks owned by
+someone else dim. A plain click opens the drawer and does not pin. Alt-click, or
+the「钉」control on a matched card, pins that exact name; doing it again clears
+the pin. Esc closes the drawer first, then clears the pin. A persistent banner
+marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed
