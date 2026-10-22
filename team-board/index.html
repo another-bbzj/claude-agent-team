@@ -4,23 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Team 指挥室 · 罗德岛终端</title>
+<meta name="theme-color" content="#10141b">
 <link rel="icon" href="favicon.png?v=2" type="image/png">
 <link rel="shortcut icon" href="favicon.ico?v=2">
 <link rel="apple-touch-icon" href="favicon.png">
 <style>
   /* ============================================================
-     RHODES ISLAND · TACTICAL TERMINAL
-     罗德岛终端配色：月白 #eceae3 · 靛蓝 #23307a/#3a4fb8 · 麦金 #c8a64b · 青玉 #5aa38a · 赭红 #a8452e
+     GRAPHITE · 石墨蓝青
+     中性石墨底 + 蓝→青 渐变（只用在进度 / 顶部细线 / 激活态）+ 琥珀点缀；状态色同明度同饱和，互相不打架
      ============================================================ */
   :root {
-    /* 浅色：白色终端 */
-    --bg: #e7e9ed; --bg-2: #f7f7f4; --card-solid: #ffffff; --line: #d2d6de; --line-2: #a9b0bf;
-    --text: #131722; --text-2: #465066; --text-3: #858c9d;
-    --brand: #2c3d9e; --gold: #9c7818; --ok: #2b8466; --warn: #b36f0b; --err: #a8452e; --info: #1c74a8; --peer: #6b4cb8; --hand: #0f8780;
-    --plate: #161a26; --plate-text: #eceae3; --on-accent: #ffffff;
-    --grid: rgba(22, 28, 48, .055); --scan-a: 0; --panel-a: 90%;
-    --shadow: 0 12px 34px rgba(24, 30, 52, .12);
-    --hazard-a: #c8a64b; --hazard-b: #161a26;
+    /* 浅色：月白终端 */
+    --bg: #edf0f4; --bg-2: #f8f9fb; --card-solid: #ffffff; --line: #d8dee7; --line-2: #aab5c6;
+    --text: #141a24; --text-2: #465264; --text-3: #7f8a9c;
+    --brand: #2563d9; --gold: #a86f0b; --ok: #1e8f5e; --warn: #b36a0a; --err: #cc404c; --info: #0e7f9f; --peer: #6a4fc8; --hand: #0e857a;
+    --plate: #1c2430; --plate-text: #f1f4f8; --on-accent: #ffffff;
+    --grid: rgba(20, 30, 50, .05); --scan-a: 0; --panel-a: 90%;
+    --shadow: 0 12px 32px rgba(20, 30, 50, .10);
+    --hazard-a: #2563d9; --hazard-b: #0e857a;
+    --grad: linear-gradient(90deg, #2f6fe4, #12a394);
     --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
     --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", sans-serif;
     --ease: cubic-bezier(.22, .72, .25, 1);
@@ -42,24 +44,26 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #070a11; --bg-2: #0e121c; --card-solid: #141926; --line: #232a3a; --line-2: #3b4559;
-      --text: #eceae3; --text-2: #a6acba; --text-3: #676f83;
-      --brand: #7085f0; --gold: #d3b35c; --ok: #62b596; --warn: #e3a444; --err: #dd6d4f; --info: #5fb1e3; --peer: #a78ae6; --hand: #43c2b1;
-      --plate: #eceae3; --plate-text: #0a0d15; --on-accent: #0a0d15;
-      --grid: rgba(236, 234, 227, .032); --scan-a: 1; --panel-a: 84%;
-      --shadow: 0 18px 44px rgba(0, 0, 0, .5);
-      --hazard-a: #d3b35c; --hazard-b: #0a0d15;
+      --bg: #10141b; --bg-2: #161b24; --card-solid: #1c222d; --line: #283040; --line-2: #3c4759;
+      --text: #e9edf3; --text-2: #a4aebe; --text-3: #6e798c;
+      --brand: #5aa2ff; --gold: #e6b35a; --ok: #5bd08f; --warn: #f0a24e; --err: #f2707a; --info: #5cc7e0; --peer: #a996f5; --hand: #38d1bf;
+      --plate: #232b39; --plate-text: #e9edf3; --on-accent: #0b0f16;
+      --grid: rgba(233, 237, 243, .028); --scan-a: 0; --panel-a: 86%;
+      --shadow: 0 16px 40px rgba(0, 0, 0, .42);
+      --hazard-a: #5aa2ff; --hazard-b: #38d1bf;
+      --grad: linear-gradient(90deg, #5aa2ff, #38d1bf);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #070a11; --bg-2: #0e121c; --card-solid: #141926; --line: #232a3a; --line-2: #3b4559;
-    --text: #eceae3; --text-2: #a6acba; --text-3: #676f83;
-    --brand: #7085f0; --gold: #d3b35c; --ok: #62b596; --warn: #e3a444; --err: #dd6d4f; --info: #5fb1e3; --peer: #a78ae6; --hand: #43c2b1;
-    --plate: #eceae3; --plate-text: #0a0d15; --on-accent: #0a0d15;
-    --grid: rgba(236, 234, 227, .032); --scan-a: 1; --panel-a: 84%;
-    --shadow: 0 18px 44px rgba(0, 0, 0, .5);
-    --hazard-a: #d3b35c; --hazard-b: #0a0d15;
+    --bg: #10141b; --bg-2: #161b24; --card-solid: #1c222d; --line: #283040; --line-2: #3c4759;
+    --text: #e9edf3; --text-2: #a4aebe; --text-3: #6e798c;
+    --brand: #5aa2ff; --gold: #e6b35a; --ok: #5bd08f; --warn: #f0a24e; --err: #f2707a; --info: #5cc7e0; --peer: #a996f5; --hand: #38d1bf;
+    --plate: #232b39; --plate-text: #e9edf3; --on-accent: #0b0f16;
+    --grid: rgba(233, 237, 243, .028); --scan-a: 0; --panel-a: 86%;
+    --shadow: 0 16px 40px rgba(0, 0, 0, .42);
+    --hazard-a: #5aa2ff; --hazard-b: #38d1bf;
+    --grad: linear-gradient(90deg, #5aa2ff, #38d1bf);
     color-scheme: dark;
   }
 
@@ -77,7 +81,7 @@
     background-attachment: fixed;
   }
   /* CRT 扫描线：只在深色下可见，极淡 */
-  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 90; opacity: calc(var(--scan-a) * .55);
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 90; opacity: 0;
     background: repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   ::selection { background: color-mix(in srgb, var(--gold) 40%, transparent); }
@@ -728,6 +732,28 @@
     .ring, .zz, .live, .spin, .wire.active, .bar > i, .mail, .rel.hot, section.stage::after, .badge.busy, .pv-sprite { animation: none !important; }
     #bd-img { transition: none; }
   }
+
+  /* ---------- GRAPHITE 微调：渐变只出现在少数几处 ---------- */
+  body { background:
+      radial-gradient(1000px 560px at 92% -12%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 70%),
+      radial-gradient(800px 500px at -6% 108%, color-mix(in srgb, var(--hand) 7%, transparent), transparent 70%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+      var(--bg); background-attachment: fixed; }
+  .hazard { height: 2px; background: var(--grad); }
+  header::after { background: var(--grad); width: 260px; opacity: .9; }
+  .panel::before, section.stage::before { background: var(--grad); width: 44px; }
+  .person .bar > i, .task .bar > i { background: var(--grad); }
+  .person.completed .bar > i, .task.completed .bar > i { background: var(--ok); }
+  .bar-row .track > i, .bar-row .track > i.opus, .bar-row .track > i.fable { background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 70%, var(--bg)), var(--brand)); }
+  .bar-row .track > i.sonnet { background: linear-gradient(90deg, color-mix(in srgb, var(--info) 70%, var(--bg)), var(--info)); }
+  .bar-row .track > i.haiku { background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 70%, var(--bg)), var(--ok)); }
+  .person .name { border: 1px solid var(--line-2); border-left: 3px solid var(--acc, var(--gold)); }
+  .mission b { background: var(--grad); color: var(--on-accent); }
+  html[data-theme="light"] .mission b, :root:not([data-theme="dark"]) .mission b { color: #fff; }
+  .theme button.on, .seg button.on, .chan .filters button.on { background: var(--brand); color: var(--on-accent); }
+  .panel h2 .no, .stage-title .no { background: var(--brand); color: var(--on-accent); }
+  .dept.running { box-shadow: inset 0 0 0 1px var(--brand-soft), 0 0 24px -12px var(--brand); }
 </style>
 </head>
 <body>
@@ -1142,7 +1168,7 @@ const fmtCost = (c) => c == null ? '' : c >= 1 ? `$${c.toFixed(2)}` : `$${c.toFi
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const shortTool = (n) => n.replace(/^mcp__[^_]+(?:_[^_]+)*?__/, '').replace(/^mcp__/, '');
 const zhTool = (label) => { const m = /^(\w+)( · )?(.*)$/.exec(label || ''); if (!m) return esc(label); const zh = TOOL_ZH[m[1]]; return `<b>${esc(m[1])}${zh ? ` ${zh}` : ''}</b>${m[3] ? ' · ' + esc(m[3]) : ''}`; };
-const ACCENTS = ['#c8a64b', '#3a4fb8', '#5aa38a', '#a8452e', '#7085f0', '#d58b3f', '#43a9c4', '#9a7fd6'];
+const ACCENTS = ['#e6b35a', '#5aa2ff', '#38d1bf', '#f2707a', '#a996f5', '#f0a24e', '#5cc7e0', '#5bd08f'];
 const accent = (id) => { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return ACCENTS[Math.abs(h) % ACCENTS.length]; };
 const commKey = (c) => `${c.kind}|${c.from}|${c.to}|${c.ts}|${(c.text || '').slice(0, 30)}`;
 const modelChip = (m) => { const fam = m.modelFamily || (m.definedModel && m.definedModel !== 'inherit' ? m.definedModel : '') || '?'; return `<span class="fam ${esc(fam)}">${esc(fam)}</span>${m.effort ? `<span>· ${esc(m.effort)}</span>` : ''}${m.cost ? `<span>· ${fmtCost(m.cost)}</span>` : ''}`; };
