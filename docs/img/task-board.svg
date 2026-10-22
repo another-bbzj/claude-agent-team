@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 640" role="img" aria-labelledby="boardTitle boardDesc">
+  <title id="boardTitle">合成官方任务看板</title>
+  <desc id="boardDesc">只读示意图。五张任务卡、负责人和只读详情来自 examples/board-demo.synthetic.json，不是屏幕录像，也不读取本机任务目录。</desc>
+  <style>
+    .bg { fill: #e7e9ed; }
+    .card { fill: #ffffff; stroke: #d2d6de; }
+    .inset { fill: #f7f7f4; stroke: #d2d6de; }
+    .ink { fill: #131722; }
+    .muted { fill: #465066; }
+    .faint { fill: #858c9d; }
+    .brand { fill: #2c3d9e; }
+    .ok { fill: #2b8466; }
+    .warn { fill: #b36f0b; }
+    .info { fill: #1c74a8; }
+    .hi { fill: none; stroke: #2c3d9e; }
+    .banner { fill: #153d50; }
+    .bannertext { fill: #ffffff; }
+    .pill { fill: #e7eef6; }
+    text { font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #070a11; }
+      .card { fill: #141926; stroke: #232a3a; }
+      .inset { fill: #0e121c; stroke: #232a3a; }
+      .ink { fill: #eceae3; }
+      .muted { fill: #a6acba; }
+      .faint { fill: #676f83; }
+      .brand { fill: #7085f0; }
+      .ok { fill: #62b596; }
+      .warn { fill: #e3a444; }
+      .info { fill: #5fb1e3; }
+      .hi { stroke: #7085f0; }
+      .banner { fill: #153d50; }
+      .bannertext { fill: #ffffff; }
+      .pill { fill: #1c2838; }
+    }
+  </style>
+  <rect class="bg" width="1080" height="640"/>
+  <text class="ink" x="24" y="40" font-size="20" font-weight="600">官方任务</text>
+  <text class="faint mono" x="128" y="38" font-size="12">Task Board</text>
+  <rect class="pill" x="236" y="22" width="44" height="22" rx="11"/>
+  <text class="info" x="246" y="38" font-size="12">只读</text>
+  <text class="muted" x="292" y="38" font-size="13">3 待处理 · 1 进行中 · 1 已完成</text>
+  <text class="faint" x="24" y="66" font-size="12">session-syntheti · 合成数据。普通点击打开详情；Alt+点击或「钉」才钉住。这张图不响应鼠标。</text>
+
+  <path class="card" d="M20 84 H252 V548 H20 Z"/>
+  <text class="ink" x="32" y="112" font-size="14" font-weight="600">进行中</text>
+  <text class="faint mono" x="148" y="112" font-size="11">in progress</text>
+  <path class="inset" d="M32 128 H240 V252 H32 Z"/>
+  <rect class="hi" x="30" y="126" width="212" height="128" rx="2" stroke-width="2"/>
+  <text class="ink" x="44" y="152" font-size="13" font-weight="600">Survey the synthetic</text>
+  <text class="ink" x="44" y="170" font-size="13" font-weight="600">module</text>
+  <text class="brand" x="44" y="194" font-size="12">合成研究员</text>
+  <text class="muted" x="44" y="216" font-size="12">挡住 #3</text>
+  <text class="faint" x="44" y="238" font-size="11">本状态 · 单独计时</text>
+  <text class="faint" x="208" y="238" font-size="12">钉</text>
+  <text class="brand" x="32" y="284" font-size="12">与舞台上的</text>
+  <text class="brand" x="32" y="304" font-size="12">「合成研究员」</text>
+  <text class="brand" x="32" y="324" font-size="12">完全同名才互亮</text>
+
+  <path class="card" d="M264 84 H496 V548 H264 Z"/>
+  <text class="ink" x="276" y="112" font-size="14" font-weight="600">已完成</text>
+  <text class="faint mono" x="392" y="112" font-size="11">completed</text>
+  <path class="inset" d="M276 128 H484 V232 H276 Z"/>
+  <text class="ink" x="288" y="156" font-size="13" font-weight="600">Draft synthetic notes</text>
+  <text class="ok" x="288" y="180" font-size="12">合成写手</text>
+  <text class="muted" x="288" y="204" font-size="12">无依赖</text>
+  <text class="faint" x="452" y="204" font-size="12">钉</text>
+
+  <path class="card" d="M508 84 H740 V548 H508 Z"/>
+  <text class="ink" x="520" y="112" font-size="14" font-weight="600">待处理</text>
+  <text class="faint mono" x="636" y="112" font-size="11">pending</text>
+  <path class="inset" d="M520 128 H728 V214 H520 Z"/>
+  <text class="ink" x="532" y="152" font-size="13" font-weight="600">Wait for the survey</text>
+  <text class="warn" x="532" y="174" font-size="12">未认领 · 阻塞</text>
+  <text class="faint" x="532" y="196" font-size="11">等待 #1、#9 · 点此看详情</text>
+  <path class="inset" d="M520 226 H728 V312 H520 Z"/>
+  <text class="ink" x="532" y="250" font-size="13" font-weight="600">Ask the synthetic lead</text>
+  <text class="brand" x="532" y="274" font-size="12">演示队长</text>
+  <text class="faint" x="532" y="296" font-size="11">对上 lead 名字</text>
+  <text class="faint" x="696" y="274" font-size="12">钉</text>
+  <path class="inset" d="M520 324 H728 V410 H520 Z"/>
+  <text class="ink" x="532" y="348" font-size="13" font-weight="600">Near-miss owner</text>
+  <text class="muted" x="532" y="372" font-size="12">合成研究员 + 空格</text>
+  <text class="faint" x="532" y="394" font-size="11">多一个空格，对不上</text>
+
+  <path class="card" d="M752 84 H1060 V548 H752 Z"/>
+  <text class="ink" x="768" y="112" font-size="14" font-weight="600">只读详情</text>
+  <text class="faint" x="1024" y="112" font-size="14">x</text>
+  <text class="ink" x="768" y="144" font-size="14" font-weight="600">Wait for the synthetic</text>
+  <text class="ink" x="768" y="164" font-size="14" font-weight="600">survey</text>
+  <text class="muted" x="768" y="194" font-size="12">状态</text>
+  <text class="warn" x="828" y="194" font-size="12">待处理</text>
+  <text class="muted" x="768" y="216" font-size="12">负责人</text>
+  <text class="ink" x="828" y="216" font-size="12">未认领</text>
+  <text class="muted" x="768" y="238" font-size="12">停留</text>
+  <text class="ink" x="828" y="238" font-size="12">大约 · 同文件共用</text>
+  <text class="ink" x="768" y="270" font-size="12" font-weight="600">说明</text>
+  <text class="muted" x="768" y="292" font-size="12">合成演示用的完整说明。</text>
+  <text class="muted" x="768" y="312" font-size="12">卡片只露出开头。</text>
+  <text class="muted" x="768" y="332" font-size="12">没有真实仓库、密钥或本机路径。</text>
+  <text class="ink" x="768" y="362" font-size="12" font-weight="600">依赖</text>
+  <text class="muted" x="768" y="384" font-size="12">#1 Survey the synthetic module</text>
+  <text class="muted" x="768" y="404" font-size="12">进行中</text>
+  <text class="faint" x="768" y="426" font-size="12">#9 当前列表里没有这条</text>
+  <text class="ink" x="768" y="456" font-size="12" font-weight="600">标记</text>
+  <text class="warn" x="768" y="478" font-size="12">阻塞 · 计时大约</text>
+  <text class="faint" x="768" y="508" font-size="12">Esc 先关详情，再按一次取消钉住。</text>
+  <text class="faint" x="768" y="530" font-size="12">不能拖动，也不能改任务目录。</text>
+
+  <rect class="banner" x="0" y="596" width="1080" height="44"/>
+  <text class="bannertext" x="540" y="623" font-size="14" font-weight="600" text-anchor="middle">示意图 · 合成数据 · 只读 · Synthetic task board, not a screen recording</text>
+</svg>

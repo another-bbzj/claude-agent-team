@@ -151,4 +151,4 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 快照里的 `officialTeam` 带 `readOnly`、团队名、lead 名字、警告，以及任务的 id / subject / description / status / normalizedStatus / owner / ownerMatch / blockedBy / blocks / blocked / waitingOn / stateSince / stateSinceKind / stateSeconds。每行还有从这些可见行推导的 `blockedByDetail` / `blocksDetail`（`id`、`subject`、`resolved`、`normalizedStatus`）、`flags`（`blocked`、`approximate`）和 `notices`（警告原文里用「：」后的「、」点到这条 id 的那些）。不带 `raw`、`source`、`sourceMtime` 或未公布的运行时字段。页面约每 1.5 秒重新取 `/snapshot.json`，看板和已经打开的详情跟着这一次刷新走，没有另外的写入接口。
 
-只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。不读取本机 `~/.claude`。
+只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。五张卡都带只读详情用的 `blockedByDetail`、`blocksDetail`、`flags`、`notices`。静态示意图是 [`docs/img/task-board.svg`](img/task-board.svg)。`docs/img/01-overview.png`、`docs/img/03-lower.png` 和 `docs/img/demo-synthetic.svg` 画的是舞台、下半区或四名子代理，不包含这一行。可点击的看板是 `python tools/demo_board.py`，用的是同一份页面，所以也有全部、阻塞中、未对上人、已对上。示意图没有这排按钮。演示不读取本机 `~/.claude`。
