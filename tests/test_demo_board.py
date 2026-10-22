@@ -83,6 +83,17 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(board['tasks'][4]['notices'], [])
         self.assertIsNone(board['tasks'][4]['ownerMatch'])
 
+    def test_synthetic_theater_lists_two_worktree_branches(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        self.assertEqual([t['label'] for t in source['theaters']], ['synthetic-repo'])
+        sessions = source['theaters'][0]['sessions']
+        self.assertEqual([s['branch'] for s in sessions], ['main', 'worktree-feature-board'])
+        self.assertEqual([s['worktree'] for s in sessions], ['', 'feature-board'])
+        self.assertTrue(sessions[0]['primary'])
+        self.assertFalse(sessions[1]['primary'])
+        self.assertEqual(source['session']['branch'], 'main')
+        self.assertEqual(source['session']['theaterId'], source['theaters'][0]['id'])
+
     def test_time_refresh_is_in_memory_and_preserves_durations(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
         original = json.dumps(source, sort_keys=True)
@@ -153,6 +164,22 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(sum(1 for member in snapshot['members'] if member.get('officialTeam')), 2)
         self.assertTrue(snapshot['demo'])
         self.assertEqual(self.request('GET', '/?demo=1')[0], 303)
+        self.assertIn('作战区'.encode('utf-8'), body)
+        self.assertIn(b'renderTheater', body)
+
+    def test_theater_query_switches_the_label_and_keeps_members(self):
+        status, _, raw = self.request('GET', '/snapshot.json?session=synthetic-session-wt')
+        self.assertEqual(status, 200)
+        snapshot = json.loads(raw)
+        self.assertEqual(snapshot['session']['id'], 'synthetic-session-wt')
+        self.assertEqual(snapshot['session']['branch'], 'worktree-feature-board')
+        self.assertEqual(snapshot['session']['worktree'], 'feature-board')
+        self.assertEqual(len(snapshot['members']), 6)
+        plain = json.loads(self.request('GET', '/snapshot.json')[2])
+        self.assertEqual(plain['session']['id'], 'synthetic-session')
+        self.assertEqual(plain['session']['branch'], 'main')
+        unknown = json.loads(self.request('GET', '/snapshot.json?session=not-a-session')[2])
+        self.assertEqual(unknown['session']['id'], 'synthetic-session')
 
     def test_all_mutations_including_shutdown_are_forbidden(self):
         for method in ('POST', 'PUT', 'PATCH', 'DELETE'):

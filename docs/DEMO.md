@@ -38,6 +38,11 @@ are shifted in memory so the example remains readable. The example is a fixed
 scenario, not live work or evidence of project adoption. Its numbers are not a
 benchmark or a real bill. The kanban in this demo does not read `~/.claude/tasks/`.
 
+The same fixture includes one synthetic worktree theater, `synthetic-repo`, with branches
+`main` and `worktree-feature-board`. The strip under the mission line lists both.
+Choosing the other branch updates that label only; the member cards stay the one
+example team. How live transcripts are grouped is [WORKTREES.md](WORKTREES.md).
+
 The demo serves the existing `team-board/index.html`, the fixture snapshot and
 only the shipped sprite/favicon allowlist. It never imports the live backend,
 reads a personal `~/.claude` or `~/.codex`, scans local transcripts, downloads
