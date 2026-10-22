@@ -47,14 +47,31 @@ const chrome = spawn(chromePath, [
   '--remote-debugging-port=' + debugPort,
   '--user-data-dir=' + userData,
   'about:blank',
-], { stdio: 'ignore' });
+], { stdio: 'ignore', detached: true });
 
 let socket = null;
-function shutdown() {
-  try { if (socket) socket.close(); } catch (err) { /* already closed */ }
-  try { chrome.kill('SIGKILL'); } catch (err) { /* already gone */ }
+function killChromeGroup() {
+  if (!chrome || !chrome.pid) return;
+  try {
+    process.kill(-chrome.pid, 'SIGKILL');
+  } catch (err) {
+    try { chrome.kill('SIGKILL'); } catch (err2) { /* already gone */ }
+  }
 }
-process.on('exit', shutdown);
+function stopChrome() {
+  try { if (socket) socket.close(); } catch (err) { /* already closed */ }
+  socket = null;
+  if (!chrome || chrome.exitCode !== null || chrome.signalCode) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 3000);
+    chrome.once('exit', () => {
+      clearTimeout(timer);
+      setTimeout(resolve, 150);
+    });
+    killChromeGroup();
+  });
+}
+process.on('exit', killChromeGroup);
 
 function connect(url) {
   const ws = new WebSocket(url);
@@ -335,10 +352,10 @@ function prepare(theme, id) {
     fs.writeFileSync(shotDir + '/narrow-dark-stack.png', Buffer.from(shot.data, 'base64'));
   }
   process.stdout.write(JSON.stringify({ wide: wide, narrow: narrow, narrowDark: narrowDark }));
-  shutdown();
+  await stopChrome();
   process.exit(0);
-})().catch((err) => {
+})().catch(async (err) => {
   console.error(err && err.stack ? err.stack : err);
-  shutdown();
+  await stopChrome();
   process.exit(1);
 });
