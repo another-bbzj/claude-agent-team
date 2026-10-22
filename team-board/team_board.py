@@ -1797,9 +1797,14 @@ def _official_team_view(session_id):
         'tasks': [{
             'id': task.get('id'),
             'subject': task.get('subject'),
+            'description': task.get('description'),
             'status': task.get('status'),
             'normalizedStatus': task.get('normalizedStatus'),
             'owner': task.get('owner'),
+            'blockedBy': task.get('blockedBy'),
+            'blocks': task.get('blocks'),
+            'source': task.get('source'),
+            'sourceMtime': task.get('sourceMtime'),
         } for task in parsed['tasks']],
         'members': parsed['members'],
     })
@@ -1889,8 +1894,170 @@ def _merge_official_members(members, view):
         known_names.add(card['name'])
 
 
-def _public_official_team(view):
-    return {key: view[key] for key in ('available', 'teamName', 'lead', 'warnings', 'tasks')}
+_TASK_COLUMNS = ('pending', 'in_progress', 'completed')
+MAX_TASK_ROWS = 500
+_TASK_STATE_CLOCK = {}  # (team, id) -> (status, since, kind)；只在本进程里记，不写任务目录
+
+
+def _task_id_list(value):
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _task_clock_key(team_name, task):
+    ident = task.get('id')
+    if ident:
+        return (team_name, ident)
+    return (team_name, '', task.get('source') or '', task.get('subject') or '')
+
+
+def _task_state_since(clock, team_name, task, now, single_file):
+    """官方文件没有「进入当前状态」的时间。
+
+    第一次见到某状态时：任务独占一个文件，用该文件 mtime；多条任务共用一个文件，
+    也用这份文件的 mtime，但 kind 标成 file-shared（不能区分是哪一条被改写）。
+    之后只有状态变了才改记为现在，kind 为 observed。mtime 晚于 now 时截到 now。
+    """
+    status = task.get('normalizedStatus')
+    key = _task_clock_key(team_name, task)
+    previous = clock.get(key)
+    if previous and previous[0] == status:
+        return previous[1], previous[2]
+    if previous:
+        since, kind = float(now), 'observed'
+    else:
+        mtime = task.get('sourceMtime')
+        if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) and mtime > 0:
+            since = min(float(mtime), float(now))
+            kind = 'file' if single_file else 'file-shared'
+        else:
+            since, kind = float(now), 'observed'
+    clock[key] = (status, since, kind)
+    return since, kind
+
+
+def _task_mtime_value(task):
+    mtime = task.get('sourceMtime')
+    if isinstance(mtime, bool) or not isinstance(mtime, (int, float)):
+        return None
+    return float(mtime)
+
+
+def _prefer_later_task(candidate, current):
+    """较新的 sourceMtime 留下。相等或两边都没有时，后出现的留下。"""
+    new_mtime = _task_mtime_value(candidate)
+    old_mtime = _task_mtime_value(current)
+    if new_mtime is None and old_mtime is None:
+        return True
+    if new_mtime is None:
+        return False
+    if old_mtime is None:
+        return True
+    return new_mtime >= old_mtime
+
+
+def _dedupe_tasks(tasks, warnings):
+    """同一个 id 只留一条。警告只写 id，不写文件路径。"""
+    kept_at = {}
+    output = []
+    duplicate_ids = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            output.append(task)
+            continue
+        ident = task.get('id')
+        if not isinstance(ident, str) or not ident:
+            output.append(task)
+            continue
+        previous = kept_at.get(ident)
+        if previous is None:
+            kept_at[ident] = len(output)
+            output.append(task)
+            continue
+        if ident not in duplicate_ids:
+            duplicate_ids.append(ident)
+        if _prefer_later_task(task, output[previous]):
+            output[previous] = task
+    if duplicate_ids:
+        warnings.append('任务 id 重复，已保留较新的一条：' + '、'.join(duplicate_ids))
+    return output
+
+
+def _prune_task_clock(clock, team_name, seen):
+    """当前团队没再出现的键删掉；其他团队的键也删掉，避免换会话后旧计时还在。"""
+    for key in list(clock):
+        if not isinstance(key, tuple) or not key:
+            continue
+        if key[0] != team_name or key not in seen:
+            del clock[key]
+
+
+def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
+    """把已解析的任务收成只读看板行。不含 raw、source、sourceMtime。
+
+    同一个 id 只留修改时间较新的一条。可见行超过 MAX_TASK_ROWS 时截断。
+    这两种情况都追加到 warnings。计时按当前团队名清理，换团队会丢掉上一队。
+    """
+    if clock is None:
+        clock = _TASK_STATE_CLOCK
+    if warnings is None:
+        warnings = []
+    team_name = team_name if isinstance(team_name, str) else ''
+    tasks = list(tasks or [])
+    counts = {}
+    for task in tasks:
+        if isinstance(task, dict):
+            source = task.get('source')
+            counts[source] = counts.get(source, 0) + 1
+    tasks = _dedupe_tasks(tasks, warnings)
+    completed = set()
+    for task in tasks:
+        if isinstance(task, dict) and task.get('normalizedStatus') == 'completed' and task.get('id'):
+            completed.add(task.get('id'))
+    rows = []
+    seen = set()
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        status = task.get('normalizedStatus')
+        if status not in _TASK_COLUMNS:
+            continue
+        blocked_by = _task_id_list(task.get('blockedBy'))
+        blocks = _task_id_list(task.get('blocks'))
+        waiting = [item for item in blocked_by if item not in completed]
+        since, kind = _task_state_since(clock, team_name, task, now, counts.get(task.get('source'), 0) == 1)
+        seen.add(_task_clock_key(team_name, task))
+        rows.append({
+            'id': task.get('id'),
+            'subject': task.get('subject'),
+            'description': task.get('description'),
+            'status': task.get('status'),
+            'normalizedStatus': status,
+            'owner': task.get('owner') if isinstance(task.get('owner'), str) else None,
+            'blockedBy': blocked_by,
+            'blocks': blocks,
+            'blocked': status == 'pending' and bool(waiting),
+            'waitingOn': waiting,
+            'stateSince': since,
+            'stateSinceKind': kind,
+            'stateSeconds': max(0, int(now - since)),
+        })
+    if len(rows) > MAX_TASK_ROWS:
+        warnings.append('任务超过 %d 条，看板只显示前 %d 条' % (MAX_TASK_ROWS, MAX_TASK_ROWS))
+        rows = rows[:MAX_TASK_ROWS]
+    _prune_task_clock(clock, team_name, seen)
+    return rows
+
+
+def _public_official_team(view, now):
+    raw_warnings = view.get('warnings')
+    warnings = list(raw_warnings) if isinstance(raw_warnings, list) else []
+    public = {key: view[key] for key in ('available', 'teamName', 'lead')}
+    public['warnings'] = warnings
+    public['readOnly'] = True
+    public['tasks'] = task_board_rows(view.get('tasks') or [], view.get('teamName') or '', now, warnings=warnings)
+    return public
 
 
 def build_snapshot(args):
@@ -2208,7 +2375,7 @@ def build_snapshot(args):
         'feed': feed[:100],
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _public_official_team(official_view),
+        'officialTeam': _public_official_team(official_view, now),
         'backdrop': backdrop_state(presets=False),
     }
 
@@ -2232,7 +2399,29 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header('Cache-Control', 'no-store, must-revalidate')
         super().end_headers()
 
+    def _is_task_api(self):
+        path = urlparse(self.path).path
+        return path == '/api/tasks' or path.startswith('/api/tasks/')
+
+    def _reject_task_api(self):
+        """官方任务没有写入口。任意方法都是 405，并先读完正文，避免对端收不到状态行。"""
+        if not self._is_task_api():
+            return False
+        self._drain_body()
+        body = json.dumps({'error': '官方任务看板是只读的'}, ensure_ascii=False).encode('utf-8')
+        self.send_response(405)
+        self.send_header('Allow', 'GET')
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        if getattr(self, 'command', '') != 'HEAD':
+            self.wfile.write(body)
+            self.wfile.flush()
+        return True
+
     def do_GET(self):
+        if self._reject_task_api():
+            return
         u = urlparse(self.path)
         if u.path == '/snapshot.json':
             q = parse_qs(u.query)
@@ -2324,9 +2513,29 @@ class Handler(SimpleHTTPRequestHandler):
             return True
 
     def do_HEAD(self):
+        if self._reject_task_api():
+            return
         if self._is_bus_file():
             return self._json({'error': 'not found'}, 404)
         return super().do_HEAD()
+
+    def _unsupported_method(self):
+        self.send_error(501, "Unsupported method (%r)" % self.command)
+
+    def do_PUT(self):
+        if self._reject_task_api():
+            return
+        self._unsupported_method()
+
+    def do_PATCH(self):
+        if self._reject_task_api():
+            return
+        self._unsupported_method()
+
+    def do_DELETE(self):
+        if self._reject_task_api():
+            return
+        self._unsupported_method()
 
     def _same_origin(self) -> bool:
         """没有 Origin（msg.py / curl）放行；有 Origin 必须是本机回环地址 + 本服务端口（别的网站、本机别的端口的页面都不行）。"""
@@ -2364,6 +2573,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         u = urlparse(self.path)
+        if self._reject_task_api():
+            return
         if not self._same_origin():
             self._drain_body()   # 先读完正文再拒绝，否则 Windows 客户端会 ConnectionAbortedError，读不到 403
             return self._json({'error': '拒绝跨站请求'}, 403)   # 别的网页不能往本机看板 POST（防止借 bus 给代理注入消息）

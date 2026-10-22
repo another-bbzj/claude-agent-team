@@ -13,12 +13,15 @@ open a browser automatically or install anything into your home directory.
 
 The page displays four synthetic subagent members and two official Agent Team
 teammates, plus coherent example departments, tool activity, token counts and
-estimated costs. Official teammates are marked with a 官方 Team badge. A persistent banner marks it as a
+estimated costs. Official teammates are marked with a 官方 Team badge. When the
+fixture includes `officialTeam.tasks`, the page also shows a read-only kanban with
+pending, in progress and completed columns (owner, dependencies or blocked, and
+time in the current state). A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed
 scenario, not live work or evidence of project adoption. Its numbers are not a
-benchmark or a real bill.
+benchmark or a real bill. The kanban in this demo does not read `~/.claude/tasks/`.
 
 The demo serves the existing `team-board/index.html`, the fixture snapshot and
 only the shipped sprite/favicon allowlist. It never imports the live backend,
@@ -40,6 +43,6 @@ a demonstration. For the real transcript-based workflow, follow the
 
 ![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
 
-The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members and does not yet include the official Agent Team teammates.
+The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. The animation still shows only the four synthetic subagent members. It does not draw the official Agent Team teammates or the task kanban; those appear on the live demo page, not in this SVG.
 
 ![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)

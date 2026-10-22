@@ -49,6 +49,13 @@ class FixtureTest(unittest.TestCase):
         for group in ('usage', 'leadUsage', 'allUsage'):
             usage = source['totals'][group]
             self.assertEqual(usage['total'], sum(usage[k] for k in ('in', 'out', 'cache_read', 'cache_write')))
+        board = source['officialTeam']
+        self.assertTrue(board['available'])
+        self.assertTrue(board['readOnly'])
+        self.assertEqual([task['normalizedStatus'] for task in board['tasks']], ['in_progress', 'completed', 'pending'])
+        self.assertEqual(board['tasks'][0]['owner'], '合成研究员')
+        self.assertTrue(board['tasks'][2]['blocked'])
+        self.assertEqual(board['tasks'][2]['waitingOn'], ['1'])
 
     def test_time_refresh_is_in_memory_and_preserves_durations(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
@@ -57,6 +64,7 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(snapshot['generatedAt'], source['generatedAt'] + 600)
         for old, new in zip(source['members'], snapshot['members']):
             self.assertEqual(new['lastActivityAt'] - new['startedAt'], old['lastActivityAt'] - old['startedAt'])
+        self.assertEqual(snapshot['officialTeam']['tasks'][0]['stateSince'], source['officialTeam']['tasks'][0]['stateSince'] + 600)
         self.assertEqual(json.dumps(source, sort_keys=True), original)
 
 

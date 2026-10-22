@@ -34,7 +34,7 @@ python tools/demo_board.py --port 7790
 
 Open <http://127.0.0.1:7790/>. See [the demo guide](docs/DEMO.md).
 
-![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark](docs/img/demo-synthetic.svg)
+![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark. This animation does not draw the official task kanban; open the demo page for the pending, in progress and completed columns](docs/img/demo-synthetic.svg)
 
 **Install into your Claude Code setup:**
 
@@ -59,6 +59,8 @@ Claude Code can already dispatch subagents. After they leave, you cannot see whi
 The side-by-side comparison and the first full task are in the guide: [before you start](docs/GUIDE.en.md#why) and [first run](docs/GUIDE.en.md#first-run). Panel-by-panel screenshots stay in the [Chinese illustrated guide](docs/GUIDE.md).
 
 ![Board overview](docs/img/01-overview.png)
+
+The still above does not include the official task kanban. That read-only row (pending / in progress / completed) appears under the department table when the selected session has a team directory in `~/.claude/tasks/`. The synthetic demo page includes three example cards; `docs/img/demo-synthetic.svg` still draws members only.
 
 ## Read next
 

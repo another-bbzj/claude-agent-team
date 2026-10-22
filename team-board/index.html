@@ -36,7 +36,7 @@
     --panel: color-mix(in srgb, var(--bg-2) calc(var(--panel-a) * var(--panel-alpha)), transparent);
     --card: color-mix(in srgb, var(--card-solid) calc(var(--panel-alpha) * 100%), transparent);
   }
-  body.bd-glass .dept, body.bd-glass .task, body.bd-glass .ra, body.bd-glass .dmsg, body.bd-glass .composer,
+  body.bd-glass .dept, body.bd-glass .task, body.bd-glass .kcard, body.bd-glass .ra, body.bd-glass .dmsg, body.bd-glass .composer,
   body.bd-glass .comms .msg .text, body.bd-glass .comms .msg .av, body.bd-glass #d-avatar, body.bd-glass .modal-card {
     -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px);
   }
@@ -365,6 +365,34 @@
   .task .bar > i { position: absolute; inset: 0 auto 0 0; background: var(--brand); width: 0; }
   .task.running .bar > i { width: 42%; animation: taskrun 1.5s ease-in-out infinite; }
   .task.completed .bar > i { width: 100%; background: var(--ok); }
+
+  /* 官方 Agent Teams 任务：只读三列，跟随 /snapshot.json 刷新 */
+  .task-board { min-height: 0; }
+  .task-board[hidden] { display: none !important; }
+  .task-board-note { margin: -4px 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  .kanban { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .kanban .col { min-width: 0; min-height: 132px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 72%, transparent); display: flex; flex-direction: column; gap: 8px; }
+  .kanban .col h3 { margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
+  .kanban .col h3 .en { margin-left: auto; }
+  .kanban .col.pending { border-top: 2px solid var(--info); }
+  .kanban .col.in_progress { border-top: 2px solid var(--brand); }
+  .kanban .col.completed { border-top: 2px solid var(--ok); }
+  .kanban .kempty { color: var(--text-3); font-size: 12px; padding: 8px 2px; }
+  .kcard { --k: var(--line-2); position: relative; background: var(--card); border: 1px solid var(--line); padding: 8px 10px 8px 12px; cursor: default; user-select: text; }
+  .kcard::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 2px; background: var(--k); }
+  .kcard.pending { --k: var(--info); }
+  .kcard.in_progress { --k: var(--brand); }
+  .kcard.completed { --k: var(--ok); }
+  .kcard.blocked { --k: var(--warn); }
+  .kcard .ksub { font-size: 13px; font-weight: 650; line-height: 1.4; }
+  .kcard .kdesc { margin-top: 4px; font-size: 11.5px; color: var(--text-2); line-height: 1.45; max-height: 2.9em; overflow: hidden; }
+  .kcard .krow { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 11px; color: var(--text-2); }
+  .kcard .kowner { font-family: var(--mono); font-weight: 700; }
+  .kcard .kowner.unknown { color: var(--text-3); font-weight: 500; }
+  .kcard .kdeps { color: var(--text-2); }
+  .kcard.blocked .kdeps { color: var(--warn); }
+  .kcard .kage { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  @media (max-width: 800px) { .kanban { grid-template-columns: minmax(0, 1fr); } }
 
   .feed { display: flex; flex-direction: column; gap: 1px; max-height: 520px; overflow-y: auto; font-size: 12px; }
   .feed .row { display: grid; grid-template-columns: 56px 22px 58px minmax(0, 1fr); align-items: center; gap: 8px; padding: 4px 6px; border-left: 2px solid transparent; transition: background-color .15s; }
@@ -725,6 +753,12 @@
       <div class="bar-legend"><span><i style="background:var(--brand)"></i>opus / fable</span><span><i style="background:var(--info)"></i>sonnet</span><span><i style="background:var(--ok)"></i>haiku</span><span style="margin-left:auto">按公开价估算</span></div>
     </section>
   </div>
+
+  <section class="panel task-board" id="task-board" hidden aria-readonly="true">
+    <h2><span class="no">AT</span>官方任务<span class="en">Task Board</span><span class="pill">只读</span><span class="count" id="task-board-count"></span></h2>
+    <p class="task-board-note" id="task-board-note"></p>
+    <div class="kanban" id="kanban"></div>
+  </section>
 
   <div class="lower">
     <section class="panel chan" id="chan">
@@ -1275,6 +1309,79 @@ function renderTasks(snap) {
   $('#task-count').textContent = snap.members.length ? `${snap.lead.done}/${snap.members.length}` : '';
 }
 
+const TASK_COLUMNS = [
+  { key: 'pending', title: '待处理', en: 'Pending' },
+  { key: 'in_progress', title: '进行中', en: 'In progress' },
+  { key: 'completed', title: '已完成', en: 'Completed' },
+];
+function taskSort(a, b) {
+  const ai = a.id == null ? '' : String(a.id), bi = b.id == null ? '' : String(b.id);
+  const an = /^\d+$/.test(ai) ? Number(ai) : NaN, bn = /^\d+$/.test(bi) ? Number(bi) : NaN;
+  if (!Number.isNaN(an) && !Number.isNaN(bn) && an !== bn) return an - bn;
+  return ai < bi ? -1 : ai > bi ? 1 : 0;
+}
+function taskOwnerLabel(task, snap) {
+  const owner = task.owner || '';
+  if (!owner) return { text: '未认领', known: false, title: '还没有 owner' };
+  const names = new Set((snap.members || []).map(m => m.name));
+  const lead = (snap.officialTeam || {}).lead;
+  if (lead) names.add(lead);
+  const known = names.has(owner);
+  return { text: owner, known, title: known ? '负责人' : 'owner 与成员名字不完全一致，不记到成员卡上' };
+}
+function taskDepText(task) {
+  const waiting = task.waitingOn || [], blockedBy = task.blockedBy || [], blocks = task.blocks || [];
+  const mark = (ids) => ids.map(id => '#' + id).join('、');
+  const parts = [];
+  if (task.blocked) parts.push('阻塞 · 等待 ' + mark(waiting));
+  else if (waiting.length) parts.push('依赖未完成 · ' + mark(waiting));
+  else if (blockedBy.length) parts.push('依赖 ' + mark(blockedBy) + ' 已完成');
+  else parts.push('无依赖');
+  if (blocks.length) parts.push('挡住 ' + mark(blocks));
+  return parts.join(' · ');
+}
+function taskAgeLabel(task) {
+  if (!task.stateSince) return '计时未知';
+  const dur = fmtDur(task.stateSince) || '0s';
+  if (task.stateSinceKind === 'file-shared') return '约 ' + dur;
+  return '本状态 ' + dur;
+}
+function taskAgeTitle(task) {
+  if (task.stateSinceKind === 'observed') return '从看板看到状态变成现在这样开始计时';
+  if (task.stateSinceKind === 'file') return '这条任务单独一个文件，用文件修改时间作为进入当前状态的时间';
+  if (task.stateSinceKind === 'file-shared') return '官方文件没有单独的状态时间。这条和同一文件里的其他任务共用最近写入时间，直到看板看到状态变化';
+  return '官方任务文件没有状态时间';
+}
+function renderTaskBoard(snap) {
+  const panel = $('#task-board');
+  const team = snap.officialTeam || {};
+  if (!team.available) { panel.hidden = true; $('#kanban').innerHTML = ''; return; }
+  panel.hidden = false;
+  const tasks = team.tasks || [];
+  const count = (key) => tasks.filter(task => task.normalizedStatus === key).length;
+  $('#task-board-count').textContent = `${count('pending')} 待处理 · ${count('in_progress')} 进行中 · ${count('completed')} 已完成`;
+  const warns = (team.warnings || []).filter(Boolean);
+  const synthetic = snap.demo || team.teamName === 'session-demo0001';
+  const sourceNote = synthetic
+    ? '这是合成任务，不读取本机任务目录。'
+    : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
+  $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
+    + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。` + sourceNote;
+  $('#kanban').innerHTML = TASK_COLUMNS.map(col => {
+    const items = tasks.filter(task => task.normalizedStatus === col.key).slice().sort(taskSort);
+    const cards = items.map(task => {
+      const owner = taskOwnerLabel(task, snap);
+      const desc = task.description ? `<div class="kdesc">${esc(task.description)}</div>` : '';
+      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}" draggable="false" data-task="${esc(task.id == null ? '' : String(task.id))}">
+        <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
+        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span></div>
+        <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
+      </article>`;
+    }).join('') || '<div class="kempty">空</div>';
+    return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
+  }).join('');
+}
+
 /* ---------- 通讯频道：聊天式时间线（最旧在上、最新在下；你发的在右侧） ---------- */
 let commsFilter = 'all', commsSig = '';
 const commsOpen = new Set(), pendingBus = [], flownBus = new Set();
@@ -1688,7 +1795,7 @@ async function tick() {
     failing = 0; $('#live').classList.remove('off');
     if (snap.backdrop) { bdApi = true; applyBackdrop(snap.backdrop); } else if (bdApi === null) { bdApi = 'probing'; probeBackdrop(); }
     notifyChanges(snap);
-    renderHeader(snap); layout(snap); renderStats(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap); refreshRecipients(snap);
+    renderHeader(snap); layout(snap); renderStats(snap); renderTaskBoard(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap); refreshRecipients(snap);
     if (selectedId && $('#drawer').classList.contains('open')) { const m = selectedId === '__lead' ? leadAsMember(snap) : snap.members.find(x => x.id === selectedId); if (m) { $('#d-avatar').innerHTML = miniPet(m, 60); renderDrawerBody(m); } }
     prev = snap; firstLoad = false;
   } catch (e) { console.error(e); if (++failing > 2) { if (failing === 3) toast('连不上看板服务，稍后自动重试', 'err', 'OFFLINE'); $('#live').classList.add('off'); } }
@@ -2207,13 +2314,24 @@ function bdSetAdjust(on) {
 
 /* ---------- 演示数据：?demo=1 在真实快照上叠加几位成员与总线消息（截图 / 离线看效果用，不影响普通使用） ---------- */
 const DEMO = new URLSearchParams(location.search).has('demo');
-let demoExtra = [], demoT0 = 0;
+let demoExtra = [], demoT0 = 0, demoOfficial = null;
 function demoAugment(s) {
   const now = Date.now() / 1000; if (!demoT0) demoT0 = Math.floor(now) - 900;
   const T = (k) => demoT0 + k * 40;
   const mk = (id, name, role, type, dept, status, avatar, x = {}) => ({ id, name, roleTitle: role, agentType: type, dept, status, avatar, description: `${role} · 演示任务`, prompt: '（?demo=1 演示数据）', startedAt: T(1), endedAt: status === 'completed' ? T(15) : null, lastActivityAt: status === 'stalled' ? now - 400 : now - 4, toolCount: 18, thinkingCount: 3, outputTokens: 38000, totalTokens: 910000, cacheHit: 0.93, timeline: [{ kind: 'tool', label: 'Edit · team-board/index.html', ts: now - 30, done: true, ms: 120 }], usage: { in: 12000, out: 38000, cache_read: 840000, cache_write: 20000 }, cost: 1.42, modelFamily: 'opus', effort: 'high', model: 'claude-opus-5-5', writes: [], reads: [], current: status === 'running' ? { name: 'Edit', label: 'Edit · team-board/index.html', done: false } : null, unread: 0, hasDef: true, ...x });
   const official = { officialTeam: true, cost: 0, modelFamily: '', toolCount: 0, totalTokens: 0, outputTokens: 0, usage: { in: 0, out: 0, cache_read: 0, cache_write: 0 }, prompt: '官方 Agent Team 合成演示' };
   const fake = [mk('demo-a', '阿服', '后端工程师', 'backend-dev', 'dev', 'running', 'server-engineer', { unread: 2 }), mk('demo-b', '小界', '前端工程师', 'frontend-dev', 'dev', 'running', 'ui-designer'), mk('demo-c', '测测', '测试工程师', 'qa-tester', 'qa', 'completed', 'qa-engineer', { modelFamily: 'haiku', cost: 0.21 }), mk('demo-d', '小文', '文档工程师', 'docs-writer', 'docs', 'stalled', 'docs-coordinator', { unread: 1, modelFamily: 'sonnet', cost: 0.64 }), mk('demo-official-r', '合成研究员', '研究分析员', 'researcher', 'rnd', 'running', 'data-analyst', official), mk('demo-official-w', '合成写手', '文档', 'writer', 'rnd', 'completed', 'docs-coordinator', official)];
+  if (!(s.officialTeam && s.officialTeam.available)) {
+    if (!demoOfficial) demoOfficial = {
+      available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
+      tasks: [
+        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
+        { id: '3', subject: 'Wait for the synthetic survey', description: '依赖 1 完成前不能认领。', status: 'pending', normalizedStatus: 'pending', owner: null, blockedBy: ['1'], blocks: [], blocked: true, waitingOn: ['1'], stateSince: now - 40, stateSinceKind: 'file-shared' },
+      ],
+    };
+    s.officialTeam = demoOfficial;
+  }
   s.members = s.members.concat(fake);
   for (const m of fake) { const d = (s.departments || []).find(x => x.id === m.dept); if (d) { if (!d.members.length) d.status = m.status; d.members = d.members.concat(m.id); if (m.status === 'running') d.status = 'running'; } }
   const nm = (id) => id === '__lead' ? '队长' : id === '__user' ? '你' : id === '__all' ? '全员' : (fake.find(m => m.id === id) || {}).name || id;
@@ -2243,8 +2361,9 @@ tick(); setInterval(tick, 1500);
   const shot = new URLSearchParams(location.search).get('shot'); if (!shot) return;
   const hide = (sel) => document.querySelectorAll(sel).forEach(e => e.style.display = 'none');
   setTimeout(async () => {
-    if (shot === 'stats') { hide('header, .mission, .stage, .lower'); }
-    if (shot === 'lower') { hide('header, .mission, .stage, .statsrow'); }
+    if (shot === 'stats') { hide('header, .mission, .stage, .lower, #task-board'); }
+    if (shot === 'lower') { hide('header, .mission, .stage, .statsrow, #task-board'); }
+    if (shot === 'tasks') { hide('header, .mission, .stage, .statsrow, .lower'); }
     if (shot === 'member') { await openAgentModal(null); const f = $('#agent-form'); f.name.value = 'security-reviewer'; f.display.value = '小审'; f.role.value = '安全审查员'; f.dept.value = 'qa'; f.model.value = 'opus'; f.effort.value = 'high'; f.color.value = 'purple'; f.description.value = '小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露。'; f.skills.value = 'security-review'; f.body.value = '你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单；逐条给出 文件:行号 → 问题 → 后果 → 改法；完成后写交接单，汇报 ≤ 200 字。'; updatePreview(); }
     if (shot === 'dept') { await openDeptModal(); }
     if (shot === 'look') { openLook(); }

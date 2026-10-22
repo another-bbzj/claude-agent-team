@@ -16,6 +16,7 @@ DESCRIPTION_KEYS = ('description', 'task_description')
 ACTIVE_FORM_KEYS = ('activeForm', 'active_form')
 KNOWN_STATUSES = ('pending', 'in_progress', 'completed', 'deleted')
 LEAD_TYPE = 'team-lead'
+MAX_TASK_FILE_BYTES = 2 * 1024 * 1024
 
 
 def default_root():
@@ -131,6 +132,20 @@ def _safe_file(root, path):
     return resolved.is_file() and _within(root, resolved)
 
 
+def _mtime(path):
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _file_size(path):
+    try:
+        return path.stat().st_size
+    except OSError:
+        return None
+
+
 def _relative(root, path):
     try:
         return path.resolve().relative_to(Path(root).resolve()).as_posix()
@@ -210,12 +225,23 @@ def _read_tasks(root, directory, team):
         if not _safe_file(root, path):
             team['warnings'].append('跳过任务文件 ' + path.name)
             continue
+        size = _file_size(path)
+        if size is None:
+            team['warnings'].append(path.name + ' 无法读取')
+            continue
+        if size > MAX_TASK_FILE_BYTES:
+            team['warnings'].append(path.name + ' 超过 2MB，已跳过')
+            continue
         data, error = _read_json(path)
         source = _relative(root, path)
         if error:
             team['warnings'].append(path.name + ' ' + error)
             continue
-        team['tasks'].extend(_tasks_from_value(data, source, team['warnings']))
+        found = _tasks_from_value(data, source, team['warnings'])
+        mtime = _mtime(path)
+        for task in found:
+            task['sourceMtime'] = mtime
+        team['tasks'].extend(found)
 
 
 def _tasks_from_value(value, source, warnings):

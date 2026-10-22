@@ -103,9 +103,12 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 ![通讯频道、任务卡片、动作流](img/03-lower.png)
 
+这张图是下半区的通讯、成员任务卡和动作流，**没有**官方任务看板。官方 Agent Teams 的共享任务列表出现时，会在部门表和这一排之间多出一整行，见下面的「官方任务看板」。`docs/img/01-overview.png` 和 `docs/img/demo-synthetic.svg` 同样没有画出这一行；合成演示页（`python tools/demo_board.py`）里有三列示例。
+
 | 面板 | 内容 |
 |---|---|
 | **TASKS 任务卡片** | 每位成员一张：形象、名字、部门、状态、任务标题（就是派工时的 description）、交付摘要或指令摘要、`agentType · 模型 · 成本 · 工具数 · 用时`。点击打开详情 |
+| **官方任务看板** | 只在当前会话对得上 `~/.claude/tasks/session-<前 8 位>/` 时出现。三列：待处理、进行中、已完成。每张卡显示负责人、依赖或阻塞，以及在当前状态停留了多久。只读：不能拖动，也不能在看板上改状态。超过 2MB 的任务文件会跳过，超过 500 条只显示前 500 条，重复 id 只留较新的一条，这些都会写进警告。约每 1.5 秒跟 `/snapshot.json` 一起刷新 |
 | **COMMS 通信流** | 派工 / 回报 / 私信 / 交接 / 转达 / 消息总线。过滤器：全部、总线（msg.py）、派工/回报、私信/交接、与我相关。直接在下方发送框给队长 / 成员 / 全员发消息（Enter 发送，Shift+Enter 换行，/ 聚焦）；消息写进 `.team/inbox/` 并在看板显示 |
 | **ACTIVITY 动作流** | 所有成员（含队长）的工具调用时间线：时间、谁、`工具 · 参数摘要`；未完成的带旋转圈，出错的红色 |
 | **ROSTER 常驻成员** | `~/.claude/agents/` 里的全部成员定义：形象、显示名、标识、部门·岗位、`模型 · 强度`；正在会话里出场的高亮；★ 标记自定义成员。右上角 `＋ 新建成员`、`⚙ 部门管理` |
@@ -297,7 +300,8 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 
 | 接口 | 用途 |
 |---|---|
-| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals） |
+| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务） |
+| `/api/tasks` | 不存在的写入口。任意方法都返回 405，并带 `Allow: GET`。非法 JSON 也是 405，不改 `~/.claude/tasks/` |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
 | `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
 | `GET /api/pets` | 形象列表：`pets`、`petInfo`（文件名、尺寸、行数、名字、作者、是否自带） |
@@ -396,7 +400,7 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 
 ## 运行时结构
 
-图跟着系统的浅色或深色走。实线是实时路径：队长把工单写进项目里的 `.team/`，八位成员的定义在 `agents/`，`team_board.py` 只在 `127.0.0.1:7788` 读取转录并给出 `/snapshot.json`。虚线是三条不读个人会话的旁路。成员之间怎么交接，见下一节。
+图跟着系统的浅色或深色走。实线是实时路径：队长把工单写进项目里的 `.team/`，八位成员的定义在 `agents/`，`team_board.py` 只在 `127.0.0.1:7788` 读取转录和官方任务目录，并给出 `/snapshot.json`。虚线是三条不读个人会话的旁路。成员之间怎么交接，见下一节。官方任务板只读，不把状态写回 `~/.claude/tasks/`。
 
 ![本机运行时：主会话、常驻成员、回环看板，以及三条不读会话的旁路](img/architecture.svg)
 
