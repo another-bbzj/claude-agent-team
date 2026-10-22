@@ -8,14 +8,55 @@
   "session": {
     "id": "synthetic-session",
     "project": "synthetic-example",
-    "lastActivity": 1767261740
+    "lastActivity": 1767261740,
+    "branch": "main",
+    "worktree": "",
+    "theaterId": "wt-syntheticrepo"
   },
   "sessions": [
     {
       "id": "synthetic-session",
       "project": "synthetic-example",
       "mtime": 1767261740,
-      "count": 4
+      "count": 4,
+      "branch": "main",
+      "worktree": "",
+      "theaterId": "wt-syntheticrepo"
+    },
+    {
+      "id": "synthetic-session-wt",
+      "project": "synthetic-worktree",
+      "mtime": 1767261680,
+      "count": 2,
+      "branch": "worktree-feature-board",
+      "worktree": "feature-board",
+      "theaterId": "wt-syntheticrepo"
+    }
+  ],
+  "theaters": [
+    {
+      "id": "wt-syntheticrepo",
+      "label": "synthetic-repo",
+      "sessions": [
+        {
+          "id": "synthetic-session",
+          "project": "synthetic-example",
+          "branch": "main",
+          "worktree": "",
+          "primary": true,
+          "mtime": 1767261740,
+          "count": 4
+        },
+        {
+          "id": "synthetic-session-wt",
+          "project": "synthetic-worktree",
+          "branch": "worktree-feature-board",
+          "worktree": "feature-board",
+          "primary": false,
+          "mtime": 1767261680,
+          "count": 2
+        }
+      ]
     }
   ],
   "lead": {

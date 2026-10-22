@@ -1253,6 +1253,350 @@ def discover_sessions():
     return found
 
 
+# 同一 git 仓库的多路 worktree 收成一个「作战区」。假设与不做什么见 docs/WORKTREES.md。
+_lead_git_cache = {}
+
+
+def _read_small(path: Path, limit=512) -> str:
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            return f.read(limit)
+    except OSError:
+        return ''
+
+
+def _clean_branch(raw) -> str:
+    """转录 gitBranch 或 HEAD 符号引用里的分支名。占位符 HEAD、以及含 .. 的名字不算。"""
+    if not isinstance(raw, str):
+        return ''
+    name = raw.strip()
+    if not name or name == 'HEAD' or len(name) > 200:
+        return ''
+    if any(ch in name for ch in '\\:\n\r\0'):
+        return ''
+    parts = name.split('/')
+    if any(not part or part in ('.', '..') for part in parts):
+        return ''
+    return name
+
+
+def _norm_path(p) -> str:
+    try:
+        return os.path.normcase(os.path.abspath(str(Path(p).resolve())))
+    except (OSError, RuntimeError, ValueError):
+        try:
+            return os.path.normcase(os.path.abspath(str(p)))
+        except (OSError, ValueError):
+            return ''
+
+
+def _is_fs_root(path: str) -> bool:
+    try:
+        p = Path(path)
+    except (TypeError, ValueError):
+        return True
+    return p.parent == p
+
+
+def _lead_git_hint(path: Path, project: str) -> dict:
+    """队长转录里的启动目录，以及最后一条不是占位符的 gitBranch。按 (size, mtime) 缓存。"""
+    try:
+        st = path.stat()
+    except OSError:
+        return {'cwd': '', 'gitBranch': ''}
+    key = (st.st_size, st.st_mtime)
+    cached = _lead_git_cache.get(str(path))
+    if cached and cached[0] == key:
+        return cached[1]
+    cwds, branch, i = {}, '', 0
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(e, dict) or e.get('isSidechain'):
+                    continue
+                cwd = e.get('cwd')
+                if isinstance(cwd, str) and cwd:
+                    cwds[cwd] = i
+                cleaned = _clean_branch(e.get('gitBranch'))
+                if cleaned:
+                    branch = cleaned
+                i += 1
+    except OSError:
+        cwds, branch = {}, ''
+    hint = {'cwd': _launch_cwd(list(cwds), project), 'gitBranch': branch}
+    _lead_git_cache[str(path)] = (key, hint)
+    return hint
+
+
+def _split_claude_worktree(cwd: str):
+    """cwd 落在 <repo>/.claude/worktrees/<name>/ 里时，返回工作区根、名字和仓库根。"""
+    try:
+        parts = Path(cwd).parts
+    except (TypeError, ValueError):
+        return None
+    for i, part in enumerate(parts):
+        if part != '.claude' or i + 2 >= len(parts) or parts[i + 1] != 'worktrees':
+            continue
+        name = parts[i + 2]
+        if not name or name in ('.', '..'):
+            continue
+        return {
+            'worktreeRoot': Path(*parts[:i + 3]),
+            'name': name,
+            'repoRoot': Path(*parts[:i]) if i else None,
+        }
+    return None
+
+
+def _find_checkout_git(start):
+    for d in _ancestors(str(start)):
+        git = d / '.git'
+        try:
+            if git.is_file() or git.is_dir():
+                return d, git
+        except OSError:
+            continue
+    return None, None
+
+
+def _gitdir_pointer(gitfile: Path):
+    for line in _read_small(gitfile).splitlines():
+        if not line.startswith('gitdir:'):
+            continue
+        raw = line.split(':', 1)[1].strip()
+        if not raw:
+            return None
+        target = Path(raw)
+        if not target.is_absolute():
+            target = gitfile.parent / target
+        return target
+    return None
+
+
+def _branch_from_head_file(git_dir: Path) -> str:
+    text = _read_small(git_dir / 'HEAD').strip()
+    if not text.startswith('ref:'):
+        return ''
+    ref = text.split(':', 1)[1].strip()
+    prefix = 'refs/heads/'
+    if ref.startswith(prefix):
+        ref = ref[len(prefix):]
+    return _clean_branch(ref)
+
+
+def _last_part(parts, name: str):
+    if name not in parts:
+        return -1
+    return len(parts) - 1 - parts[::-1].index(name)
+
+
+def _describe_git(checkout: Path, git_path: Path):
+    """读 .git 文件 / 目录、commondir 和 HEAD。不调用 git，避免仓库钩子在刷新看板时跑起来。"""
+    try:
+        is_dir = git_path.is_dir()
+        is_file = git_path.is_file()
+    except OSError:
+        return None
+    if is_file:
+        git_dir = _gitdir_pointer(git_path)
+    elif is_dir:
+        git_dir = git_path
+    else:
+        return None
+    if git_dir is None:
+        return None
+    try:
+        git_dir = Path(git_dir).resolve()
+    except (OSError, RuntimeError):
+        git_dir = Path(git_dir)
+    linked = False
+    common = git_dir
+    commondir = _read_small(git_dir / 'commondir').strip()
+    if commondir and len(commondir) <= 500 and '\n' not in commondir:
+        cd = Path(commondir)
+        if not cd.is_absolute():
+            cd = git_dir / cd
+        common = cd
+        linked = True
+    else:
+        parts = Path(git_dir).parts
+        idx = _last_part(parts, 'worktrees')
+        if idx > 0:
+            common = Path(*parts[:idx])
+            linked = True
+    worktree = ''
+    if linked:
+        parts = Path(git_dir).parts
+        idx = _last_part(parts, 'worktrees')
+        if idx >= 0 and idx + 1 < len(parts):
+            worktree = parts[idx + 1]
+        if not worktree:
+            worktree = checkout.name
+    return {
+        'common': common,
+        'primary': not linked,
+        'branch': _branch_from_head_file(git_dir),
+        'worktree': '' if not linked else worktree,
+        'root': checkout,
+    }
+
+
+def _repo_root_with_worktrees(cwd: str):
+    """没有 .git 时，若某个祖先下面有 .claude/worktrees/，那个祖先就是仓库根。"""
+    for d in _ancestors(cwd):
+        try:
+            if (d / '.claude' / 'worktrees').is_dir():
+                return d
+        except OSError:
+            continue
+    return None
+
+
+def _safe_label(name: str) -> str:
+    name = str(name or '').strip().replace('\\', '/').split('/')[-1]
+    if not name or name in ('.', '..'):
+        return 'repository'
+    return name[:80]
+
+
+def _family_path(common) -> str:
+    """同一仓库的稳定路径：普通仓库用主工作区目录，不把 .git 本身算进去。
+
+    commondir 经常是 ../..，拼出来的路径在解析前名字是 ..，所以要先规范化再看是不是 .git。
+    """
+    path = _norm_path(common)
+    if not path or _is_fs_root(path):
+        return ''
+    resolved = Path(path)
+    if resolved.name == '.git':
+        parent = os.path.normcase(str(resolved.parent))
+        if parent and not _is_fs_root(parent):
+            return parent
+    return path
+
+
+def worktree_identity(cwd: str) -> dict:
+    """cwd → 仓库家族、是不是主工作区、worktree 名、以及 git HEAD 里的分支。认不出就返回空。"""
+    if not isinstance(cwd, str) or not cwd:
+        return {}
+    hint = _split_claude_worktree(cwd)
+    start = hint['worktreeRoot'] if hint else Path(cwd)
+    checkout, git_path = _find_checkout_git(start)
+    if hint and checkout is not None and hint.get('repoRoot') is not None:
+        if _norm_path(checkout) == _norm_path(hint['repoRoot']):
+            checkout, git_path = None, None
+    described = _describe_git(checkout, git_path) if git_path is not None else None
+    if described:
+        if hint:
+            described['worktree'] = hint['name']
+            described['primary'] = False
+            described['root'] = hint['worktreeRoot']
+    elif hint and hint.get('repoRoot') is not None:
+        described = {
+            'common': hint['repoRoot'], 'primary': False, 'branch': '',
+            'worktree': hint['name'], 'root': hint['worktreeRoot'],
+        }
+    else:
+        repo = _repo_root_with_worktrees(cwd)
+        if repo is None:
+            return {}
+        described = {'common': repo, 'primary': True, 'branch': '', 'worktree': '', 'root': repo}
+    family = _family_path(described['common'])
+    root = _norm_path(described['root'])
+    if not family or not root:
+        return {}
+    return {
+        'repoKey': 'wt-' + hashlib.sha256(family.encode('utf-8', 'replace')).hexdigest()[:12],
+        'label': _safe_label(Path(family).name),
+        'worktree': described['worktree'] if not described['primary'] else '',
+        'primary': bool(described['primary']),
+        'branch': described['branch'] or '',
+        'root': root,
+    }
+
+
+def _lead_path_for(session: dict) -> Path:
+    return session['dir'].parent.parent / (session['session'] + '.jsonl')
+
+
+def _theater_session(session: dict) -> dict:
+    return {
+        'id': session['session'],
+        'project': session['project'],
+        'branch': session.get('branch') or '',
+        'worktree': session.get('worktree') or '',
+        'primary': bool(session.get('primary')),
+        'mtime': session.get('mtime') or 0,
+        'count': session.get('count') or 0,
+    }
+
+
+def attach_worktree_theaters(sessions: list) -> list:
+    """给 discover_sessions 的结果补上分支，并把同一仓库里至少两个工作区收成 theaters。
+
+    分支优先用该工作区 git HEAD。Claude Code 会把转录里的 gitBranch 冻在会话开始时的值，
+    进了 worktree 之后仍可能写着 main。HEAD 读不到时才退回转录。
+    """
+    groups, order = {}, []
+    for session in sessions:
+        hint = _lead_git_hint(_lead_path_for(session), session.get('project') or '')
+        ident = worktree_identity(hint.get('cwd') or '')
+        session['branch'] = (ident.get('branch') if ident else '') or hint.get('gitBranch') or ''
+        session['worktree'] = (ident.get('worktree') or '') if ident else ''
+        session['primary'] = bool(ident.get('primary')) if ident else False
+        session['theaterId'] = ''
+        if not ident:
+            continue
+        key = ident['repoKey']
+        if key not in groups:
+            groups[key] = {'id': key, 'label': ident['label'], 'sessions': [], 'roots': set()}
+            order.append(key)
+        groups[key]['sessions'].append(session)
+        groups[key]['roots'].add(ident['root'])
+    theaters = []
+    for key in order:
+        group = groups[key]
+        if len(group['roots']) < 2:
+            continue
+        ranked = sorted(group['sessions'], key=lambda s: (not s.get('primary'), -(s.get('mtime') or 0)))
+        for session in ranked:
+            session['theaterId'] = key
+        theaters.append({
+            'id': key,
+            'label': group['label'],
+            'sessions': [_theater_session(s) for s in ranked[:12]],
+        })
+    theaters.sort(key=lambda t: -max(s['mtime'] for s in t['sessions']))
+    return theaters
+
+
+def public_session_rows(sessions: list, theaters: list) -> list:
+    """最近 12 个会话；作战区里没排进这 12 个的成员补在后面，下拉才能切过去。"""
+    listed, seen = [], set()
+    for session in list(sessions[:12]):
+        listed.append(session)
+        seen.add(session['session'])
+    by_id = {s['session']: s for s in sessions}
+    for theater in theaters:
+        for item in theater.get('sessions') or []:
+            src = by_id.get(item.get('id'))
+            if src and src['session'] not in seen:
+                listed.append(src)
+                seen.add(src['session'])
+    return [{
+        'id': s['session'], 'project': s['project'], 'mtime': s['mtime'], 'count': s['count'],
+        'branch': s.get('branch') or '', 'worktree': s.get('worktree') or '',
+        'theaterId': s.get('theaterId') or '',
+    } for s in listed]
+
+
 # ---- 消息总线（bus）：成员之间 / 看板与成员之间的消息。bus/messages.jsonl 追加写 + bus/cursors.json 已读游标 ----
 BUS = HERE / 'bus'   # 测试可改
 BUS_MAX_TEXT = 4000
@@ -2189,6 +2533,7 @@ def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
     sessions = discover_sessions()
+    theaters = attach_worktree_theaters(sessions)
     if args.session:
         chosen = next((s for s in sessions if s['session'].startswith(args.session)), None)
     elif args.project:   # 先精确匹配项目 key（msg.py who），再按子串（--project 命令行参数）
@@ -2216,7 +2561,11 @@ def build_snapshot(args):
         for m in members:
             seen[m['avatar']] = seen.get(m['avatar'], 0) + 1
             m['name'] = m['baseName'] if seen[m['avatar']] == 1 else f"{m['baseName']}·{seen[m['avatar']]}"
-        session_info = {'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime']}
+        session_info = {
+            'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime'],
+            'branch': chosen.get('branch') or '', 'worktree': chosen.get('worktree') or '',
+            'theaterId': chosen.get('theaterId') or '',
+        }
         lead_path = sub.parent.parent / (chosen['session'] + '.jsonl')
         lead_data = parse_lead(lead_path, now)
         session_info['cwd'] = (lead_data or {}).get('cwd') or ''
@@ -2490,8 +2839,8 @@ def build_snapshot(args):
         'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
         'session': session_info,
-        'sessions': [{'id': s['session'], 'project': s['project'], 'mtime': s['mtime'], 'count': s['count']}
-                     for s in sessions[:12]],
+        'sessions': public_session_rows(sessions, theaters),
+        'theaters': theaters,
         'lead': lead,
         'members': members,
         'departments': departments,
