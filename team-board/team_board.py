@@ -1996,6 +1996,9 @@ def _prune_task_clock(clock, team_name, seen):
 def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
     """把已解析的任务收成只读看板行。不含 raw、source、sourceMtime。
 
+    每行另有 blockedByDetail / blocksDetail（对得上的带 subject）、flags、notices。
+    这些字段都从已经留下的行和警告推导，不读任务目录。
+
     同一个 id 只留修改时间较新的一条。可见行超过 MAX_TASK_ROWS 时截断。
     这两种情况都追加到 warnings。计时按当前团队名清理，换团队会丢掉上一队。
     """
@@ -2046,7 +2049,88 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
     if len(rows) > MAX_TASK_ROWS:
         warnings.append('任务超过 %d 条，看板只显示前 %d 条' % (MAX_TASK_ROWS, MAX_TASK_ROWS))
         rows = rows[:MAX_TASK_ROWS]
+    _annotate_task_details(rows, warnings)
     _prune_task_clock(clock, team_name, seen)
+    return rows
+
+
+def _task_subject_index(rows):
+    """可见行里的 id → (subject, normalizedStatus)。空标题记成 None，仍算对得上。"""
+    index = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ident = row.get('id')
+        if not isinstance(ident, str) or not ident or ident in index:
+            continue
+        subject = row.get('subject')
+        status = row.get('normalizedStatus')
+        index[ident] = (
+            subject if isinstance(subject, str) and subject else None,
+            status if isinstance(status, str) else None,
+        )
+    return index
+
+
+def _task_relation_detail(ids, index):
+    details = []
+    if not isinstance(ids, list):
+        return details
+    for ident in ids:
+        if not isinstance(ident, str):
+            continue
+        if ident in index:
+            subject, status = index[ident]
+            details.append({
+                'id': ident,
+                'subject': subject,
+                'resolved': True,
+                'normalizedStatus': status,
+            })
+        else:
+            details.append({
+                'id': ident,
+                'subject': None,
+                'resolved': False,
+                'normalizedStatus': None,
+            })
+    return details
+
+
+def _task_flags(row):
+    flags = []
+    if row.get('blocked'):
+        flags.append('blocked')
+    if row.get('stateSinceKind') == 'file-shared':
+        flags.append('approximate')
+    return flags
+
+
+def _task_notices(warnings, task_id):
+    """只认警告里「：」后面用「、」分开的 id。这样 1 不会命中 12，也碰不到「超过 500 条」。"""
+    if not isinstance(task_id, str) or not task_id or not isinstance(warnings, list):
+        return []
+    notices = []
+    for warning in warnings:
+        if not isinstance(warning, str) or '：' not in warning:
+            continue
+        listed = [part.strip() for part in warning.split('：', 1)[1].split('、')]
+        listed = [part for part in listed if part]
+        if task_id in listed:
+            notices.append(warning)
+    return notices
+
+
+def _annotate_task_details(rows, warnings):
+    """给只读详情补上能对上的标题、标记和点名了这条 id 的警告。不带路径。"""
+    index = _task_subject_index(rows)
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row['blockedByDetail'] = _task_relation_detail(row.get('blockedBy'), index)
+        row['blocksDetail'] = _task_relation_detail(row.get('blocks'), index)
+        row['flags'] = _task_flags(row)
+        row['notices'] = _task_notices(warnings, row.get('id'))
     return rows
 
 

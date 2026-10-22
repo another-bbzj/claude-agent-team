@@ -601,6 +601,12 @@
         "blocks": ["3"],
         "blocked": false,
         "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [
+          {"id": "3", "subject": "Wait for the synthetic survey", "resolved": true, "normalizedStatus": "pending"}
+        ],
+        "flags": [],
+        "notices": [],
         "stateSince": 1767261600,
         "stateSinceKind": "observed",
         "stateSeconds": 140
@@ -616,6 +622,10 @@
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [],
+        "flags": [],
+        "notices": [],
         "stateSince": 1767261000,
         "stateSinceKind": "file",
         "stateSeconds": 740
@@ -623,14 +633,21 @@
       {
         "id": "3",
         "subject": "Wait for the synthetic survey",
-        "description": "Pending until task 1 is completed.",
+        "description": "合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。",
         "status": "pending",
         "normalizedStatus": "pending",
         "owner": null,
-        "blockedBy": ["1"],
+        "blockedBy": ["1", "9"],
         "blocks": [],
         "blocked": true,
-        "waitingOn": ["1"],
+        "waitingOn": ["1", "9"],
+        "blockedByDetail": [
+          {"id": "1", "subject": "Survey the synthetic module", "resolved": true, "normalizedStatus": "in_progress"},
+          {"id": "9", "subject": null, "resolved": false, "normalizedStatus": null}
+        ],
+        "blocksDetail": [],
+        "flags": ["blocked", "approximate"],
+        "notices": [],
         "stateSince": 1767261700,
         "stateSinceKind": "file-shared",
         "stateSeconds": 40

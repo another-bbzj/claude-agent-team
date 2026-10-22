@@ -17,6 +17,7 @@
 
 ### 新增
 
+- 官方任务看板的卡片可以点开只读详情：标题、完整说明、状态、负责人、依赖和挡住的任务（对得上的带标题）、在当前状态停留的时间，以及阻塞或大约计时这类标记。Esc、点外面或关闭按钮都会关掉。仍然不能改 `~/.claude/tasks/`。
 - `tools/export_snapshot.py`：按数字字段白名单导出聚合指标，不带提示词、正文、会话标识或本机路径（[`ecf9802`](https://github.com/another-bbzj/claude-agent-team/commit/ecf9802)）。
 - `tools/codex_metrics.py`：只汇总你指定的 `codex exec --json` 日志，不启动 Codex，也不读取交互会话（[`cb52209`](https://github.com/another-bbzj/claude-agent-team/commit/cb52209)）。
 - `tools/demo_board.py`：用仓库里的合成快照起一个只读看板，不读 `~/.claude` 或 `~/.codex`（[`0f4bbc7`](https://github.com/another-bbzj/claude-agent-team/commit/0f4bbc7)）。
