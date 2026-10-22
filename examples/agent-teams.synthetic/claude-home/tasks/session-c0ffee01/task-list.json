@@ -1,0 +1,52 @@
+{
+  "tasks": [
+    {
+      "id": "10",
+      "subject": "Collect the synthetic sources",
+      "status": "completed",
+      "owner": "synthetic-researcher",
+      "blockedBy": []
+    },
+    {
+      "id": "11",
+      "subject": "Outline the synthetic chain",
+      "status": "completed",
+      "owner": "synthetic-researcher",
+      "blockedBy": ["10"]
+    },
+    {
+      "id": "12",
+      "subject": "Draft the synthetic chain note",
+      "status": "completed",
+      "owner": "synthetic-writer",
+      "blockedBy": ["11"]
+    },
+    {
+      "id": "13",
+      "subject": "Review the synthetic chain",
+      "status": "pending",
+      "owner": "synthetic-researcher",
+      "blockedBy": ["12"]
+    },
+    {
+      "id": "14",
+      "subject": "Publish the synthetic chain",
+      "status": "pending",
+      "blockedBy": ["13"]
+    },
+    {
+      "id": "15",
+      "subject": "File the cleared synthetic checklist",
+      "status": "pending",
+      "owner": "synthetic-writer",
+      "blockedBy": ["10", "11"]
+    },
+    {
+      "id": "16",
+      "subject": "Hold a synthetic note for a name that is not on the team",
+      "status": "pending",
+      "owner": "synthetic-not-on-team",
+      "blockedBy": []
+    }
+  ]
+}
