@@ -17,6 +17,7 @@
 
 ### 新增
 
+- 官方任务看板和舞台上的成员可以按完全相同的名字互相点亮。悬停或聚焦看板卡会点亮对应的人；悬停或聚焦成员会点亮他名下的任务。没认领，或 owner 对不上名字的任务保持原样，其他人的任务变淡。点一下可以钉住，Esc 取消。仍然只读，跟着原来的 `/snapshot.json` 刷新。
 - `tools/export_snapshot.py`：按数字字段白名单导出聚合指标，不带提示词、正文、会话标识或本机路径（[`ecf9802`](https://github.com/another-bbzj/claude-agent-team/commit/ecf9802)）。
 - `tools/codex_metrics.py`：只汇总你指定的 `codex exec --json` 日志，不启动 Codex，也不读取交互会话（[`cb52209`](https://github.com/another-bbzj/claude-agent-team/commit/cb52209)）。
 - `tools/demo_board.py`：用仓库里的合成快照起一个只读看板，不读 `~/.claude` 或 `~/.codex`（[`0f4bbc7`](https://github.com/another-bbzj/claude-agent-team/commit/0f4bbc7)）。

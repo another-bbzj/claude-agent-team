@@ -206,7 +206,7 @@
   .stage-title .en { font-weight: 500; }
   #replay { margin-left: 4px; padding: 2px 10px; border: 1px solid var(--line); background: var(--panel); font-size: 11px; color: var(--text-2); font-family: var(--mono); letter-spacing: .04em; transition: border-color .15s, color .15s; }
   #replay:hover { border-color: var(--gold); color: var(--gold); }
-  #replay kbd, .hint kbd { font-family: var(--mono); font-size: 9.5px; border: 1px solid var(--line-2); padding: 0 4px; margin-left: 4px; color: var(--text-3); }
+  #replay kbd, .hint kbd, .task-board-link kbd { font-family: var(--mono); font-size: 9.5px; border: 1px solid var(--line-2); padding: 0 4px; margin-left: 4px; color: var(--text-3); }
   .stage-legend { position: absolute; right: 22px; top: 12px; font-size: 11px; color: var(--text-3); display: flex; gap: 12px; z-index: 6; flex-wrap: wrap; justify-content: flex-end; max-width: 55%; }
   .stage-legend i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: 3px; }
   .beacon { position: absolute; top: 6px; z-index: 5; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--gold); pointer-events: none; white-space: nowrap; }
@@ -256,6 +256,13 @@
   .person .avatar-wrap::before { content: ""; position: absolute; left: 50%; bottom: 0; width: 70px; height: 18px; transform: translateX(-50%); border: 1px solid color-mix(in srgb, var(--line-2) 70%, transparent); border-radius: 50%; opacity: .7; }
   .person.running .avatar-wrap::before { border-color: var(--brand); box-shadow: 0 0 14px -2px var(--brand); }
   .person.selected .avatar-wrap::before { border-color: var(--gold); box-shadow: 0 0 16px -2px var(--gold); }
+  .person:focus { outline: none; }
+  .person:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
+  .person.xhi { z-index: 6; }
+  .person.xhi .avatar-wrap, .person.xhi .avatar-wrap:hover { transform: translateY(-4px) scale(1.06); }
+  .person.xhi .avatar-wrap::before { border-color: var(--gold); box-shadow: 0 0 18px -2px var(--gold); }
+  .person.xhi .name { box-shadow: inset 0 -2px 0 var(--gold), 0 0 0 1px var(--gold); }
+  .person.xpin .name { background: var(--gold); color: #1a1406; }
   .sprite { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%) scale(var(--fit, 1)); transform-origin: 50% 100%; width: 96px; height: 104px; background-repeat: no-repeat; background-size: 768px auto; filter: drop-shadow(0 6px 5px rgba(0,0,0,.2)); pointer-events: none; }
   .person.lead .sprite { width: 114px; height: 123.5px; background-size: 912px auto; }
   .person.stalled .sprite { opacity: .78; }
@@ -351,6 +358,9 @@
   .task.running { --k: var(--brand); } .task.completed { --k: var(--ok); } .task.stalled { --k: var(--warn); } .task.error { --k: var(--err); }
   .task.fresh { animation: enter .35s ease-out both; }
   .task:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--line-2); }
+  .task:focus { outline: none; }
+  .task:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+  .task.xhi { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
   .task .top { display: flex; align-items: center; gap: 8px; }
   .task .top img { width: 28px; height: 28px; object-fit: contain; }
   .mini { display: inline-block; background-repeat: no-repeat; background-position: 0 0; vertical-align: middle; flex: none; }
@@ -369,7 +379,9 @@
   /* 官方 Agent Teams 任务：只读三列，跟随 /snapshot.json 刷新 */
   .task-board { min-height: 0; }
   .task-board[hidden] { display: none !important; }
-  .task-board-note { margin: -4px 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  .task-board-note { margin: -4px 0 8px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  .task-board-link { margin: 0 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  .task-board-link.pinned { color: var(--text-2); }
   .kanban { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .kanban .col { min-width: 0; min-height: 132px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 72%, transparent); display: flex; flex-direction: column; gap: 8px; }
   .kanban .col h3 { margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
@@ -378,7 +390,13 @@
   .kanban .col.in_progress { border-top: 2px solid var(--brand); }
   .kanban .col.completed { border-top: 2px solid var(--ok); }
   .kanban .kempty { color: var(--text-3); font-size: 12px; padding: 8px 2px; }
-  .kcard { --k: var(--line-2); position: relative; background: var(--card); border: 1px solid var(--line); padding: 8px 10px 8px 12px; cursor: default; user-select: text; }
+  .kcard { --k: var(--line-2); position: relative; background: var(--card); border: 1px solid var(--line); padding: 8px 10px 8px 12px; cursor: default; user-select: text; transition: opacity .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .kcard:focus { outline: none; }
+  .kcard:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+  .kcard.linkable { cursor: pointer; }
+  .kcard.xhi { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+  .kcard.xhi::before { background: var(--gold); }
+  .kcard.xdim { opacity: .38; }
   .kcard::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 2px; background: var(--k); }
   .kcard.pending { --k: var(--info); }
   .kcard.in_progress { --k: var(--brand); }
@@ -757,6 +775,7 @@
   <section class="panel task-board" id="task-board" hidden aria-readonly="true">
     <h2><span class="no">AT</span>官方任务<span class="en">Task Board</span><span class="pill">只读</span><span class="count" id="task-board-count"></span></h2>
     <p class="task-board-note" id="task-board-note"></p>
+    <p class="task-board-link" id="task-board-link" aria-live="polite">悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点一下钉住，<kbd>Esc</kbd> 取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。</p>
     <div class="kanban" id="kanban"></div>
   </section>
 
@@ -1167,6 +1186,9 @@ function layout(snap) {
   const L = snap.lead;
   const leadStatus = L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle';
   const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '' }, true, snap);
+  lead.dataset.link = (snap.officialTeam && typeof snap.officialTeam.lead === 'string') ? snap.officialTeam.lead : '';
+  lead.tabIndex = 0;
+  lead.querySelector('.name').title = linkPinTitle(lead.dataset.link);
   lead.style.left = (leadX - 95) + 'px'; lead.style.top = LEAD_TOP + 'px';
   const leadBusy = L.active && L.current && !L.current.done;
   lead.querySelector('.state').textContent = leadBusy ? `正在${TOOL_ZH[L.current.name] || '使用'} ${shortTool(L.current.name)}` : L.phase === 'coordinating' ? `协调中 · ${L.running} 人在干活` : L.phase === 'finished' ? '全员交付，收尾中' : L.phase === 'waiting' ? '等待停滞成员' : (L.active ? '思考中…' : '待命');
@@ -1204,6 +1226,9 @@ function layout(snap) {
         const cx = x + PPAD + SLOT / 2 + col * SLOT, top = y + DEPT_HEAD + 8 + rowI * (MEMBER_H + MROW_GAP);
         positions.set(m.id, { cx, top, dept: it.d.id });
         const pel = ensurePerson(m, false, snap);
+        pel.dataset.link = m.name || '';
+        pel.tabIndex = 0;
+        pel.querySelector('.name').title = linkPinTitle(pel.dataset.link);
         pel.style.left = (cx - 95) + 'px'; pel.style.top = top + 'px';
         pel.querySelector('.state').textContent = stateText(m);
         pel.querySelector('.act').textContent = m.current ? m.current.label : (m.description || '');
@@ -1239,6 +1264,7 @@ function layout(snap) {
   for (const [k, kind] of pairs) { const [a, b] = k.split('|'); paths += `<path class="rel ${kind === 'handoff' ? 'hand' : kind === 'relay' ? 'relay' : kind === 'bus' ? 'bus' : ''}" data-pair="${k}" d="${curve(positions.get(a), positions.get(b))}"/>`; }
   svg.querySelectorAll('.wire, .rel').forEach(e => e.remove());
   svg.insertAdjacentHTML('afterbegin', paths);
+  applyLinkHighlight();
 }
 
 function curve(a, b) { const ax = a.cx, ay = a.top + 56, bx = b.cx, by = b.top + 56; const mx = (ax + bx) / 2, lift = Math.min(140, 40 + Math.abs(bx - ax) * 0.18 + Math.abs(by - ay) * 0.1); const my = Math.min(ay, by) - lift; return `M ${ax},${ay} Q ${mx},${my} ${bx},${by}`; }
@@ -1297,7 +1323,8 @@ function renderTasks(snap) {
   const wrap = $('#tasks');
   for (const m of snap.members) {
     let el = taskEls.get(m.id), fresh = false;
-    if (!el) { el = document.createElement('div'); el.addEventListener('click', () => openDrawer(m.id)); wrap.appendChild(el); taskEls.set(m.id, el); fresh = true; }
+    if (!el) { el = document.createElement('div'); el.tabIndex = 0; el.addEventListener('click', () => openDrawer(m.id)); wrap.appendChild(el); taskEls.set(m.id, el); fresh = true; }
+    el.dataset.link = m.name || '';
     el.className = `task ${m.status} ${fresh ? 'fresh' : ''}`;
     el.innerHTML = `<div class="top">${miniPet(m, 26)}<span class="who">${esc(m.name)}</span><span class="dp">${esc(DEPT_NAME[m.dept] || '')}</span>${m.unread ? `<span class="ur" title="${m.unread} 条未读总线消息">✉${m.unread}</span>` : ''}<span class="pill ${STATUS_PILL[m.status]}">${STATUS_LABEL[m.status]}</span></div>
       <div class="subject">${esc(m.description)}</div>
@@ -1320,14 +1347,26 @@ function taskSort(a, b) {
   if (!Number.isNaN(an) && !Number.isNaN(bn) && an !== bn) return an - bn;
   return ai < bi ? -1 : ai > bi ? 1 : 0;
 }
+function linkNames(snap) {
+  const names = new Set();
+  for (const m of (snap && snap.members) || []) if (m && typeof m.name === 'string' && m.name) names.add(m.name);
+  const lead = snap && snap.officialTeam && snap.officialTeam.lead;
+  if (typeof lead === 'string' && lead) names.add(lead);
+  return names;
+}
+/* 与 team_board.exact_owner_name 同一条规则：只认完全相同的字符串。 */
+function ownerMatchOf(task, snap) {
+  if (!task) return '';
+  const owner = typeof task.owner === 'string' ? task.owner : '';
+  if (!owner || !linkNames(snap).has(owner)) return '';
+  if (Object.prototype.hasOwnProperty.call(task, 'ownerMatch')) return task.ownerMatch === owner ? owner : '';
+  return owner;
+}
 function taskOwnerLabel(task, snap) {
   const owner = task.owner || '';
   if (!owner) return { text: '未认领', known: false, title: '还没有 owner' };
-  const names = new Set((snap.members || []).map(m => m.name));
-  const lead = (snap.officialTeam || {}).lead;
-  if (lead) names.add(lead);
-  const known = names.has(owner);
-  return { text: owner, known, title: known ? '负责人' : 'owner 与成员名字不完全一致，不记到成员卡上' };
+  const known = ownerMatchOf(task, snap) === owner && !!owner;
+  return { text: owner, known, title: known ? '负责人，名字完全一致' : 'owner 与成员名字不完全一致，不记到成员卡上' };
 }
 function taskDepText(task) {
   const waiting = task.waitingOn || [], blockedBy = task.blockedBy || [], blocks = task.blocks || [];
@@ -1355,7 +1394,13 @@ function taskAgeTitle(task) {
 function renderTaskBoard(snap) {
   const panel = $('#task-board');
   const team = snap.officialTeam || {};
-  if (!team.available) { panel.hidden = true; $('#kanban').innerHTML = ''; return; }
+  if (!team.available) {
+    panel.hidden = true;
+    linkHold = true;
+    $('#kanban').innerHTML = '';
+    linkHold = false;
+    return;
+  }
   panel.hidden = false;
   const tasks = team.tasks || [];
   const count = (key) => tasks.filter(task => task.normalizedStatus === key).length;
@@ -1367,12 +1412,16 @@ function renderTaskBoard(snap) {
     : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
     + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。` + sourceNote;
+  linkHold = true;
+  try {
   $('#kanban').innerHTML = TASK_COLUMNS.map(col => {
     const items = tasks.filter(task => task.normalizedStatus === col.key).slice().sort(taskSort);
     const cards = items.map(task => {
       const owner = taskOwnerLabel(task, snap);
+      const match = ownerMatchOf(task, snap);
       const desc = task.description ? `<div class="kdesc">${esc(task.description)}</div>` : '';
-      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}" draggable="false" data-task="${esc(task.id == null ? '' : String(task.id))}">
+      const cardTitle = match ? ` title="${esc('负责人 ' + match + '。点一下钉住，Esc 取消')}"` : '';
+      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${match ? ' linkable' : ''}" draggable="false" tabindex="0" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}"${cardTitle}>
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
         <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span></div>
         <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
@@ -1380,7 +1429,102 @@ function renderTaskBoard(snap) {
     }).join('') || '<div class="kempty">空</div>';
     return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
   }).join('');
+  } finally {
+    linkHold = false;
+  }
+  applyLinkHighlight();
 }
+
+/* 看板卡 ↔ 成员卡：只按 owner 与成员 name / lead 名字的完全一致互相关联。
+   钉住之后，悬停另一张卡会临时换成那一条；移开后回到钉住的名字。
+   没认领、或名字对不上的任务不加 xdim，保持原样。其他人名下的任务变淡。 */
+const LINK_HINT = '悬停或聚焦一张卡，按完全相同的名字连到舞台上的人。点一下钉住，<kbd>Esc</kbd> 取消。没认领或名字对不上的任务保持原样，其他人的任务变淡。';
+let linkPin = '', linkHover = '', linkScope = '', linkHold = false;
+const linkPinTitle = (name) => name ? `点一下钉住「${name}」名下的任务，再点或 Esc 取消` : '';
+function activeLinkName() { return linkHover || linkPin; }
+function syncLinkScope(snap) {
+  const session = (snap.session && snap.session.id) || '';
+  const team = (snap.officialTeam && snap.officialTeam.available && snap.officialTeam.teamName) || '';
+  const scope = session + '\n' + team;
+  if (scope === linkScope) return;
+  linkScope = scope;
+  linkPin = '';
+  linkHover = '';
+}
+function applyLinkHighlight() {
+  const key = activeLinkName();
+  document.querySelectorAll('#stage .person, #tasks .task').forEach(el => {
+    const name = el.dataset.link || '';
+    const on = !!(key && name && name === key);
+    el.classList.toggle('xhi', on);
+    el.classList.toggle('xpin', on && linkPin === name);
+  });
+  document.querySelectorAll('#kanban .kcard').forEach(el => {
+    const match = el.dataset.ownerMatch || '';
+    const on = !!(key && match && match === key);
+    el.classList.toggle('xhi', on);
+    el.classList.toggle('xdim', !!(key && match && match !== key));
+    el.classList.toggle('xpin', on && linkPin === match);
+  });
+  const hint = $('#task-board-link');
+  if (!hint) return;
+  if (linkPin) {
+    if (hint.dataset.pin === linkPin) return;
+    hint.dataset.pin = linkPin;
+    hint.classList.add('pinned');
+    hint.innerHTML = `已钉住「${esc(linkPin)}」· 再点一次或按 <kbd>Esc</kbd> 取消`;
+  } else if (hint.dataset.pin) {
+    delete hint.dataset.pin;
+    hint.classList.remove('pinned');
+    hint.innerHTML = LINK_HINT;
+  }
+}
+function toggleLinkPin(name) {
+  if (!name) return;
+  linkPin = linkPin === name ? '' : name;
+  applyLinkHighlight();
+}
+function linkSurface(node) {
+  if (!node || !node.closest) return null;
+  return node.closest('#kanban .kcard, #stage .person, #tasks .task');
+}
+function linkValue(node) {
+  const el = linkSurface(node);
+  if (!el) return null;
+  if (el.classList.contains('kcard')) return el.dataset.ownerMatch || '';
+  return el.dataset.link || '';
+}
+document.addEventListener('pointerover', (e) => {
+  if (linkHold) return;
+  const value = linkValue(e.target);
+  if (value === null || value === linkHover) return;
+  linkHover = value;
+  applyLinkHighlight();
+});
+document.addEventListener('pointerout', (e) => {
+  if (linkHold || linkValue(e.target) === null || linkValue(e.relatedTarget) !== null) return;
+  const focused = linkValue(document.activeElement);
+  linkHover = focused === null ? '' : focused;
+  applyLinkHighlight();
+});
+document.addEventListener('focusin', (e) => {
+  const value = linkValue(e.target);
+  if (value === null) return;
+  linkHover = value;
+  applyLinkHighlight();
+});
+document.addEventListener('focusout', (e) => {
+  if (linkValue(e.target) === null || linkValue(e.relatedTarget) !== null) return;
+  linkHover = '';
+  applyLinkHighlight();
+});
+document.addEventListener('click', (e) => {
+  const card = e.target.closest && e.target.closest('#kanban .kcard');
+  if (card) { toggleLinkPin(card.dataset.ownerMatch || ''); return; }
+  const person = e.target.closest && e.target.closest('#stage .person');
+  if (!person || (e.target.closest && e.target.closest('.avatar-wrap'))) return;
+  toggleLinkPin(person.dataset.link || '');
+});
 
 /* ---------- 通讯频道：聊天式时间线（最旧在上、最新在下；你发的在右侧） ---------- */
 let commsFilter = 'all', commsSig = '';
@@ -1792,10 +1936,12 @@ async function tick() {
     const r = await fetch('/snapshot.json' + (selectedSession ? `?session=${encodeURIComponent(selectedSession)}` : ''), { cache: 'no-store' });
     const snap = await r.json();
     if (DEMO) demoAugment(snap);
+    syncLinkScope(snap);
     failing = 0; $('#live').classList.remove('off');
     if (snap.backdrop) { bdApi = true; applyBackdrop(snap.backdrop); } else if (bdApi === null) { bdApi = 'probing'; probeBackdrop(); }
     notifyChanges(snap);
     renderHeader(snap); layout(snap); renderStats(snap); renderTaskBoard(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap); refreshRecipients(snap);
+    applyLinkHighlight();
     if (selectedId && $('#drawer').classList.contains('open')) { const m = selectedId === '__lead' ? leadAsMember(snap) : snap.members.find(x => x.id === selectedId); if (m) { $('#d-avatar').innerHTML = miniPet(m, 60); renderDrawerBody(m); } }
     prev = snap; firstLoad = false;
   } catch (e) { console.error(e); if (++failing > 2) { if (failing === 3) toast('连不上看板服务，稍后自动重试', 'err', 'OFFLINE'); $('#live').classList.add('off'); } }
@@ -1946,7 +2092,7 @@ async function markUserRead(force) {
 if ('IntersectionObserver' in window) new IntersectionObserver((es) => { if (es.some(x => x.isIntersecting) && document.visibilityState === 'visible') markUserRead(); }, { threshold: 0.5 }).observe($('#comms'));
 document.addEventListener('click', (e) => { if (e.target.closest('#btn-unread')) { $('#chan').scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => $('#comms-input').focus({ preventScroll: true }), 350); markUserRead(true); } });
 
-/* ---------- 快捷键：/ 聚焦消息框 · Esc 关抽屉/弹窗 · R 回放通信 ---------- */
+/* ---------- 快捷键：/ 聚焦消息框 · Esc 关抽屉/弹窗，再取消钉住的任务高亮 · R 回放通信 ---------- */
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
@@ -1954,8 +2100,18 @@ document.addEventListener('keydown', (e) => {
     const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
     if (open) { open.hidden = true; e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
+    if (linkPin) { linkPin = ''; applyLinkHighlight(); e.preventDefault(); return; }
     if (typing) e.target.blur();
     return;
+  }
+  if (!typing && (e.key === 'Enter' || e.key === ' ') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing) {
+    const card = e.target.classList && e.target.classList.contains('kcard') ? e.target : null;
+    const person = e.target.classList && e.target.classList.contains('person') ? e.target : null;
+    if (card || person) {
+      e.preventDefault();
+      toggleLinkPin(card ? (card.dataset.ownerMatch || '') : (person.dataset.link || ''));
+      return;
+    }
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
   if (e.key === '/') { e.preventDefault(); $('#chan').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); $('#comms-input').focus({ preventScroll: true }); }
@@ -2325,9 +2481,11 @@ function demoAugment(s) {
     if (!demoOfficial) demoOfficial = {
       available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
       tasks: [
-        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
-        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
-        { id: '3', subject: 'Wait for the synthetic survey', description: '依赖 1 完成前不能认领。', status: 'pending', normalizedStatus: 'pending', owner: null, blockedBy: ['1'], blocks: [], blocked: true, waitingOn: ['1'], stateSince: now - 40, stateSinceKind: 'file-shared' },
+        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
+        { id: '3', subject: 'Wait for the synthetic survey', description: '依赖 1 完成前不能认领。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1'], blocks: [], blocked: true, waitingOn: ['1'], stateSince: now - 40, stateSinceKind: 'file-shared' },
+        { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
+        { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
       ],
     };
     s.officialTeam = demoOfficial;
