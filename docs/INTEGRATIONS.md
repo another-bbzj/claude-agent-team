@@ -27,9 +27,20 @@ To read an already-running board:
 python tools/export_snapshot.py --port 7788 --output metrics.json
 ```
 
+When several projects are active, select the source explicitly:
+
+```sh
+python tools/export_snapshot.py --port 7788 --session sess-0001 --output metrics.json
+python tools/export_snapshot.py --port 7788 --project C--demo --output metrics.json
+```
+
+`--session` matches a session ID prefix. `--project` prefers an exact project key, otherwise a substring; it selects the most recently active matching session. A session prefix shared by multiple sessions also selects the most recently active match, so use a full ID when you need a unique target. Project keys are the keys shown by the board, not filesystem paths. These mutually exclusive options require `--port`; they cannot filter an offline `--input` file. Omitting them preserves the server's default selection. Browser session selection is independent of this command.
+
+The exporter URL-encodes the selector and verifies the returned session metadata before exporting. Missing or mismatched session metadata returns 1 without overwriting an existing output file. Selector values remain local to the request and never appear in exported aggregates or fixed error diagnostics. The output schema remains version 1.
+
 Python 3.8+ and its standard library are sufficient. Choose exactly one of `--input` or `--port`. The output directory must already exist. The exporter refuses an output path that resolves to the input file, including an existing hardlink alias. Exit code 0 means success; 1 means a read, validation or write failure; argparse uses 2 for invalid command-line arguments. Error messages omit source data and tracebacks.
 
-The live mode performs one read-only GET to `http://127.0.0.1:<port>/snapshot.json`, bypasses environment/system HTTP proxies, refuses all redirects, and has a five-second socket timeout. Both file and HTTP inputs have an 8 MiB limit. There is no arbitrary remote-URL option or automatic upload.
+The live mode performs one read-only GET to `http://127.0.0.1:<port>/snapshot.json` with an optional encoded `session` or `project` query parameter, bypasses environment/system HTTP proxies, refuses all redirects, and has a five-second socket timeout. Both file and HTTP inputs have an 8 MiB limit. There is no arbitrary remote-URL option or automatic upload.
 
 ### Output contract: schemaVersion 1
 
