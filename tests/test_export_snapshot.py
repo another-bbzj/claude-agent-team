@@ -5,7 +5,9 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import tempfile
+import threading
 import unittest
 import urllib.request
 from http.client import BadStatusLine, IncompleteRead
@@ -184,6 +186,117 @@ class ReadAndCliTest(unittest.TestCase):
                 self.assertIn('cannot read local board', error.getvalue())
                 self.assertNotIn('SECRET', error.getvalue())
                 self.assertNotIn('Traceback', error.getvalue())
+
+
+class LiveSelectionTest(unittest.TestCase):
+    def setUp(self):
+        environment = mock.patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        self.env = BoardEnv()
+        self.addCleanup(self.env.cleanup)
+        board = self.env.load()
+        original = board.PROJECTS / 'C--demo'
+        other = board.PROJECTS / 'C--other'
+        shutil.copytree(original, other)
+        (other / 'sess-0001').rename(other / 'sess-0002')
+        (other / 'sess-0001.jsonl').rename(other / 'sess-0002.jsonl')
+        (other / 'sess-0002' / 'subagents' / 'agent-b2.jsonl').unlink()
+        # The default is deliberately a different session from the requested one.
+        board.Handler.args = board.argparse.Namespace(session='sess-0001', project=None, stale=600)
+        server = board.LoopbackHTTPServer(('127.0.0.1', 0), board.Handler)
+        thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.01}, daemon=True)
+        thread.start()
+        self.port = server.server_port
+
+        def close():
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+        self.addCleanup(close)
+
+    def test_session_prefix_selects_requested_metrics_without_exporting_identity(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(exporter.main(['--port', str(self.port), '--session', 'sess-0002']), 0)
+        metrics = json.loads(output.getvalue())
+        self.assertEqual(metrics['memberCount'], 1)
+        self.assertNotIn('sess-0002', output.getvalue())
+        self.assertNotIn('C--other', output.getvalue())
+        self.assertEqual(exporter.export_metrics(exporter.read_snapshot(port=self.port))['memberCount'], 2)
+        selected = exporter.read_snapshot(port=self.port, session='sess-000')
+        self.assertEqual(selected['session']['id'], 'sess-0001')
+
+    def test_project_exact_key_and_substring_override_server_session_filter(self):
+        for project in ('C--other', 'other'):
+            with self.subTest(project=project):
+                snapshot = exporter.read_snapshot(port=self.port, project=project)
+                self.assertEqual(snapshot['session']['project'], 'C--other')
+                self.assertEqual(exporter.export_metrics(snapshot)['memberCount'], 1)
+
+    def test_unmatched_selector_preserves_previous_output_and_omits_private_values(self):
+        target = self.env.tmp / 'metrics.json'
+        for flag in ('--session', '--project'):
+            target.write_text('previous output', encoding='utf-8')
+            with self.subTest(flag=flag), contextlib.redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(exporter.main(['--port', str(self.port), flag, 'PRIVATE_UNKNOWN',
+                                                '--output', str(target)]), 1)
+            self.assertEqual(target.read_text(encoding='utf-8'), 'previous output')
+            self.assertIn('no matching session', error.getvalue())
+            self.assertNotIn('PRIVATE', error.getvalue())
+            self.assertNotIn('Traceback', error.getvalue())
+
+
+class SelectorValidationTest(unittest.TestCase):
+    def test_query_encoding_cannot_inject_extra_parameters(self):
+        project = 'synthetic 项目 &session=PRIVATE#?+'  # Deliberately not a filesystem path.
+        response = io.BytesIO(json.dumps({'session': {'id': 'synthetic', 'project': project}}).encode('utf-8'))
+        with mock.patch.object(exporter.urllib.request, 'build_opener') as build:
+            build.return_value.open.return_value = response
+            exporter.read_snapshot(port=9000, project=project)
+        url = build.return_value.open.call_args.args[0]
+        parsed = exporter.urllib.parse.urlparse(url)
+        self.assertEqual((parsed.scheme, parsed.netloc, parsed.path, parsed.fragment),
+                         ('http', '127.0.0.1:9000', '/snapshot.json', ''))
+        self.assertEqual(exporter.urllib.parse.parse_qs(parsed.query), {'project': [project]})
+        self.assertEqual(build.return_value.open.call_args.kwargs['timeout'], 5)
+
+    def test_invalid_cli_selector_combinations_fail_before_any_request(self):
+        source = str(ROOT / 'examples' / 'snapshot.synthetic.json')
+        bad = (['--input', source, '--session', 'PRIVATE'],
+               ['--input', source, '--project', 'PRIVATE'],
+               ['--port', '7788', '--session', 'a', '--project', 'b'],
+               ['--port', '7788', '--session', ''],
+               ['--port', '7788', '--project', '   '])
+        for args in bad:
+            with self.subTest(args=args), mock.patch.object(exporter, 'read_snapshot') as read, \
+                    contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                exporter.main(args)
+            self.assertEqual(error.exception.code, 2)
+            read.assert_not_called()
+
+    def test_invalid_function_selectors_fail_before_io(self):
+        bad = ({'port': 7788, 'session': 'a', 'project': 'b'},
+               {'input_path': 'PRIVATE', 'session': 'a'},
+               {'port': 7788, 'session': ''}, {'port': 7788, 'project': 3},
+               {'port': 7788, 'project': '\ud800'})
+        for kwargs in bad:
+            with self.subTest(kwargs=kwargs), mock.patch.object(exporter.urllib.request, 'build_opener') as build, \
+                    self.assertRaises(exporter.ExportError) as error:
+                exporter.read_snapshot(**kwargs)
+            build.assert_not_called()
+            self.assertNotIn('PRIVATE', str(error.exception))
+
+    def test_server_ignoring_selector_is_rejected(self):
+        for payload in (None, {}, {'session': None}, {'session': {'id': 'other', 'project': 'other'}}):
+            for kwargs in ({'session': 'PRIVATE'}, {'project': 'PRIVATE'}):
+                response = io.BytesIO(json.dumps(payload).encode('utf-8'))
+                with self.subTest(payload=payload, kwargs=kwargs), \
+                        mock.patch.object(exporter.urllib.request, 'build_opener') as build:
+                    build.return_value.open.return_value = response
+                    with self.assertRaises(exporter.ExportError) as error:
+                        exporter.read_snapshot(port=7788, **kwargs)
+                    self.assertNotIn('PRIVATE', str(error.exception))
 
 
 if __name__ == '__main__':
