@@ -31,6 +31,7 @@ VERSION_URL = os.environ.get('TEAM_UPDATE_VERSION_URL') or f'https://raw.githubu
 ZIP_URL = os.environ.get('TEAM_UPDATE_ZIP_URL') or f'https://github.com/{REPO}/archive/refs/heads/main.zip'
 UA = {'User-Agent': 'claude-agent-team-updater'}
 PORT = int(os.environ.get('TEAM_BOARD_PORT', '7788'))
+_LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # 仅本机服务控制绕过代理，下载仍用 urlopen
 
 
 def local_version() -> str:
@@ -94,14 +95,16 @@ def apply(restart: bool = False) -> int:
 def restart_board():
     """让正在跑的看板服务退出，再用 ensure.py 起新代码。"""
     try:
-        urllib.request.urlopen(urllib.request.Request(f'http://127.0.0.1:{PORT}/api/shutdown', data=b'{}',
-                                                      headers={'Content-Type': 'application/json'}), timeout=5).read()
+        with _LOCAL_OPENER.open(urllib.request.Request(f'http://127.0.0.1:{PORT}/api/shutdown', data=b'{}',
+                                                      headers={'Content-Type': 'application/json'}), timeout=5) as r:
+            r.read()
     except Exception:
         pass
     for _ in range(40):
         time.sleep(0.25)
         try:
-            urllib.request.urlopen(f'http://127.0.0.1:{PORT}/snapshot.json', timeout=1).read()
+            with _LOCAL_OPENER.open(f'http://127.0.0.1:{PORT}/snapshot.json', timeout=1) as r:
+                r.read()
         except Exception:
             break
     result = subprocess.run([sys.executable, str(HERE / 'ensure.py')], env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
