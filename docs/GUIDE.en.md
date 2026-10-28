@@ -194,7 +194,7 @@ Screenshots and every control are in the [Chinese illustrated guide](GUIDE.md#ui
 
 | Region | What it is |
 |---|---|
-| **Top bar** | Phase (forming / coordinating / wrapped) · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · appearance · theme (auto / light / dark) |
+| **Top bar** | Phase (forming / coordinating / wrapped) · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · appearance · theme (auto / light / dark). When one repository has sessions in more than one git worktree, a theater strip under the mission line lists each branch; assumptions are in [WORKTREES.md](WORKTREES.md) |
 | **Formation** | You (labeled DOCTOR) at the top, the lead under that, then a panel per department. Each member: sprite, nameplate, `model · effort · cost`, current tool, progress, elapsed time, unread mark. Lines: assign / report / relay / file handoff / direct / bus. **Replay** (shortcut `R`) replays this session’s traffic |
 | **Department totals** | Headcount, running / done / failed, tool calls, tokens, cache hit, time, models, cost, then comparison bars |
 | **Cost rank** | Members ordered by estimated cost. Color separates opus / sonnet / haiku |

@@ -38,6 +38,11 @@ are shifted in memory so the example remains readable. The example is a fixed
 scenario, not live work or evidence of project adoption. Its numbers are not a
 benchmark or a real bill. The kanban in this demo does not read `~/.claude/tasks/`.
 
+The same fixture includes one synthetic worktree theater, `synthetic-repo`, with branches
+`main` and `worktree-feature-board`. The strip under the mission line lists both.
+Choosing the other branch updates that label only; the member cards stay the one
+example team. How live transcripts are grouped is [WORKTREES.md](WORKTREES.md).
+
 The synthetic member 演示文档 is stalled on purpose. The fixture clock is 15 minutes
 after that member's last event (a finished `Read`, then silence). The stall alert
 threshold defaults to **10 minutes** (`600` seconds; `--stall-alert` on the live

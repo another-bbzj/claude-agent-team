@@ -171,6 +171,10 @@
   .mission .sub { color: var(--text-3); flex: 1; min-width: 0; font-family: var(--mono); font-size: 11.5px; }
   .mission .live-dot { display: inline-block; width: 6px; height: 6px; background: var(--ok); margin-right: 6px; vertical-align: 1px; animation: pulse 1.1s ease-in-out infinite; }
   .mission.idle .live-dot { background: var(--text-3); animation: none; }
+  .theater { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg-2) 55%, transparent); }
+  .theater[hidden] { display: none !important; }
+  .theater .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--text-3); }
+  .theater button.pill.on { border-color: var(--brand); color: var(--text); background: var(--brand-soft); }
   .mission .hook-live { letter-spacing: .08em; background: var(--line); color: var(--text-3); }
   .mission .hook-live.on { background: var(--ok); color: #102016; }
   .mission .hook-live .live-dot { width: 6px; height: 6px; margin-right: 6px; background: currentColor; box-shadow: none; transform: none; animation: none; }
@@ -740,6 +744,7 @@
   @media (max-width: 900px) {
     header { padding: 8px 12px; }
     .mission { padding: 6px 12px; flex-wrap: wrap; }
+    .theater { padding: 6px 12px; }
     .mission .sub { flex-basis: 100%; }
     main { padding: 12px 10px 40px; gap: 12px; }
     header select { max-width: 100%; flex: 1; }
@@ -829,6 +834,7 @@
   </div>
 </header>
 <div class="mission" id="mission"><b><span class="live-dot"></span>LIVE</b><b id="hook-live" class="hook-live" role="status" data-state="wait" title="这个会话还没有新的钩子事件"><span class="live-dot"></span><span class="lbl">实时·等待</span></b><span id="mission-text">实时监听 Agent Team 工作</span><span class="sub" id="mission-sub"></span></div>
+<div class="theater" id="theater" hidden role="navigation" aria-label="同一仓库的 worktree 会话"></div>
 <section class="stall-panel" id="stall-panel" hidden aria-label="停滞提醒">
   <div class="stall-bar">
     <strong>停滞提醒</strong>
@@ -2460,7 +2466,7 @@ function renderHeader(snap) {
     ${snap.update && snap.update.hasUpdate ? `<button class="pill warn" id="btn-update" title="本机 v${esc(snap.update.local)} → GitHub v${esc(snap.update.remote)}。点击自动下载安装并重启看板；你的配置、形象、改过的成员都保留">⬆ 有新版本 v${esc(snap.update.remote)} · 一键更新</button>` : ''}
     ${t.unpriced ? `<span class="pill warn" title="这些模型不在 team.json 的价格表里，成本未计入：${esc((t.unpricedModels || []).join(', '))}。在 team-board/team.json 的 pricing_usd_per_mtok 里按模型 id（或前缀）加一条即可">⚠ ${t.unpriced} 个模型未定价</span>` : ''}
     ${t.allUsage ? `<span class="pill mono" title="成员 ${fmtTok(t.usage.total)} + 队长 ${fmtTok(t.leadUsage.total)}；输入 ${fmtTok(t.allUsage.in)} · 输出 ${fmtTok(t.allUsage.out)} · 缓存读 ${fmtTok(t.allUsage.cache_read)} · 缓存写 ${fmtTok(t.allUsage.cache_write)}">Σ ${fmtTok(t.allUsage.total)} tok · 缓存命中 ${Math.round(t.allUsage.cacheHit * 100)}%</span>` : ''}`;
-  $('#session-pill').textContent = snap.session ? `${snap.session.id.slice(0, 8)} · ${fmtRel(snap.session.lastActivity)}` : '无会话';
+  $('#session-pill').textContent = snap.session ? `${snap.session.id.slice(0, 8)}${snap.session.branch ? ' · ' + snap.session.branch : ''} · ${fmtRel(snap.session.lastActivity)}` : '无会话';
   const proj = snap.session ? (snap.session.project.replace(/^C--Users-[^-]+-?/, '') || snap.session.project) : '';
   const quiet = snap.session ? Date.now() / 1000 - snap.session.lastActivity : Infinity;
   $('#mission').classList.toggle('idle', quiet > 120);
@@ -2468,8 +2474,27 @@ function renderHeader(snap) {
   $('#mission-text').textContent = snap.session ? `实时监听 Agent Team 工作 · ${snap.lead.running ? `${snap.lead.running} 位成员进行中` : quiet > 120 ? '暂无活动，等待下一次派工' : '队长在线'} · 最近活动 ${fmtRel(snap.session.lastActivity)}` : '实时监听 Agent Team 工作 · 还没有会话派出过子代理';
   const mp = snap.lead.lastUserPrompt; $('#mission-sub').textContent = (proj ? `项目 ${proj}` : '') + (mp ? ` · 当前指令：${mp}` : ''); $('#mission-sub').title = mp || '';
   const sel = $('#session-select'), cur = sel.value;
-  const opts = ['<option value="">自动：最近活跃的会话</option>'].concat(snap.sessions.map(s => `<option value="${s.id}">${esc(s.project.replace(/^C--Users-[^-]+-?/, '') || s.project)} · ${s.id.slice(0, 8)} · ${s.count} 人 · ${fmtRel(s.mtime)}</option>`));
+  const opts = ['<option value="">自动：最近活跃的会话</option>'].concat((snap.sessions || []).map(s => {
+    const branch = s.branch ? ` · ${s.branch}` : '';
+    const project = (s.project || '').replace(/^C--Users-[^-]+-?/, '') || s.project || '';
+    return `<option value="${esc(s.id)}">${esc(project)}${branch} · ${esc(String(s.id || '').slice(0, 8))} · ${s.count} 人 · ${fmtRel(s.mtime)}</option>`;
+  }));
   if (sel.innerHTML !== opts.join('')) { sel.innerHTML = opts.join(''); sel.value = cur; }
+  renderTheater(snap);
+}
+
+function renderTheater(snap) {
+  const box = $('#theater');
+  if (!box) return;
+  const sid = (snap.session && snap.session.id) || '';
+  const group = (snap.theaters || []).find(t => (t.sessions || []).some(s => s.id === sid));
+  if (!group || (group.sessions || []).length < 2) { box.hidden = true; box.innerHTML = ''; return; }
+  const buttons = group.sessions.map(s => {
+    const where = s.primary ? '主工作区' : (s.worktree || 'worktree');
+    return `<button type="button" class="pill${s.id === sid ? ' on' : ''}" data-theater-session="${esc(s.id)}" title="${esc(where)}">${esc(s.branch || '未知分支')}</button>`;
+  }).join('');
+  box.hidden = false;
+  box.innerHTML = `<span class="lbl">作战区</span><span class="pill brand" title="同一 git 仓库的多路 worktree">${esc(group.label || 'repository')}</span>${buttons}`;
 }
 
 function memberFor(id, avatar) { if (id === '__lead' || id === '__all') return { id: '__lead', agentType: '', avatar: 'team-lead', name: '' }; return prev?.members.find(x => x.id === id) || { id, agentType: '', avatar: avatar || 'server-engineer', name: '' }; }
@@ -2721,7 +2746,23 @@ document.addEventListener('pointerdown', (e) => {
   selectedId = null; dr.classList.remove('open'); if (prev) layout(prev);
 });
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });
-$('#session-select').addEventListener('change', (e) => { selectedSession = e.target.value; prev = null; firstLoad = true; commsSig = ''; commsOpen.clear(); seenComms.clear(); seenFeed.clear(); closeTaskDetail(false); for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); } personEls.clear(); for (const el of deptEls.values()) el.remove(); deptEls.clear(); for (const el of taskEls.values()) el.remove(); taskEls.clear(); tick(); });
+function selectSession(id) {
+  selectedSession = id || '';
+  const sel = $('#session-select');
+  if (sel && [...sel.options].some(o => o.value === selectedSession)) sel.value = selectedSession;
+  prev = null; firstLoad = true; commsSig = ''; commsOpen.clear(); seenComms.clear(); seenFeed.clear(); closeTaskDetail(false);
+  for (const el of personEls.values()) { el._sprite.destroy(); el.remove(); }
+  personEls.clear();
+  for (const el of deptEls.values()) el.remove(); deptEls.clear();
+  for (const el of taskEls.values()) el.remove(); taskEls.clear();
+  tick();
+}
+$('#session-select').addEventListener('change', (e) => selectSession(e.target.value));
+$('#theater').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-theater-session]');
+  if (!b || b.dataset.theaterSession === selectedSession) return;
+  selectSession(b.dataset.theaterSession);
+});
 
 let failing = 0;
 async function tick() {
@@ -3614,9 +3655,9 @@ tick(); setInterval(tick, 1500);
   const shot = new URLSearchParams(location.search).get('shot'); if (!shot) return;
   const hide = (sel) => document.querySelectorAll(sel).forEach(e => e.style.display = 'none');
   setTimeout(async () => {
-    if (shot === 'stats') { hide('header, .mission, .stage, .lower, #task-board'); }
-    if (shot === 'lower') { hide('header, .mission, .stage, .statsrow, #task-board'); }
-    if (shot === 'tasks') { hide('header, .mission, .stage, .statsrow, .lower'); }
+    if (shot === 'stats') { hide('header, .mission, .theater, .stage, .lower, #task-board'); }
+    if (shot === 'lower') { hide('header, .mission, .theater, .stage, .statsrow, #task-board'); }
+    if (shot === 'tasks') { hide('header, .mission, .theater, .stage, .statsrow, .lower'); }
     if (shot === 'member') { await openAgentModal(null); const f = $('#agent-form'); f.name.value = 'security-reviewer'; f.display.value = '小审'; f.role.value = '安全审查员'; f.dept.value = 'qa'; f.model.value = 'opus'; f.effort.value = 'high'; f.color.value = 'purple'; f.description.value = '小审·安全审查员（质量部）。改动涉及登录、权限、支付、外部输入解析时主动使用：审查注入、越权、密钥泄露。'; f.skills.value = 'security-review'; f.body.value = '你是质量部的安全审查员「小审」。开工先读 .team/SPEC.md 与自己的工单；逐条给出 文件:行号 → 问题 → 后果 → 改法；完成后写交接单，汇报 ≤ 200 字。'; updatePreview(); }
     if (shot === 'dept') { await openDeptModal(); }
     if (shot === 'look') { openLook(); }
