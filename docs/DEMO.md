@@ -23,8 +23,15 @@ match, or hover a member to light that person's tasks. Tasks with no owner, and
 one owner that only differs by a trailing space, stay unchanged; tasks owned by
 someone else dim. A plain click opens the drawer and does not pin. Alt-click, or
 the「钉」control on a matched card, pins that exact name; doing it again clears
-the pin. Esc closes the drawer first, then clears the pin. A persistent banner
-marks it as a
+the pin. Esc closes the drawer first, then clears the pin. Above the columns are
+four filters: 全部, 阻塞中, 未对上人, and 已对上. A filter only hides cards. The
+heading counts still include every task. The choice stays in this tab's
+`sessionStorage`, keyed by session id and team name, and is not written to the
+fixture. If a pinned name has no visible card, the pin clears. Hovering, focusing,
+or opening a card draws arcs to dependencies still visible after the current filter:
+unfinished prerequisites are emphasized, completed ones are fainter, a filtered-out
+card is not an endpoint, and clicking an arc opens that card without changing the pin.
+The schematic does not draw these chips or the arcs. A persistent banner marks it as a
 **read-only demo with synthetic data**. All data comes from
 [the synthetic fixture](../examples/board-demo.synthetic.json); displayed times
 are shifted in memory so the example remains readable. The example is a fixed
@@ -65,6 +72,10 @@ a demonstration. For the real transcript-based workflow, follow the
 
 ![Read-only synthetic demo, subagent members and official teammates](img/demo-readonly.png)
 
-The same fixture is drawn below as a theme-aware animation. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. That read sits 15 minutes before the fixture clock, which is past the 10 minute stall-alert default. The animation still shows only the four synthetic subagent members. It does not draw the official Agent Team teammates or the task kanban; those appear on the live demo page, not in this SVG.
+The animation below draws the same fixture's four synthetic subagent members. It is not a screen recording. Names, status, costs and tool labels are the fields in `examples/board-demo.synthetic.json`, formatted with the board's own cost and duration rules. The numbers are the example scenario, not a benchmark or a bill. A `Read` call can be finished while the member is still stalled: that is how this fixture is written. That read sits 15 minutes before the fixture clock, which is past the 10 minute stall-alert default. This animation does not draw the two official teammates or the task kanban.
+
+The five synthetic task cards, including the blocked task's read-only detail and the exact-name highlight, are drawn in the schematic under the animation. That SVG does not respond to the pointer. Click, Enter, Alt-click and the「钉」control work on the live demo page.
 
 ![Synthetic board drawn from examples/board-demo.synthetic.json](img/demo-synthetic.svg)
+
+![Synthetic official task board from examples/board-demo.synthetic.json](img/task-board.svg)

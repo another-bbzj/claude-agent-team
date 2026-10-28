@@ -1853,6 +1853,56 @@ def annotate_owner_matches(tasks, member_names, lead_name=''):
     return tasks
 
 
+def task_owner_match_name(task):
+    """已对上时返回 ownerMatch 里的非空字符串，否则返回空字符串。
+
+    null、缺字段和空字符串都算未对上。不改 task。
+    """
+    if not isinstance(task, dict) or 'ownerMatch' not in task:
+        return ''
+    match = task.get('ownerMatch')
+    if isinstance(match, str) and match:
+        return match
+    return ''
+
+
+def task_is_blocked(task):
+    """阻塞中：flags 含 blocked，或 flags.blocked 为真，或任务上的 blocked 为真。
+
+    三者任一成立即可。不改 task。
+    """
+    if not isinstance(task, dict):
+        return False
+    flags = task.get('flags')
+    if isinstance(flags, (list, tuple)) and 'blocked' in flags:
+        return True
+    if isinstance(flags, dict) and flags.get('blocked'):
+        return True
+    return bool(task.get('blocked'))
+
+
+def task_matches_board_filter(task, filt):
+    """只读看板筛选。未知值当作全部。不改 task，也不碰任务目录。"""
+    if filt not in ('blocked', 'unmatched', 'matched'):
+        return True
+    if filt == 'blocked':
+        return task_is_blocked(task)
+    matched = bool(task_owner_match_name(task))
+    if filt == 'matched':
+        return matched
+    return not matched
+
+
+def link_pin_after_filter(pin, tasks, filt):
+    """钉住的名字在当前筛选下没有可见卡片时，取消钉住。"""
+    if not isinstance(pin, str) or not pin:
+        return ''
+    for task in tasks or ():
+        if task_matches_board_filter(task, filt) and task_owner_match_name(task) == pin:
+            return pin
+    return ''
+
+
 def _official_status(name, tasks):
     """owner 只有和成员 name 完全一致才归属。文档没写 owner 一定是名字。"""
     owned = [task for task in tasks if exact_owner_name(task.get('owner'), [name])]
