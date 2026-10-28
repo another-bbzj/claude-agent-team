@@ -77,7 +77,7 @@ python tools/export_snapshot.py --input examples/snapshot.synthetic.json --forma
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json --format prometheus --output team.prom
 ```
 
-Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prometheus.synthetic.prom). The fixture contains five metric families and 22 samples, all derived from the existing synthetic snapshot.
+Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prometheus.synthetic.prom). The fixture contains five metric families and 22 samples, all derived from the existing synthetic snapshot. That fixture has no session budget, so it does not include `claude_agent_team_budget_utilization_ratio`. The series appears only when `budget.enabled` is true and `budget.ratio` is a finite nonnegative number (known spend divided by the session cap, which may exceed 1). It is not part of the JSON schemaVersion 1 object.
 
 ### Metric contract
 
@@ -88,6 +88,7 @@ Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prome
 | `claude_agent_team_unpriced_entries` | none | Lead/member entries without a configured price |
 | `claude_agent_team_tokens` | `scope="members"`, `"lead"`, `"all"`; `kind="input"`, `"output"`, `"cache_read"`, `"cache_write"`, `"total"` | Board-reported token buckets for each scope |
 | `claude_agent_team_cache_hit_ratio` | `scope="members"`, `"lead"`, `"all"` | Board-reported cache hit ratio between 0 and 1 |
+| `claude_agent_team_budget_utilization_ratio` | `scope="session"` | Optional. Known session spend divided by the configured USD cap. Omitted when no session cap is set. May exceed 1 |
 
 Every family includes `HELP` and `TYPE` metadata. **All metrics are gauges** for the board's currently selected session, not lifetime counters: selecting another session or revising prices may lower a value. Use direct gauge queries, not `rate()` or `increase()`. Scopes overlap (`all` includes lead and members), and token `total` overlaps its component buckets. Select one scope and kind rather than summing across every sample. Costs are estimates, not provider invoices.
 
@@ -134,6 +135,7 @@ Because a failed refresh leaves the last successful file in place, monitor job e
 ```promql
 claude_agent_team_estimated_cost_usd{scope="all"}
 claude_agent_team_tokens{scope="all",kind="output"}
+claude_agent_team_budget_utilization_ratio{scope="session"} > 0.8
 claude_agent_team_unpriced_entries > 0
 time() - node_textfile_mtime_seconds{file=~".*claude_agent_team[.]prom"} > 120
 absent(node_textfile_mtime_seconds{file=~".*claude_agent_team[.]prom"})
@@ -143,7 +145,7 @@ The last two expressions catch stale files and missing first exports, respective
 
 ### Privacy boundary
 
-Exported JSON and Prometheus samples contain numeric aggregates only; Prometheus labels come from fixed scope/kind enums. Session IDs, timestamps, local paths, member names, prompts, tool arguments, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
+Exported JSON and Prometheus samples contain numeric aggregates only; Prometheus labels come from fixed scope/kind enums. The optional budget gauge adds only `scope="session"`. Session IDs, timestamps, local paths, member names, prompts, tool arguments, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
 
 ## Battle card
 
@@ -173,6 +175,7 @@ The card draws a section only when the snapshot already has that data:
 | `stallAlerts.thresholdSec` and `stallAlerts.candidates` | How many idle, errored, or stalled candidates have `idleSeconds` at least the threshold. Names, ids, and error text are not printed. A missing or unusable block is omitted; the card does not time members itself. |
 | `theaters` array | How many theater objects are present. Labels, branches, and session ids are not printed. |
 | `live.available` true and integer `live.retained` | That retained hook-event count, when it is greater than zero. Event bodies are not printed. |
+| `budget.enabled` true and a finite nonnegative `budget.ratio` | A budget-utilization row: the percent, a bar that stops at full width above 100%, and 预算内 / 接近预算 / 超出预算 when `status` is one of `ok`, `warn`, or `over`. A true `lowerBound` adds the fixed words 成本为下限. Names, suggestions, and `lowerBoundLabel` are not printed. |
 
 Sections with nothing to show are omitted. The SVG does not include session ids, local paths, e-mail addresses, prompts, tool arguments, message bodies or model ids. Cost is the board's estimate, not a provider invoice. [`docs/img/battle-card.svg`](img/battle-card.svg) is this command with `--static` on `examples/snapshot.synthetic.json`.
 

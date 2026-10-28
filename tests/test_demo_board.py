@@ -209,8 +209,11 @@ class DemoHttpTest(unittest.TestCase):
         self.assertIn(b'id="theater"', body)
         self.assertIn(b'renderTheater', body)
         self.assertIn(b'id="stall-panel"', body)
+        self.assertIn(b'id="hook-live"', body)
+        self.assertIn(b'id="budget-guard"', body)
         self.assertLess(body.find(b'id="theater"'), body.find(b'id="stall-panel"'))
-        self.assertLess(body.find(b'id="stall-panel"'), body.find(b'id="task-board"'))
+        self.assertLess(body.find(b'id="stall-panel"'), body.find(b'id="budget-guard"'))
+        self.assertLess(body.find(b'id="budget-guard"'), body.find(b'id="task-board"'))
 
     def test_theater_query_switches_the_label_and_keeps_members(self):
         status, _, raw = self.request('GET', '/snapshot.json?session=synthetic-session-wt')

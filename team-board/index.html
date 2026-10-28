@@ -321,6 +321,36 @@
   .statsrow { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; width: 100%; }
   .statsrow > .panel { min-height: 420px; min-width: 0; overflow: hidden; }
   @media (max-width: 1000px) { .statsrow { grid-template-columns: minmax(0, 1fr); } .statsrow > .panel { min-height: 0; } }
+
+  /* budget-guard: 不设预算时整块 hidden，不占位。和停滞提醒、作战区分开。 */
+  #budget-guard[hidden] { display: none !important; }
+  #budget-guard.panel { min-height: 0; padding: 12px 16px 14px; }
+  #budget-guard.ok { box-shadow: inset 3px 0 0 var(--ok); }
+  #budget-guard.warn { box-shadow: inset 3px 0 0 var(--warn); background: color-mix(in srgb, var(--warn) 8%, var(--panel)); }
+  #budget-guard.over { box-shadow: inset 3px 0 0 var(--err); background: color-mix(in srgb, var(--err) 10%, var(--panel)); }
+  #budget-guard.invalid { box-shadow: inset 3px 0 0 var(--text-3); }
+  #budget-guard h2 { margin-bottom: 8px; }
+  .budget-line { font-size: 12.5px; color: var(--text-2); margin: 0 0 6px; line-height: 1.45; }
+  .budget-line strong { color: var(--text); }
+  .budget-bound { color: var(--warn); font-weight: 600; }
+  #budget-guard.over .budget-bound { color: var(--err); }
+  .budget-track { position: relative; display: block; height: 10px; background: var(--line); min-width: 0; }
+  .budget-track > i { display: block; height: 100%; }
+  .budget-track > i.ok { background: var(--ok); }
+  .budget-track > i.warn { background: var(--warn); }
+  .budget-track > i.over { background: var(--err); }
+  .budget-mark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-2); }
+  .budget-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin: 4px 0 8px; }
+  .budget-fig { font-family: var(--mono); font-size: 12px; color: var(--text); white-space: nowrap; }
+  .budget-row { display: grid; grid-template-columns: minmax(8em, 14em) minmax(80px, 1fr) auto; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }
+  .budget-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .budget-suggest { margin: 8px 0 0; padding-left: 1.15em; font-size: 12.5px; line-height: 1.5; }
+  .budget-suggest li { margin: 3px 0; }
+  .budget-foot { margin: 8px 0 0; color: var(--text-3); font-size: 11px; }
+  @media (max-width: 700px) {
+    .budget-main, .budget-row { grid-template-columns: 1fr; }
+    .budget-fig { white-space: normal; }
+  }
   .table-wrap { overflow-x: auto; }
   table.dtable { width: 100%; min-width: 640px; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
   table.dtable td, table.dtable th { overflow: hidden; text-overflow: ellipsis; padding-left: 5px; padding-right: 5px; }
@@ -850,6 +880,7 @@
 </section>
 
 <main>
+  <section class="panel budget-guard" id="budget-guard" hidden aria-live="polite" aria-label="预算护栏"></section>
   <section class="stage">
     <div class="stage-inner" id="stage">
       <div class="stage-title"><span class="no">01</span>部门与队形<span class="en">Formation</span><button id="replay" title="按时间顺序回放本次会话的全部通信（快捷键 R）">▶ 回放通信<kbd>R</kbd></button></div>
@@ -2396,7 +2427,66 @@ function renderRoster(snap) {
   $('#roster-count').textContent = list.length ? `${list.length} 人` : '';
 }
 
+/* budget-guard:start — 与 team-board/budget.py 的 status / lowerBoundLabel / suggestions 对齐 */
+function budgetPct(ratio) {
+  if (typeof ratio !== 'number' || !isFinite(ratio)) return '';
+  const pct = ratio * 100;
+  if (pct >= 10) return Math.round(pct) + '%';
+  return pct.toFixed(1) + '%';
+}
+function budgetVisible(b) {
+  if (!b || b.status === 'off') return false;
+  if (b.enabled === false && b.status !== 'invalid') return false;
+  return b.status === 'ok' || b.status === 'warn' || b.status === 'over' || b.status === 'invalid';
+}
+function budgetStateWord(status, lowerBound) {
+  const word = { ok: '预算内', warn: '接近预算', over: '超出预算' }[status] || status;
+  if (lowerBound && status === 'over') return '超出预算 · 成本为下限';
+  if (lowerBound && status === 'warn') return '接近预算 · 成本为下限';
+  if (lowerBound && status === 'ok') return '成本为下限';
+  return word;
+}
+function budgetBar(scope, warnRatio) {
+  const pct = Math.max(0, Math.min(100, (scope.ratio || 0) * 100));
+  const mark = typeof warnRatio === 'number' ? `<span class="budget-mark" style="left:${Math.max(0, Math.min(100, warnRatio * 100))}%" title="接近线 ${budgetPct(warnRatio)}"></span>` : '';
+  return `<span class="budget-track">${mark}<i class="${esc(scope.status)}" style="width:${pct}%"></i></span>`;
+}
+function renderBudget(snap) {
+  const el = $('#budget-guard');
+  if (!el) return;
+  const b = snap && snap.budget;
+  const sig = b ? JSON.stringify(b) : '';
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  if (!budgetVisible(b)) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  if (b.status === 'invalid') {
+    el.className = 'panel budget-guard invalid';
+    el.innerHTML = `<h2><span class="no">¥</span>预算护栏<span class="pill">未启用</span></h2><p class="budget-line">预算配置无效，告警未启用。${esc(b.error || '')}</p>`;
+    return;
+  }
+  el.className = 'panel budget-guard ' + b.status;
+  const word = budgetStateWord(b.status, b.lowerBound);
+  const session = (b.scopes || []).find(s => s.kind === 'session');
+  const head = session || (b.scopes || [])[0];
+  const headHtml = head ? `<div class="budget-main">${budgetBar(head, b.warnRatio)}<span class="budget-fig">${esc(head.name)} ${fmtCost(head.spent)} / ${fmtCost(head.limit)} · ${budgetPct(head.ratio)}</span></div>` : '';
+  const bound = b.lowerBoundLabel ? `<p class="budget-line budget-bound">${esc(b.lowerBoundLabel)}</p>` : '';
+  const top = b.topSpender;
+  const topHtml = top ? `<p class="budget-line">花得最多：<strong>${esc(top.name)}</strong>${top.modelFamily ? ' · ' + esc(top.modelFamily) : ''} · ${fmtCost(top.cost)}${b.lowerBound ? ' <span class="budget-foot">只比较已计价的条目</span>' : ''}</p>` : (b.lowerBound ? '<p class="budget-line">还没有已计价的花费。</p>' : '');
+  const rows = (b.scopes || []).filter(s => s !== head).map(s => {
+    const absent = s.present === false ? ' · 尚未出场' : '';
+    const cap = s.capKey && s.capKey !== s.name ? ` · ${esc(s.capKey)}` : '';
+    return `<div class="budget-row"><span class="budget-who" title="${esc(s.kind)}">${esc(s.name)}${cap}${absent}</span>${budgetBar(s, b.warnRatio)}<span class="budget-fig">${fmtCost(s.spent)} / ${fmtCost(s.limit)} · ${budgetPct(s.ratio)} · ${esc(budgetStateWord(s.status, s.lowerBound))}</span></div>`;
+  }).join('');
+  const tips = b.suggestions || [];
+  const tipHtml = tips.length ? `<ol class="budget-suggest">${tips.map(s => `<li>${esc(s.action)}</li>`).join('')}</ol>` : (b.status === 'warn' || b.status === 'over' ? '<p class="budget-foot">当前出场成员没有高于协议档位。</p>' : '');
+  const tipHead = tips.length ? '<p class="budget-line"><strong>降档建议</strong> · 按 roles.md 的模型档位</p>' : '';
+  el.innerHTML = `<h2><span class="no">¥</span>预算护栏<span class="en">Budget</span><span class="pill ${b.status === 'over' ? 'err' : b.status === 'warn' ? 'warn' : b.status === 'ok' && !b.lowerBound ? 'ok' : ''}">${esc(word)}</span></h2>${headHtml}${bound}${topHtml}${rows}${tipHead}${tipHtml}<p class="budget-foot">按 team.json 公开单价估算，不是服务商账单。</p>`;
+}
+/* budget-guard:end */
+
 function renderStats(snap) {
+  renderBudget(snap);
   const L = snap.lead || {};
   const deps = snap.departments || [], STC = { running: 'var(--brand)', completed: 'var(--ok)', stalled: 'var(--warn)', idle: 'var(--text-3)', empty: 'var(--line-2)' };
   const fmtS = (n) => !n ? '—' : n < 60 ? `${n}s` : n < 3600 ? `${Math.floor(n / 60)}m${n % 60}s` : `${(n / 3600).toFixed(1)}h`;
@@ -3653,6 +3743,23 @@ function battleUsage(metrics) {
   if (totals.unpriced > 0) note += ' · 部分';
   return { columns: ['成员', '队长', '合计'], rows: rows, note: note };
 }
+function battleBudgetView(snapshot) {
+  var budget = battleDict(snapshot.budget) ? snapshot.budget : null;
+  if (!budget || budget.enabled !== true || !battleCost(budget.ratio)) return null;
+  var labels = { ok: ['预算内', 'ok'], warn: ['接近预算', 'warn'], over: ['超出预算', 'warn'] };
+  var known = battleHas(labels, budget.status) ? labels[budget.status] : null;
+  var label = known ? known[0] : null;
+  var tone = known ? known[1] : (budget.ratio < 1 ? 'ok' : 'warn');
+  var track = BATTLE_INNER - 32;
+  return {
+    percent: battleNumText(budget.ratio * 100) + '%',
+    label: label,
+    tone: tone,
+    lower: budget.lowerBound === true,
+    filled: Math.floor(track * Math.min(budget.ratio, 1)),
+    track: track
+  };
+}
 function battlePublicView(snapshot) {
   if (!battleDict(snapshot)) throw new Error('snapshot must be an object');
   var metrics = battleMetrics(snapshot);
@@ -3679,7 +3786,8 @@ function battlePublicView(snapshot) {
     members: members.slice(0, BATTLE_MAX_MEMBERS),
     more_members: Math.max(0, members.length - BATTLE_MAX_MEMBERS),
     tasks: tasks.slice(0, BATTLE_MAX_TASKS),
-    more_tasks: Math.max(0, tasks.length - BATTLE_MAX_TASKS)
+    more_tasks: Math.max(0, tasks.length - BATTLE_MAX_TASKS),
+    budget: battleBudgetView(snapshot)
   };
 }
 function battleDescribe(view) {
@@ -3688,6 +3796,7 @@ function battleDescribe(view) {
   if (view.usage) parts.push(view.usage.note + '。');
   if (view.partial) parts.push('成本为部分估算。');
   else if (view.usage) parts.push('成本是估算，不是服务商账单。');
+  if (view.budget) parts.push('预算使用率 ' + view.budget.percent + '。');
   return parts.join('');
 }
 function battleStylesheet(theme, frozen) {
@@ -3787,6 +3896,20 @@ function battleRenderSvg(view, theme, frozen) {
       x += tileW + gap;
     }
     y += tileH + 18;
+  }
+  var budget = view.budget;
+  if (budget) {
+    var budgetH = 62;
+    elements.push(battleRect(BATTLE_PAD, y, BATTLE_INNER, budgetH, 'card', palette, 8));
+    elements.push(battleText(BATTLE_PAD + 16, y + 22, '预算使用率', 'ink', 15, palette, '600'));
+    elements.push(battleText(BATTLE_WIDTH - BATTLE_PAD - 16, y + 22, budget.percent, 'ink mono', 15, palette, '600', 'end'));
+    var note = [];
+    if (budget.label) note.push(budget.label);
+    if (budget.lower) note.push('成本为下限');
+    if (note.length) elements.push(battleText(BATTLE_PAD + 16, y + 40, note.join(' · '), budget.tone, 12, palette));
+    elements.push(battleRect(BATTLE_PAD + 16, y + 46, budget.track, 8, 'faint', palette, 4));
+    if (budget.filled) elements.push(battleRect(BATTLE_PAD + 16, y + 46, budget.filled, 8, budget.tone, palette, 4));
+    y += budgetH + 16;
   }
   var usage = view.usage;
   if (usage) {

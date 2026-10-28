@@ -76,6 +76,53 @@ class PrometheusFormatTest(unittest.TestCase):
         with self.assertRaisesRegex(exporter.ExportError, 'finite numeric range'):
             exporter.render_prometheus(self.snapshot)
 
+    def test_session_budget_utilization_is_a_fixed_label_gauge(self):
+        self.snapshot['budget'] = {
+            'enabled': True,
+            'ratio': 1.25,
+            'status': 'over',
+            'suggestions': [{'name': 'PRIVATE_NAME', 'action': 'PRIVATE_ACTION'}],
+            'topSpender': {'name': 'PRIVATE_NAME'},
+        }
+        text = exporter.render_prometheus(self.snapshot)
+        self.assertTrue(text.startswith(GOLDEN.read_text(encoding='utf-8')))
+        self.assertIn('claude_agent_team_budget_utilization_ratio{scope="session"} 1.25\n', text)
+        self.assertNotIn('PRIVATE', text)
+        types = [line for line in text.splitlines() if line.startswith('# TYPE ')]
+        self.assertEqual(len(types), 6)
+        metrics = exporter.export_metrics(self.snapshot)
+        self.assertEqual(set(metrics), {'schemaVersion', 'memberCount', 'totals'})
+        self.assertNotIn('budget', metrics)
+        for value in (True, -0.1, float('nan'), float('inf'), 'PRIVATE_VALUE'):
+            snapshot = copy.deepcopy(self.snapshot)
+            snapshot['budget']['ratio'] = value
+            with self.subTest(value=value), self.assertRaises(exporter.ExportError) as error:
+                exporter.render_prometheus(snapshot)
+            self.assertNotIn('PRIVATE_VALUE', str(error.exception))
+
+    def test_budget_series_is_omitted_without_a_session_ratio(self):
+        golden = GOLDEN.read_text(encoding='utf-8')
+        cases = (
+            None,
+            'PRIVATE_NAME',
+            {},
+            {'enabled': False, 'ratio': 0.9, 'suggestions': [{'name': 'PRIVATE_NAME'}]},
+            {'enabled': True, 'ratio': None, 'topSpender': {'name': 'PRIVATE_NAME'}},
+            {'enabled': True},
+            {'enabled': 'true', 'ratio': 0.5},
+        )
+        for budget in cases:
+            snapshot = copy.deepcopy(self.snapshot)
+            if budget is None:
+                snapshot.pop('budget', None)
+            else:
+                snapshot['budget'] = budget
+            with self.subTest(budget=budget):
+                result = exporter.render_prometheus(snapshot)
+                self.assertEqual(result, golden)
+                self.assertNotIn('budget_utilization', result)
+                self.assertNotIn('PRIVATE', result)
+
 
 class PrometheusCliTest(unittest.TestCase):
     def setUp(self):

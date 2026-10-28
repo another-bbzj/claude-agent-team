@@ -118,6 +118,21 @@ def export_metrics(snapshot):
     return {'schemaVersion': 1, 'memberCount': len(members), 'totals': totals}
 
 
+def _budget_utilization(snapshot):
+    """Session spent/limit when a cap is set. None omits the series.
+
+    Member names and suggestion text stay out of the sample. A ratio above one
+    means the known spend is already over the cap. JSON export ignores this.
+    """
+    budget = snapshot.get('budget') if isinstance(snapshot, dict) else None
+    if not isinstance(budget, dict) or budget.get('enabled') is not True:
+        return None
+    if budget.get('ratio') is None:
+        return None
+    # Over budget is a real gauge, so the value may be greater than one.
+    return _number(budget.get('ratio'), 'budget.ratio')
+
+
 def render_prometheus(snapshot):
     """Render validated aggregates with fixed names and labels, without timestamps."""
     metrics = export_metrics(snapshot)
@@ -150,6 +165,11 @@ def render_prometheus(snapshot):
            for scope, group in scopes for kind, field in kinds])
     gauge('cache_hit_ratio', 'Board-reported snapshot cache hit ratio from zero to one.',
           [('{scope="' + scope + '"}', totals[group]['cacheHit']) for scope, group in scopes])
+    utilization = _budget_utilization(snapshot)
+    if utilization is not None:
+        gauge('budget_utilization_ratio',
+              'Session estimated spend divided by the configured USD cap; may exceed one.',
+              [('{scope="session"}', utilization)])
     return '\n'.join(lines) + '\n'
 
 

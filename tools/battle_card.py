@@ -472,6 +472,36 @@ def _summary(snapshot, metrics):
     return parts
 
 
+def _budget_view(snapshot):
+    """Session utilization from the real budget field, or None when it is unset.
+
+    Names, suggestions and lowerBoundLabel stay off the card. A ratio above one
+    is kept in the percent and the bar stops at full width.
+    """
+    budget = snapshot.get('budget')
+    if not isinstance(budget, dict) or budget.get('enabled') is not True:
+        return None
+    ratio = budget.get('ratio')
+    if not _cost(ratio):
+        return None
+    labels = {
+        'ok': ('预算内', 'ok'),
+        'warn': ('接近预算', 'warn'),
+        'over': ('超出预算', 'warn'),
+    }
+    label, tone = labels.get(budget.get('status'), (None, 'ok' if ratio < 1 else 'warn'))
+    track = INNER - 32
+    filled = int(math.floor(track * min(float(ratio), 1.0)))
+    return {
+        'percent': num_text(ratio * 100) + '%',
+        'label': label,
+        'tone': tone,
+        'lower': budget.get('lowerBound') is True,
+        'filled': filled,
+        'track': track,
+    }
+
+
 def _tiles(metrics, summary_count):
     if metrics is None:
         if summary_count is None:
@@ -536,6 +566,7 @@ def public_view(snapshot):
         'more_members': max(0, len(members) - MAX_MEMBERS),
         'tasks': tasks[:MAX_TASKS],
         'more_tasks': max(0, len(tasks) - MAX_TASKS),
+        'budget': _budget_view(snapshot),
     }
 
 
@@ -550,6 +581,9 @@ def _describe(view):
         parts.append('成本为部分估算。')
     elif usage:
         parts.append('成本是估算，不是服务商账单。')
+    budget = view.get('budget')
+    if budget:
+        parts.append('预算使用率 {}。'.format(budget['percent']))
     return ''.join(parts)
 
 
@@ -679,6 +713,24 @@ def render_svg(view, theme='auto', static=False):
             elements.append(_text(x + 16, y + 64, tile['value'], 'ink mono', 26, palette, weight='600'))
             x += tile_w + gap
         y += tile_h + 18
+    budget = view.get('budget')
+    if budget:
+        height = 62
+        elements.append(_rect(PAD, y, INNER, height, 'card', palette, 8))
+        elements.append(_text(PAD + 16, y + 22, '预算使用率', 'ink', 15, palette, weight='600'))
+        elements.append(_text(
+            WIDTH - PAD - 16, y + 22, budget['percent'], 'ink mono', 15, palette, weight='600', anchor='end'))
+        note = []
+        if budget['label']:
+            note.append(budget['label'])
+        if budget['lower']:
+            note.append('成本为下限')
+        if note:
+            elements.append(_text(PAD + 16, y + 40, ' · '.join(note), budget['tone'], 12, palette))
+        elements.append(_rect(PAD + 16, y + 46, budget['track'], 8, 'faint', palette, 4))
+        if budget['filled']:
+            elements.append(_rect(PAD + 16, y + 46, budget['filled'], 8, budget['tone'], palette, 4))
+        y += height + 16
     usage = view['usage']
     if usage:
         row_h = 26

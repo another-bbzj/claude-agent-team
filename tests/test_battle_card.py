@@ -261,12 +261,69 @@ class BattleCardRenderTest(unittest.TestCase):
             (partial, 'auto', True),
             ({'members': [{'status': 'completed'}]}, 'auto', True),
             (stall, 'auto', True),
+            (dict(self.snapshot, budget={
+                'enabled': True, 'ratio': 1.25, 'status': 'over', 'lowerBound': True,
+                'lowerBoundLabel': 'PRIVATE_MODEL', 'topSpender': {'name': 'PRIVATE_NAME'},
+            }), 'light', True),
         )
         for snapshot, theme, static in cases:
             with self.subTest(theme=theme, static=static):
                 self.assertEqual(
                     _js_svg(snapshot, theme, static),
                     battle.build_card(snapshot, theme=theme, static=static))
+
+    def test_budget_ratio_is_drawn_without_names(self):
+        snap = json.loads(json.dumps(self.snapshot))
+        snap['budget'] = {
+            'enabled': True,
+            'ratio': 1.25,
+            'status': 'over',
+            'lowerBound': True,
+            'lowerBoundLabel': 'PRIVATE_MODEL',
+            'topSpender': {'name': 'PRIVATE_NAME'},
+            'suggestions': [{'name': 'PRIVATE_NAME', 'action': 'PRIVATE_ACTION'}],
+            'spent': 1.25,
+            'limit': 1,
+        }
+        svg = battle.build_card(snap, theme='light', static=True)
+        self.assertIn('预算使用率', svg)
+        self.assertIn('125%', svg)
+        self.assertIn('超出预算', svg)
+        self.assertIn('成本为下限', svg)
+        self.assertIn('预算使用率 125%。', svg)
+        self.assertNotIn('PRIVATE', svg)
+        self.assertEqual(_js_svg(snap, 'light', True), svg)
+        quiet = json.loads(json.dumps(self.snapshot))
+        quiet['budget'] = {'enabled': True, 'ratio': 0, 'status': 'ok'}
+        zero = battle.build_card(quiet, theme='light', static=True)
+        self.assertIn('0%', zero)
+        self.assertIn('预算内', zero)
+        self.assertEqual(_js_svg(quiet, 'light', True), zero)
+
+    def test_budget_bar_is_omitted_without_a_session_ratio(self):
+        plain = battle.build_card(self.snapshot, theme='light', static=True)
+        self.assertNotIn('预算使用率', plain)
+        cases = (
+            None,
+            'PRIVATE_NAME',
+            {},
+            {'enabled': False, 'ratio': 0.5, 'suggestions': [{'name': 'PRIVATE_NAME'}]},
+            {'enabled': True, 'ratio': None, 'topSpender': {'name': 'PRIVATE_NAME'}},
+            {'enabled': True},
+            {'enabled': True, 'ratio': -1, 'status': 'over'},
+            {'enabled': 'true', 'ratio': 0.4},
+        )
+        for budget in cases:
+            snap = json.loads(json.dumps(self.snapshot))
+            if budget is None:
+                snap.pop('budget', None)
+            else:
+                snap['budget'] = budget
+            with self.subTest(budget=budget):
+                svg = battle.build_card(snap, theme='light', static=True)
+                self.assertEqual(svg, plain)
+                self.assertNotIn('PRIVATE', svg)
+                self.assertEqual(_js_svg(snap, 'light', True), svg)
 
 
 class BattleCardCliTest(unittest.TestCase):

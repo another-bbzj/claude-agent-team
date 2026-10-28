@@ -70,7 +70,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 |---|---|
 | **分工** | 8 位常驻成员，各带名字、职责和模型档位。说「用 agent team」（「团队」「多代理」「分头做」「并行开发」也行）就按技能上岗。 |
 | **协作** | 契约、工单、收件箱、交接单写在项目的 `.team/`。即时的话走 `msg.py`；看板没开时，退回追加收件箱文件。你也可以在看板上直接发话。 |
-| **可见** | 浏览器里看部门、当前工具、进度、token 和估算成本。当前会话对得上 `~/.claude/tasks/` 时，部门表下还有只读官方任务看板，点开可看说明和依赖。单价在 `team-board/team.json`，**是估算，不是服务商账单**。 |
+| **可见** | 浏览器里看部门、当前工具、进度、token 和估算成本。当前会话对得上 `~/.claude/tasks/` 时，部门表下还有只读官方任务看板，点开可看说明和依赖。单价在 `team-board/team.json`，**是估算，不是服务商账单**。要封顶就在同一文件写 `budget`，或启动时加 `--budget`；不写就不显示。接近变黄、超出变红，并指出该降到哪一档。 |
 
 和「每次临时描述角色」的逐项对照、第一次任务从定规模到验收的走法，在 [开工之前](docs/GUIDE.md#why) 和 [第一次使用](docs/GUIDE.md#first-run)。
 
@@ -100,8 +100,8 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
 | 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
 | 只读导出指定会话或项目、战报卡、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
-| 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
 | 把指定会话或项目的用量和估算成本接入 Prometheus / Grafana | [Prometheus 文本指标与 node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
+| 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
 看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。

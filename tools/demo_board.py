@@ -44,6 +44,19 @@ BANNER = ('<aside id="synthetic-demo-notice" role="status" '
           '只读演示 · 全部为合成数据 · Read-only demo / synthetic data</aside>')
 
 
+def _budget_module():
+    """合成演示只借预算计算，不导入 team_board，也不读用户主目录。"""
+    cached = getattr(_budget_module, 'mod', None)
+    if cached is not None:
+        return cached
+    path = BOARD / 'budget.py'
+    spec = importlib.util.spec_from_file_location('demo_budget', str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _budget_module.mod = module
+    return module
+
+
 def focus_demo_theater(snapshot, session_id):
     """Point the synthetic theater label at a known session. Member cards stay the one example team."""
     if not session_id or not isinstance(snapshot.get('session'), dict):
@@ -122,8 +135,14 @@ class DemoHandler(BaseHTTPRequestHandler):
             return
         if path == '/snapshot.json':
             snapshot = snapshot_at(self.server.snapshot)
-            session_id = parse_qs(request.query).get('session', [''])[0]
-            body = json.dumps(focus_demo_theater(snapshot, session_id), ensure_ascii=False, allow_nan=False).encode('utf-8')
+            query = parse_qs(request.query, keep_blank_values=True)
+            session_id = query.get('session', [''])[0]
+            snapshot = focus_demo_theater(snapshot, session_id)
+            alert = bool(getattr(self.server, 'budget_alert', False)) or 'over' in query.get('budget', [])
+            budget = _budget_module()
+            config = budget.over_budget_demo(snapshot) if alert else None
+            budget.attach_budget(snapshot, None, config)
+            body = json.dumps(snapshot, ensure_ascii=False, allow_nan=False).encode('utf-8')
             return self.respond(body)
         item = STATIC.get(path)
         if item is None:
@@ -156,8 +175,9 @@ class DemoHandler(BaseHTTPRequestHandler):
 class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, port=7790):
+    def __init__(self, port=7790, budget_alert=False):
         self.snapshot = json.loads(FIXTURE.read_text(encoding='utf-8'))
+        self.budget_alert = bool(budget_alert)
         super().__init__(('127.0.0.1', port), DemoHandler)
 
     def server_bind(self):
@@ -179,9 +199,11 @@ def _port(value):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=_port, default=7790, help='loopback port; 0 chooses an available port')
+    parser.add_argument('--budget-alert', action='store_true',
+                        help='overlay a synthetic session budget that is already over the fixture total')
     args = parser.parse_args(argv)
     try:
-        with DemoServer(args.port) as server:
+        with DemoServer(args.port, budget_alert=args.budget_alert) as server:
             print('Read-only synthetic demo: http://127.0.0.1:{}/ (Ctrl+C to stop)'.format(server.server_port), flush=True)
             server.serve_forever()
     except KeyboardInterrupt:

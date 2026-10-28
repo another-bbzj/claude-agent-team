@@ -97,6 +97,29 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 > 成本按 `team-board/team.json` 里的公开单价估算（输入 / 输出 / 缓存读 / 缓存写分开计），不是账单。改单价：编辑 `pricing_usd_per_mtok`，页面即时生效。
 
+**预算护栏**在舞台上方，只有设了预算才出现。不写就不占地方，也不在顶栏加提示。
+
+在 `team.json` 里加一段（安装或更新会整段保留，仓库本身不下发默认预算）：
+
+```json
+"budget": {
+  "usd": 5,
+  "warnRatio": 0.8,
+  "members": { "backend-dev": 1.5 },
+  "departments": { "dev": 3 }
+}
+```
+
+`usd` 是这一次会话的估算上限，口径和顶栏「含队长合计」一样。`warnRatio` 省略时是 0.8：到了变黄，达到或超过上限变红。`members` 的键可以是 `subagent_type`、成员 id 或显示名，每个人各自和上限比，同一个角色出场两次就各算各的。`departments` 是该部门成员的已计价之和；`hq` 把队长算进去。三项可以只写其中几项。
+
+启动 `team_board.py` 时，参数盖过文件里的同名字段，并且不写回 `team.json`：
+
+```bash
+python team-board/team_board.py --budget 5 --budget-warn 0.8 --budget-member backend-dev=1.5 --budget-dept dev=3
+```
+
+快照多一个 `budget` 对象，旧客户端忽略即可。`status` 是 `off`（没设）、`ok`、`warn`、`over` 或 `invalid`（配置写错，告警不启用）。黄和红时写出花得最多的人，并给出降档句子：依据 `skills/agent-team/roles.md`，写代码的 opus 下次派工把 `model` 设为 sonnet，调研或文档的 sonnet/opus 设为 haiku。已经在档位上的不建议降。有未定价模型时 `lowerBound` 为 true，文案是「成本为下限」，已计价金额不含这些模型，不会补一个估计数。
+
 ---
 
 <a id="panels"></a>
@@ -531,7 +554,7 @@ skills:
 - **队长窗口最贵**：派工只给路径指针（契约、工单、收件箱），不粘内容；成员汇报 ≤ 200 字；队长只读交接单的三个字段。
 - **成员不通读全库**：按工单 `files` 定向 grep。
 - **写代码用「懒惰资深」阶梯**：需要存在吗 → 库里已有？→ 标准库？→ 平台原生？→ 已装依赖？→ 能一行？→ 才写最少的新代码。不做单实现的接口、永不变化的配置、「以后用」的脚手架。
-- **结算**：验收时看板 `totals` 给出成员成本与模型构成；某个成员成本明显高于同档同事，查它的交接单，通常是通读全库或反复重试。
+- **结算**：验收时看板 `totals` 给出成员成本与模型构成；某个成员成本明显高于同档同事，查它的交接单，通常是通读全库或反复重试。设了 `budget` 时再看 `budget.status`：`warn` / `over` 先按 `budget.suggestions` 降档。
 
 token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对同一会话的统计一致（误差 < 1%）——看板按 message id / requestId 去重，只取每条消息最后一份 usage 快照。这句话是仓库里原有的对照说明，本手册没有另做一次测量。
 
@@ -543,7 +566,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **331** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **350** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总、预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 
@@ -617,6 +640,14 @@ python -m unittest discover -s tests -v
 
 - 看板的「合计」= 输入 + 输出 + 缓存读 + 缓存写，其中缓存读通常占 90% 以上；服务商后台可能只显示输入 + 输出——对比时看同一口径。
 - 成本按 `team-board/team.json` 的公开单价估算，不是账单。
+- 设了预算时，未定价模型会使合计变成下限：看板上写「成本为下限」，不会把缺价的部分估成一个数。
+</details>
+
+<details><summary><b>预算条没有出现 / 黄的红的是什么意思</b></summary>
+
+- 没在 `team.json` 写 `budget`，也没加 `--budget` / `--budget-member` / `--budget-dept` 时，预算护栏不显示。这是默认。
+- 黄是达到 `warnRatio`（默认 80%）且还没到上限；红是已计价金额达到或超过上限。成员上限、部门上限有一个超出，整块也是红的。
+- 配置不是对象、上限不是正数、或 `warnRatio` 不在 (0, 1] 里，这块会写「预算配置无效，告警未启用」，不会假装还有一个预算。
 </details>
 
 <details><summary><b>换电脑</b></summary>
@@ -631,6 +662,7 @@ python -m unittest discover -s tests -v
 ```
 team-board/        看板及后端服务
   team_board.py              HTTP 服务（标准库）· 转录解析 · 消息总线 / 背景板 API
+  budget.py                  会话预算：接近 / 超出、成员与部门上限、降档建议
   msg.py                     零依赖 CLI：send / inbox / who / log（成员通信）
   backdrop_store.py          背景板图片与配置的本地存储
   wallpapers.py              扫描 Steam 库 Wallpaper Engine 壁纸、当前桌面快照

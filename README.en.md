@@ -68,7 +68,7 @@ Claude Code can already dispatch subagents. After they leave, you cannot see whi
 |---|---|
 | **Roles** | Eight resident agents, each with a name, a job and a model tier. Saying `agent team` (also “团队”, “多代理”, “分头做”, “并行开发”) loads the team skill. |
 | **Handoffs** | Spec, tickets, inboxes and handoffs live in the project’s `.team/` directory. Live notes go through `msg.py`, which appends the inbox file when the board is down. You can also write to an agent from the board. |
-| **A local picture** | The browser shows departments, the current tool, progress, tokens and an estimated cost. When the selected session has `~/.claude/tasks/`, a read-only official task board sits under the department table; opening a card shows the description and dependencies. Prices in `team-board/team.json` are **estimates, not a provider bill**. |
+| **A local picture** | The browser shows departments, the current tool, progress, tokens and an estimated cost. When the selected session has `~/.claude/tasks/`, a read-only official task board sits under the department table; opening a card shows the description and dependencies. Prices in `team-board/team.json` are **estimates, not a provider bill**. A `budget` block in that file, or `--budget` at startup, adds a guard; with no budget the guard stays hidden. Near the cap it turns yellow, over the cap it turns red, and it names a lower tier from the role table. |
 
 The side-by-side comparison and the first full task are in the guide: [before you start](docs/GUIDE.en.md#why) and [first run](docs/GUIDE.en.md#first-run). Panel-by-panel screenshots stay in the [Chinese illustrated guide](docs/GUIDE.md).
 
@@ -88,8 +88,8 @@ The overview still is the stage and departments. The read-only official task row
 | Third-party gateways and prices | [Providers](docs/GUIDE.en.md#providers) |
 | The board will not open, or the numbers look wrong | [FAQ](docs/GUIDE.en.md#faq) |
 | Aggregate export for one session or project, battle card, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
-| Optional live hooks | [Hooks](docs/HOOKS.md) |
 | Usage and estimated costs for one session or project in Prometheus / Grafana | [Prometheus textfile export and node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
+| Optional live hooks | [Hooks](docs/HOOKS.md) |
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
 The live board parses **Claude Code** sessions. [tools/codex_metrics.py](docs/CODEX_METRICS.md) summarizes an explicit `codex exec --json` log offline. It does not ingest interactive Codex sessions; that remains [planned](docs/ROADMAP.md). Using Codex to maintain this repository, and importing pets from a local Codex install, are separate.
