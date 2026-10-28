@@ -1,0 +1,32 @@
+# HELP claude_agent_team_members Member entries in the selected snapshot, excluding the lead.
+# TYPE claude_agent_team_members gauge
+claude_agent_team_members 2
+# HELP claude_agent_team_estimated_cost_usd Estimated snapshot cost in USD; partial when entries are unpriced.
+# TYPE claude_agent_team_estimated_cost_usd gauge
+claude_agent_team_estimated_cost_usd{scope="all"} 0.012
+claude_agent_team_estimated_cost_usd{scope="members"} 0.008
+# HELP claude_agent_team_unpriced_entries Lead or member entries without a configured model price.
+# TYPE claude_agent_team_unpriced_entries gauge
+claude_agent_team_unpriced_entries 0
+# HELP claude_agent_team_tokens Snapshot token usage by scope and bucket; scopes and buckets overlap.
+# TYPE claude_agent_team_tokens gauge
+claude_agent_team_tokens{scope="members",kind="input"} 100
+claude_agent_team_tokens{scope="members",kind="output"} 200
+claude_agent_team_tokens{scope="members",kind="cache_read"} 300
+claude_agent_team_tokens{scope="members",kind="cache_write"} 0
+claude_agent_team_tokens{scope="members",kind="total"} 600
+claude_agent_team_tokens{scope="lead",kind="input"} 50
+claude_agent_team_tokens{scope="lead",kind="output"} 100
+claude_agent_team_tokens{scope="lead",kind="cache_read"} 0
+claude_agent_team_tokens{scope="lead",kind="cache_write"} 0
+claude_agent_team_tokens{scope="lead",kind="total"} 150
+claude_agent_team_tokens{scope="all",kind="input"} 150
+claude_agent_team_tokens{scope="all",kind="output"} 300
+claude_agent_team_tokens{scope="all",kind="cache_read"} 300
+claude_agent_team_tokens{scope="all",kind="cache_write"} 0
+claude_agent_team_tokens{scope="all",kind="total"} 750
+# HELP claude_agent_team_cache_hit_ratio Board-reported snapshot cache hit ratio from zero to one.
+# TYPE claude_agent_team_cache_hit_ratio gauge
+claude_agent_team_cache_hit_ratio{scope="members"} 0.75
+claude_agent_team_cache_hit_ratio{scope="lead"} 0
+claude_agent_team_cache_hit_ratio{scope="all"} 0.6667
