@@ -822,6 +822,7 @@
   <div class="hdr-tools">
     <span class="pill mono" id="session-pill">—</span>
     <select id="session-select" title="选择要观察的会话"></select>
+    <button class="pill" id="btn-battle-card" type="button" title="用当前快照在本机生成 SVG 战报卡并下载，不上传">导出战报卡</button>
     <button class="pill" id="look-btn" title="外观：背景板立绘、透明度、位置">⚙ 外观</button>
     <div class="quick-op" id="bdq" hidden>
       <button class="pill" id="bdq-btn" type="button" title="随手调整背景 / 面板透明度" aria-haspopup="true" aria-expanded="false">◐ 透明度</button>
@@ -3305,6 +3306,558 @@ function bdSetAdjust(on) {
   media().addEventListener('dblclick', (e) => { if (!bdAdjusting) return; e.preventDefault(); bdSetting({ x: 50, y: 50, scale: 100 }); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && bdAdjusting) bdSetAdjust(false); });
 })();
+
+/* BATTLE_CARD_BEGIN
+   Browser twin of tools/battle_card.py. Keep the SVG text identical. */
+var BATTLE_WIDTH = 960, BATTLE_PAD = 36, BATTLE_INNER = BATTLE_WIDTH - BATTLE_PAD * 2;
+var BATTLE_MAX_MEMBERS = 8, BATTLE_MAX_DEPARTMENTS = 6, BATTLE_MAX_TASKS = 6;
+var BATTLE_SANS = 'Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif';
+var BATTLE_MONO = 'ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace';
+var BATTLE_ORDER = ['paper', 'card', 'ink', 'muted', 'faint', 'line', 'accent', 'ok', 'run', 'warn'];
+var BATTLE_PALETTES = {
+  light: { paper: '#e7e9ed', card: '#ffffff', ink: '#131722', muted: '#465066', faint: '#858c9d', line: '#d2d6de', accent: '#9c7818', ok: '#2b8466', run: '#1c74a8', warn: '#b36f0b' },
+  dark: { paper: '#070a11', card: '#141926', ink: '#eceae3', muted: '#a6acba', faint: '#676f83', line: '#232a3a', accent: '#d3b35c', ok: '#62b596', run: '#5fb1e3', warn: '#e3a444' }
+};
+var BATTLE_STATUS = { running: '进行中', completed: '已完成', stalled: '停滞', error: '出错', idle: '待命', empty: '未出场', finished: '收尾完成', coordinating: '协调中', waiting: '等待中', forming: '组队中' };
+
+function battleHas(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
+function battleLen(text) { return Array.from(text).length; }
+function battleXmlEscape(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+function battleNumText(value) {
+  if (Number.isInteger(value)) return String(value);
+  var scaled = Math.floor(value * 1000000 + 0.5);
+  var whole = Math.floor(scaled / 1000000);
+  var frac = scaled % 1000000;
+  if (frac === 0) return String(whole);
+  return whole + '.' + String(1000000 + frac).slice(1).replace(/0+$/, '');
+}
+function battleFinite(value) { return typeof value === 'number' && isFinite(value); }
+function battleCount(value) { return typeof value === 'number' && Number.isInteger(value) && value >= 0; }
+function battleCost(value) { return battleFinite(value) && value >= 0; }
+function battleRatio(value) { return battleCost(value) && value <= 1; }
+function battlePositive(value, kind) {
+  if (kind === 'count') return battleCount(value) && value > 0;
+  if (kind === 'ratio') return battleRatio(value) && value > 0;
+  return battleCost(value) && value > 0;
+}
+function battleSafeText(value, limit) {
+  if (typeof value !== 'string') return null;
+  if (limit == null) limit = 48;
+  var chars = Array.from(value), kept = [];
+  for (var i = 0; i < chars.length; i++) if (chars[i] >= ' ' || chars[i] === '\t') kept.push(chars[i]);
+  var text = kept.join('').split(/\s+/).filter(function (part) { return part; }).join(' ');
+  if (!text || battleLen(text) > limit) return null;
+  if (text.indexOf('@') >= 0 || text.indexOf('\\') >= 0 || text.indexOf('/') >= 0 || text.charAt(0) === '~') return null;
+  if (text.indexOf('://') >= 0 || /^[A-Za-z]:/.test(text)) return null;
+  if (/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/.test(text)) return null;
+  if (/[0-9a-fA-F]{16,}/.test(text) || /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/.test(text)) return null;
+  if (/javascript\s*:/i.test(text) || /\bsk-[A-Za-z0-9]/i.test(text)) return null;
+  return text;
+}
+function battleStatusLabel(value) {
+  if (typeof value !== 'string') return null;
+  if (battleHas(BATTLE_STATUS, value)) return BATTLE_STATUS[value];
+  return battleSafeText(value, 24);
+}
+function battleFormatSeconds(value) {
+  if (typeof value === 'number' && !Number.isInteger(value)) return battleNumText(value) + 's';
+  var whole = Math.trunc(value);
+  if (whole <= 0) return null;
+  if (whole < 60) return whole + 's';
+  var minutes = Math.floor(whole / 60), seconds = whole % 60;
+  if (minutes < 60) return minutes + 'm ' + seconds + 's';
+  var hours = Math.floor(minutes / 60);
+  minutes = minutes % 60;
+  return hours + 'h ' + minutes + 'm ' + seconds + 's';
+}
+function battleDuration(obj) {
+  if (!battleHas(obj, 'startedAt') || !battleHas(obj, 'endedAt')) return null;
+  var start = obj.startedAt, end = obj.endedAt;
+  if (!battleCost(start) || !battleCost(end) || end < start) return null;
+  return end - start;
+}
+function battleMoney(obj, key) {
+  if (!battleHas(obj, key)) return 'missing';
+  var value = obj[key];
+  if (value === null) return 'unpriced';
+  if (battleCost(value)) return value;
+  return 'missing';
+}
+function battleDict(value) { return !!value && typeof value === 'object' && !Array.isArray(value); }
+function battleDeptLabel(snapshot, dept) {
+  if (typeof dept !== 'string') return null;
+  var departments = snapshot.departments;
+  if (Array.isArray(departments)) {
+    for (var i = 0; i < departments.length; i++) {
+      var item = departments[i];
+      if (battleDict(item) && item.id === dept) {
+        var name = typeof item.name === 'string' ? battleSafeText(item.name, 32) : null;
+        return name || battleSafeText(dept, 32);
+      }
+    }
+  }
+  return battleSafeText(dept, 32);
+}
+function battleIcon(value) {
+  var icon = typeof value === 'string' ? battleSafeText(value, 4) : null;
+  if (icon && battleLen(icon) <= 2) return icon;
+  return null;
+}
+function battleFormatGenerated(value) {
+  if (!battleFinite(value) || value < 0 || value > 10000000000) return null;
+  var date = new Date(Math.floor(value) * 1000);
+  if (isNaN(date.getTime())) return null;
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate()) + ' ' + pad(date.getUTCHours()) + ':' + pad(date.getUTCMinutes()) + ' UTC';
+}
+function battleFormatVersion(value) {
+  if (typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(value)) return value;
+  return null;
+}
+function battleExportMetrics(snapshot) {
+  if (!battleDict(snapshot) || !battleDict(snapshot.totals)) throw new Error('snapshot must be an object containing a totals object');
+  var totals = snapshot.totals, members = snapshot.members;
+  if (!Array.isArray(members)) throw new Error('snapshot must contain a members array of objects');
+  for (var i = 0; i < members.length; i++) if (!battleDict(members[i])) throw new Error('snapshot must contain a members array of objects');
+  var out = {}, keys = ['cost', 'membersCost', 'unpriced', 'tokens'];
+  for (i = 0; i < keys.length; i++) {
+    var key = keys[i], value = totals[key], count = key === 'unpriced' || key === 'tokens';
+    if (count ? !battleCount(value) : !battleCost(value)) throw new Error('totals.' + key + ' must be a finite number');
+    out[key] = value;
+  }
+  var groups = ['usage', 'leadUsage', 'allUsage'], counts = ['in', 'out', 'cache_read', 'cache_write', 'total'];
+  for (i = 0; i < groups.length; i++) {
+    var group = groups[i], usage = totals[group];
+    if (!battleDict(usage)) throw new Error('totals.' + group + ' must be an object');
+    var copied = {};
+    for (var j = 0; j < counts.length; j++) {
+      if (!battleCount(usage[counts[j]])) throw new Error('totals.' + group + '.' + counts[j] + ' must be a finite number');
+      copied[counts[j]] = usage[counts[j]];
+    }
+    if (!battleRatio(usage.cacheHit)) throw new Error('totals.' + group + '.cacheHit must be a finite number');
+    copied.cacheHit = usage.cacheHit;
+    out[group] = copied;
+  }
+  return { schemaVersion: 1, memberCount: members.length, totals: out };
+}
+function battleMetrics(snapshot) {
+  var totals = snapshot.totals, members = snapshot.members;
+  var needed = ['cost', 'membersCost', 'unpriced', 'tokens', 'usage', 'leadUsage', 'allUsage'];
+  if (battleDict(totals) && Array.isArray(members)) {
+    for (var i = 0; i < needed.length; i++) if (!battleHas(totals, needed[i])) return null;
+    return battleExportMetrics(snapshot);
+  }
+  return null;
+}
+function battleMemberDicts(snapshot) {
+  var members = snapshot.members;
+  if (!Array.isArray(members)) return [];
+  for (var i = 0; i < members.length; i++) if (!battleDict(members[i])) return [];
+  return members;
+}
+function battlePersonBits(obj, title) {
+  var bits = [], role = battleHas(obj, 'roleTitle') ? battleSafeText(obj.roleTitle, 32) : null;
+  if (role == null && battleHas(obj, 'agentType')) role = battleSafeText(obj.agentType, 32);
+  if (role && role !== title) bits.push(role);
+  if (obj.officialTeam === true) bits.push('官方');
+  var family = battleHas(obj, 'modelFamily') ? battleSafeText(obj.modelFamily, 24) : null;
+  if (family) bits.push(family);
+  var effort = battleHas(obj, 'effort') ? battleSafeText(obj.effort, 16) : null;
+  if (effort) bits.push(effort);
+  var money = battleMoney(obj, 'cost');
+  if (money === 'unpriced') bits.push('未定价');
+  else if (money !== 'missing' && money > 0) bits.push('$' + battleNumText(money));
+  if (battlePositive(obj.totalTokens, 'count')) bits.push(battleNumText(obj.totalTokens) + ' tok');
+  if (battlePositive(obj.cacheHit, 'ratio')) bits.push('缓存 ' + battleNumText(obj.cacheHit));
+  if (battlePositive(obj.toolCount, 'count')) bits.push('工具 ' + battleNumText(obj.toolCount));
+  if (battleHas(obj, 'writes') && Array.isArray(obj.writes) && obj.writes.length) {
+    var writesOk = true;
+    for (var i = 0; i < obj.writes.length; i++) if (!battleDict(obj.writes[i])) writesOk = false;
+    if (writesOk) bits.push('写入 ' + battleNumText(obj.writes.length));
+  }
+  var duration = battleDuration(obj);
+  var rendered = duration != null ? battleFormatSeconds(duration) : null;
+  if (rendered) bits.push('用时 ' + rendered);
+  return bits;
+}
+function battleLeadRow(snapshot) {
+  var lead = snapshot.lead;
+  if (!battleDict(lead)) return null;
+  var name = battleHas(lead, 'name') ? battleSafeText(lead.name, 32) : null;
+  var phase = battleHas(lead, 'phase') ? battleStatusLabel(lead.phase) : null;
+  var bits = [], pairs = [['running', '进行中'], ['done', '已完成'], ['total', '成员']];
+  for (var i = 0; i < pairs.length; i++) if (battleHas(lead, pairs[i][0]) && battlePositive(lead[pairs[i][0]], 'count')) bits.push(battleNumText(lead[pairs[i][0]]) + ' ' + pairs[i][1]);
+  bits = bits.concat(battlePersonBits(lead, name || ''));
+  if (!name && !phase && !bits.length) return null;
+  return { title: name || '队长', status: phase, bits: bits };
+}
+function battleDepartmentRows(snapshot) {
+  var departments = snapshot.departments;
+  if (!Array.isArray(departments)) return [];
+  var rows = [];
+  for (var i = 0; i < departments.length; i++) {
+    var dept = departments[i];
+    if (!battleDict(dept)) continue;
+    var name = battleHas(dept, 'name') ? battleSafeText(dept.name, 32) : null;
+    if (name == null && battleHas(dept, 'id')) name = battleSafeText(dept.id, 24);
+    if (!name) continue;
+    var icon = battleHas(dept, 'icon') ? battleIcon(dept.icon) : null;
+    var title = icon ? icon + ' ' + name : name;
+    var status = battleHas(dept, 'status') ? battleStatusLabel(dept.status) : null;
+    var members = battleHas(dept, 'members') ? dept.members : null;
+    var count = Array.isArray(members) ? members.length : null;
+    var active = (count || 0) > 0 || ['进行中', '已完成', '停滞', '出错', '收尾完成', '协调中'].indexOf(status) >= 0;
+    var bits = [];
+    if (count != null) bits.push(battleNumText(count) + ' 人');
+    var money = battleMoney(dept, 'cost');
+    if (money === 'unpriced') { bits.push('未定价'); active = true; }
+    else if (money !== 'missing' && money > 0) { bits.push('$' + battleNumText(money)); active = true; }
+    if (battlePositive(dept.tokens, 'count')) { bits.push(battleNumText(dept.tokens) + ' tok'); active = true; }
+    if (battlePositive(dept.cacheHit, 'ratio') && battlePositive(dept.tokens, 'count')) bits.push('缓存 ' + battleNumText(dept.cacheHit));
+    var rendered = battleHas(dept, 'seconds') && battleCount(dept.seconds) ? battleFormatSeconds(dept.seconds) : null;
+    if (rendered) { bits.push('用时 ' + rendered); active = true; }
+    var statPairs = [['running', '进行中'], ['done', '完成'], ['failed', '失败'], ['tools', '工具'], ['unpriced', '未定价']];
+    for (var j = 0; j < statPairs.length; j++) {
+      if (battleHas(dept, statPairs[j][0]) && battlePositive(dept[statPairs[j][0]], 'count')) {
+        bits.push(statPairs[j][1] + ' ' + battleNumText(dept[statPairs[j][0]]));
+        active = true;
+      }
+    }
+    var models = battleHas(dept, 'models') ? dept.models : null;
+    if (Array.isArray(models) && models.length) {
+      var names = [], safeModels = true;
+      for (j = 0; j < models.length; j++) {
+        var label = battleSafeText(models[j], 24);
+        if (!label) { safeModels = false; break; }
+        names.push(label);
+      }
+      if (safeModels && names.length) { bits.push(names.join('、')); active = true; }
+    }
+    if (active) rows.push({ title: title, status: status, bits: bits });
+  }
+  return rows;
+}
+function battleMemberRows(snapshot) {
+  var rows = [], members = battleMemberDicts(snapshot);
+  for (var index = 0; index < members.length; index++) {
+    var member = members[index];
+    var name = battleHas(member, 'name') ? battleSafeText(member.name, 32) : null;
+    var title = name || ('成员 ' + (index + 1 < 10 ? '0' : '') + (index + 1));
+    var dept = battleHas(member, 'dept') ? battleDeptLabel(snapshot, member.dept) : null;
+    var bits = battlePersonBits(member, title);
+    if (dept && bits.indexOf(dept) < 0 && dept !== title) bits.unshift(dept);
+    var status = battleHas(member, 'status') ? battleStatusLabel(member.status) : null;
+    if (name || status || bits.length) rows.push({ title: title, status: status, bits: bits });
+  }
+  return rows;
+}
+function battleTaskRows(snapshot) {
+  var official = snapshot.officialTeam;
+  if (!battleDict(official) || !Array.isArray(official.tasks)) return [];
+  var rows = [];
+  for (var i = 0; i < official.tasks.length; i++) {
+    var task = official.tasks[i];
+    if (!battleDict(task)) continue;
+    var state;
+    if (battleHas(task, 'normalizedStatus')) state = task.normalizedStatus;
+    else if (battleHas(task, 'status')) state = task.status;
+    else continue;
+    if (state !== 'completed') continue;
+    var title = battleHas(task, 'subject') ? battleSafeText(task.subject, 72) : null;
+    var owner = typeof task.owner === 'string' ? battleSafeText(task.owner, 32) : null;
+    rows.push({ title: title || '已完成', status: '已完成', bits: owner ? ['负责 ' + owner] : [] });
+  }
+  return rows;
+}
+function battleStallAlertCount(snapshot) {
+  if (!battleHas(snapshot, 'stallAlerts')) return null;
+  var block = snapshot.stallAlerts;
+  if (!battleDict(block) || !battleHas(block, 'candidates') || !battleHas(block, 'thresholdSec')) return null;
+  var threshold = block.thresholdSec, candidates = block.candidates;
+  if (!battleFinite(threshold) || threshold < 0 || !Array.isArray(candidates)) return null;
+  var count = 0;
+  for (var i = 0; i < candidates.length; i++) {
+    var item = candidates[i];
+    if (!battleDict(item) || !battleHas(item, 'status') || !battleHas(item, 'idleSeconds')) continue;
+    if (item.status !== 'idle' && item.status !== 'error' && item.status !== 'stalled') continue;
+    var age = item.idleSeconds;
+    if (!battleFinite(age) || age < 0 || age < threshold) continue;
+    count += 1;
+  }
+  return count;
+}
+function battleTheaterCount(snapshot) {
+  if (!battleHas(snapshot, 'theaters')) return null;
+  var theaters = snapshot.theaters;
+  if (!Array.isArray(theaters)) return null;
+  var count = 0;
+  for (var i = 0; i < theaters.length; i++) if (battleDict(theaters[i])) count += 1;
+  return count;
+}
+function battleLiveRetained(snapshot) {
+  if (!battleHas(snapshot, 'live')) return null;
+  var live = snapshot.live;
+  if (!battleDict(live) || !battleHas(live, 'available') || !battleHas(live, 'retained')) return null;
+  if (live.available !== true) return null;
+  if (!battleCount(live.retained)) return null;
+  return live.retained;
+}
+function battleSummary(snapshot, metrics) {
+  var members = battleMemberDicts(snapshot);
+  var count = metrics ? metrics.memberCount : (members.length || null);
+  var parts = [];
+  if (count != null) parts.push(battleNumText(count) + ' 名成员');
+  var seen = {};
+  for (var i = 0; i < members.length; i++) {
+    if (!battleHas(members[i], 'status')) continue;
+    var label = BATTLE_STATUS[members[i].status];
+    if (label) seen[members[i].status] = (seen[members[i].status] || 0) + 1;
+  }
+  var keys = ['completed', 'running', 'stalled', 'error'];
+  for (i = 0; i < keys.length; i++) if (seen[keys[i]]) parts.push(battleNumText(seen[keys[i]]) + ' ' + BATTLE_STATUS[keys[i]]);
+  var stall = battleStallAlertCount(snapshot);
+  if (stall) parts.push('停滞提醒 ' + battleNumText(stall));
+  var theaters = battleTheaterCount(snapshot);
+  if (theaters) parts.push('作战区 ' + battleNumText(theaters));
+  var retained = battleLiveRetained(snapshot);
+  if (retained) parts.push('实时事件 ' + battleNumText(retained));
+  return parts;
+}
+function battleTiles(metrics, summaryCount) {
+  if (!metrics) {
+    if (summaryCount == null) return [];
+    return [{ label: '成员', value: battleNumText(summaryCount) }];
+  }
+  var totals = metrics.totals, partial = totals.unpriced > 0;
+  return [
+    { label: '成员', value: battleNumText(metrics.memberCount) },
+    { label: partial ? '估算成本 · 部分' : '估算成本', value: '$' + battleNumText(totals.cost) },
+    { label: '合计 token', value: battleNumText(totals.allUsage.total) },
+    { label: '缓存命中', value: battleNumText(totals.allUsage.cacheHit) }
+  ];
+}
+function battleUsage(metrics) {
+  if (!metrics) return null;
+  var groups = [metrics.totals.usage, metrics.totals.leadUsage, metrics.totals.allUsage];
+  var spec = [['输入', 'in'], ['输出', 'out'], ['缓存读', 'cache_read'], ['缓存写', 'cache_write'], ['合计', 'total'], ['缓存命中', 'cacheHit']];
+  var rows = [];
+  for (var i = 0; i < spec.length; i++) {
+    var cells = [];
+    for (var j = 0; j < groups.length; j++) cells.push(battleNumText(groups[j][spec[i][1]]));
+    rows.push({ label: spec[i][0], cells: cells });
+  }
+  var totals = metrics.totals;
+  var note = '成员成本 ' + battleNumText(totals.membersCost) + ' · 成员输出 ' + battleNumText(totals.tokens) + ' · 未定价 ' + battleNumText(totals.unpriced);
+  if (totals.unpriced > 0) note += ' · 部分';
+  return { columns: ['成员', '队长', '合计'], rows: rows, note: note };
+}
+function battlePublicView(snapshot) {
+  if (!battleDict(snapshot)) throw new Error('snapshot must be an object');
+  var metrics = battleMetrics(snapshot);
+  var members = battleMemberRows(snapshot);
+  var departments = battleDepartmentRows(snapshot);
+  var tasks = battleTaskRows(snapshot);
+  var summary = battleSummary(snapshot, metrics);
+  var count = metrics ? metrics.memberCount : (battleMemberDicts(snapshot).length || null);
+  var right = [];
+  if (snapshot.demo === true) right.push('合成数据');
+  var version = battleHas(snapshot, 'version') ? battleFormatVersion(snapshot.version) : null;
+  if (version) right.push('v' + version);
+  var generated = battleHas(snapshot, 'generatedAt') ? battleFormatGenerated(snapshot.generatedAt) : null;
+  if (generated) right.push(generated);
+  return {
+    right: right,
+    summary: summary,
+    tiles: battleTiles(metrics, (members.length || metrics !== null) ? count : null),
+    usage: battleUsage(metrics),
+    partial: !!(metrics && metrics.totals.unpriced > 0),
+    lead: battleLeadRow(snapshot),
+    departments: departments.slice(0, BATTLE_MAX_DEPARTMENTS),
+    more_departments: Math.max(0, departments.length - BATTLE_MAX_DEPARTMENTS),
+    members: members.slice(0, BATTLE_MAX_MEMBERS),
+    more_members: Math.max(0, members.length - BATTLE_MAX_MEMBERS),
+    tasks: tasks.slice(0, BATTLE_MAX_TASKS),
+    more_tasks: Math.max(0, tasks.length - BATTLE_MAX_TASKS)
+  };
+}
+function battleDescribe(view) {
+  var parts = ['Agent Team 战报。只包含快照里已有的字段。'];
+  if (view.summary.length) parts.push(view.summary.join(' · ') + '。');
+  if (view.usage) parts.push(view.usage.note + '。');
+  if (view.partial) parts.push('成本为部分估算。');
+  else if (view.usage) parts.push('成本是估算，不是服务商账单。');
+  return parts.join('');
+}
+function battleStylesheet(theme, frozen) {
+  var lines = [
+    'text { font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }',
+    '.mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace; }'
+  ];
+  function paint(palette, indent) {
+    var painted = [];
+    for (var i = 0; i < BATTLE_ORDER.length; i++) {
+      var key = BATTLE_ORDER[i];
+      if (key === 'line') continue;
+      painted.push(indent + '.' + key + ' { fill: ' + palette[key] + '; }');
+    }
+    painted.push(indent + '.card { stroke: ' + palette.line + '; }');
+    painted.push(indent + '.rule { stroke: ' + palette.accent + '; }');
+    return painted;
+  }
+  if (theme === 'auto') {
+    lines = lines.concat(paint(BATTLE_PALETTES.light, ''));
+    lines.push('@media (prefers-color-scheme: dark) {');
+    lines = lines.concat(paint(BATTLE_PALETTES.dark, '  '));
+    lines.push('}');
+  } else lines = lines.concat(paint(BATTLE_PALETTES[theme], ''));
+  if (!frozen) {
+    lines.push('@media (prefers-reduced-motion: no-preference) {');
+    lines.push('  .dash { animation: battle-dash 7s linear infinite; }');
+    lines.push('}');
+    lines.push('@keyframes battle-dash { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -' + BATTLE_WIDTH + '; } }');
+  }
+  return lines.join('\n');
+}
+function battleFont(cls) { return cls.split(' ').indexOf('mono') >= 0 ? BATTLE_MONO : BATTLE_SANS; }
+function battleText(x, y, content, cls, size, palette, weight, anchor) {
+  var key = cls.split(' ')[0];
+  var attrs = ['class="' + cls + '"', 'fill="' + palette[key] + '"', 'x="' + x + '"', 'y="' + y + '"', 'font-family="' + battleFont(cls) + '"', 'font-size="' + size + '"'];
+  if (weight) attrs.push('font-weight="' + weight + '"');
+  if (anchor) attrs.push('text-anchor="' + anchor + '"');
+  return '<text ' + attrs.join(' ') + '>' + battleXmlEscape(content) + '</text>';
+}
+function battleRect(x, y, w, h, cls, palette, rx) {
+  var stroke = cls === 'card' ? ' stroke="' + palette.line + '"' : '';
+  return '<rect class="' + cls + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="' + rx + '" fill="' + palette[cls] + '"' + stroke + '/>';
+}
+function battleStatusClass(label) {
+  if (label === '已完成' || label === '收尾完成') return 'ok';
+  if (label === '进行中' || label === '协调中') return 'run';
+  if (label === '停滞' || label === '出错' || label === '等待中') return 'warn';
+  return 'muted';
+}
+function battleSection(elements, y, title, rows, more, moreLabel, palette) {
+  if (!rows.length && !more) return y;
+  elements.push(battleText(BATTLE_PAD, y + 18, title, 'ink', 15, palette, '600'));
+  y += 30;
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i], height = row.bits.length ? 54 : 38;
+    elements.push(battleRect(BATTLE_PAD, y, BATTLE_INNER, height, 'card', palette, 8));
+    elements.push(battleText(BATTLE_PAD + 16, y + 24, row.title, 'ink', 15, palette, '600'));
+    if (row.status) elements.push(battleText(BATTLE_WIDTH - BATTLE_PAD - 16, y + 24, row.status, battleStatusClass(row.status), 13, palette, null, 'end'));
+    if (row.bits.length) elements.push(battleText(BATTLE_PAD + 16, y + 44, row.bits.join(' · '), 'muted', 12, palette));
+    y += height + 8;
+  }
+  if (more) {
+    elements.push(battleText(BATTLE_PAD, y + 16, moreLabel.replace('{}', battleNumText(more)), 'faint', 12, palette));
+    y += 24;
+  }
+  return y + 8;
+}
+function battleRenderSvg(view, theme, frozen) {
+  if (theme !== 'auto' && !battleHas(BATTLE_PALETTES, theme)) throw new Error('theme must be auto, light, or dark');
+  var palette = BATTLE_PALETTES[theme === 'auto' ? 'light' : theme];
+  var elements = [], y = 48;
+  elements.push(battleText(BATTLE_PAD, y, 'AGENT TEAM', 'faint mono', 12, palette));
+  if (view.right.length) elements.push(battleText(BATTLE_WIDTH - BATTLE_PAD, y, view.right.join(' · '), 'faint mono', 12, palette, null, 'end'));
+  y += 42;
+  elements.push(battleText(BATTLE_PAD, y, '战报', 'ink', 36, palette, '600'));
+  elements.push(battleText(BATTLE_WIDTH - BATTLE_PAD, y, 'BATTLE CARD', 'faint mono', 13, palette, null, 'end'));
+  y += 28;
+  if (view.summary.length) {
+    elements.push(battleText(BATTLE_PAD, y, view.summary.join(' · '), 'muted', 15, palette));
+    y += 22;
+  }
+  y += 10;
+  var ruleY = y;
+  y += 26;
+  var tiles = view.tiles;
+  if (tiles.length) {
+    var tileH = 86, gap = 12, count = tiles.length;
+    var base = Math.floor((BATTLE_INNER - gap * (count - 1)) / count);
+    var remain = BATTLE_INNER - (base * count + gap * (count - 1));
+    var x = BATTLE_PAD;
+    for (var index = 0; index < tiles.length; index++) {
+      var tileW = base + (index < remain ? 1 : 0);
+      elements.push(battleRect(x, y, tileW, tileH, 'card', palette, 8));
+      elements.push(battleText(x + 16, y + 30, tiles[index].label, 'faint', 12, palette));
+      elements.push(battleText(x + 16, y + 64, tiles[index].value, 'ink mono', 26, palette, '600'));
+      x += tileW + gap;
+    }
+    y += tileH + 18;
+  }
+  var usage = view.usage;
+  if (usage) {
+    var rowH = 26, blockH = 56 + rowH * usage.rows.length + 28;
+    elements.push(battleRect(BATTLE_PAD, y, BATTLE_INNER, blockH, 'card', palette, 8));
+    elements.push(battleText(BATTLE_PAD + 18, y + 28, '用量', 'ink', 15, palette, '600'));
+    var rights = [];
+    for (index = 0; index < 3; index++) rights.push(BATTLE_WIDTH - BATTLE_PAD - 18 - 176 * (2 - index));
+    for (index = 0; index < usage.columns.length; index++) elements.push(battleText(rights[index], y + 28, usage.columns[index], 'faint', 12, palette, null, 'end'));
+    for (index = 0; index < usage.rows.length; index++) {
+      var rowY = y + 56 + index * rowH;
+      elements.push(battleText(BATTLE_PAD + 18, rowY, usage.rows[index].label, 'muted', 13, palette));
+      for (var cell = 0; cell < usage.rows[index].cells.length; cell++) elements.push(battleText(rights[cell], rowY, usage.rows[index].cells[cell], 'ink mono', 13, palette, null, 'end'));
+    }
+    elements.push(battleText(BATTLE_PAD + 18, y + blockH - 16, usage.note, 'faint', 12, palette));
+    y += blockH + 16;
+  }
+  if (view.lead) y = battleSection(elements, y, '队长', [view.lead], 0, '', palette);
+  y = battleSection(elements, y, '部门', view.departments, view.more_departments, '另有 {} 个部门未列入', palette);
+  y = battleSection(elements, y, '成员', view.members, view.more_members, '另有 {} 位未列入', palette);
+  y = battleSection(elements, y, '已完成的任务', view.tasks, view.more_tasks, '另有 {} 项未列入', palette);
+  y += 6;
+  var footer = ['未出现的字段不补'];
+  if (view.partial) footer.push('成本是部分估算，未定价的没有计入');
+  else if (usage) footer.push('估算成本，不是服务商账单');
+  elements.push(battleText(BATTLE_PAD, y + 14, footer.join(' · '), 'faint', 12, palette));
+  elements.push(battleText(BATTLE_WIDTH - BATTLE_PAD, y + 14, 'claude-agent-team', 'faint mono', 12, palette, null, 'end'));
+  var height = y + 36;
+  var rule = '<line class="rule' + (frozen ? '' : ' dash') + '" x1="' + BATTLE_PAD + '" y1="' + ruleY + '" x2="' + (BATTLE_WIDTH - BATTLE_PAD) + '" y2="' + ruleY + '" stroke="' + palette.accent + '" stroke-width="1"' + (frozen ? '' : ' stroke-dasharray="64 896"') + '/>';
+  if (!frozen) rule = rule.slice(0, -2) + '><animate attributeName="stroke-dashoffset" from="0" to="-' + BATTLE_WIDTH + '" dur="7s" repeatCount="indefinite"/></line>';
+  var head = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' + BATTLE_WIDTH + '" height="' + height + '" viewBox="0 0 ' + BATTLE_WIDTH + ' ' + height + '" role="img" aria-labelledby="battleTitle battleDesc">',
+    '<title id="battleTitle">Agent Team 战报</title>',
+    '<desc id="battleDesc">' + battleXmlEscape(battleDescribe(view)) + '</desc>',
+    '<style>',
+    battleStylesheet(theme, frozen),
+    '</style>',
+    battleRect(0, 0, BATTLE_WIDTH, height, 'paper', palette, 0),
+    battleRect(0, 0, 4, height, 'accent', palette, 0),
+    rule
+  ];
+  return head.concat(elements).join('\n') + '\n</svg>\n';
+}
+function battleCardSvg(snapshot, options) {
+  options = options || {};
+  var theme = options.theme || 'auto';
+  return battleRenderSvg(battlePublicView(snapshot), theme, !!options.static);
+}
+/* BATTLE_CARD_END */
+
+document.getElementById('btn-battle-card').addEventListener('click', function () {
+  if (!prev) { toast('还没有快照', 'warn', 'CARD'); return; }
+  var theme = document.documentElement.dataset.theme || 'auto';
+  if (theme !== 'light' && theme !== 'dark') theme = 'auto';
+  var frozen = false;
+  try { frozen = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (err) {}
+  var svg;
+  try { svg = battleCardSvg(prev, { theme: theme, static: frozen }); }
+  catch (err) { toast('这份快照画不成战报卡', 'err', 'CARD'); return; }
+  var blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = 'battle-card.svg';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  toast('战报卡已下载到本机', 'ok', 'CARD');
+});
 
 /* ---------- 演示数据：?demo=1 在真实快照上叠加几位成员与总线消息（截图 / 离线看效果用，不影响普通使用） ---------- */
 const DEMO = new URLSearchParams(location.search).has('demo');

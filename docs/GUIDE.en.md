@@ -194,7 +194,7 @@ Screenshots and every control are in the [Chinese illustrated guide](GUIDE.md#ui
 
 | Region | What it is |
 |---|---|
-| **Top bar** | Phase (forming / coordinating / wrapped) · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · appearance · theme (auto / light / dark). When one repository has sessions in more than one git worktree, a theater strip under the mission line lists each branch; assumptions are in [WORKTREES.md](WORKTREES.md) |
+| **Top bar** | Phase (forming / coordinating / wrapped) · stall badge when idle, stalled, or errored members have been quiet past the threshold · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · 「导出战报卡」downloads the current snapshot as SVG in the browser · appearance · theme (auto / light / dark). The mission line also shows the optional live-hook state. When one repository has sessions in more than one git worktree, a theater strip under the mission line lists each branch; assumptions are in [WORKTREES.md](WORKTREES.md) |
 | **Formation** | You (labeled DOCTOR) at the top, the lead under that, then a panel per department. Each member: sprite, nameplate, `model · effort · cost`, current tool, progress, elapsed time, unread mark. Lines: assign / report / relay / file handoff / direct / bus. **Replay** (shortcut `R`) replays this session’s traffic |
 | **Department totals** | Headcount, running / done / failed, tool calls, tokens, cache hit, time, models, cost, then comparison bars |
 | **Cost rank** | Members ordered by estimated cost. Color separates opus / sonnet / haiku |
@@ -342,7 +342,7 @@ From the repository root:
 python -m unittest discover -s tests -v
 ```
 
-As of this guide’s revision, `tests/test_*.py` defines **267** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the optional live hook install / relay / loopback endpoint, the read-only demo, aggregate export, and offline Codex exec metrics. Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Windows, macOS and Linux with Python 3.8, 3.12 and 3.13. Python 3.8 is skipped on macOS and on the current Ubuntu image; that version runs on Ubuntu 24.04. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
+As of this guide’s revision, `tests/test_*.py` defines **331** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the optional live hook install / relay / loopback endpoint, the read-only demo, aggregate export, offline Codex exec metrics, and SVG battle cards. Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Windows, macOS and Linux with Python 3.8, 3.12 and 3.13. Python 3.8 is skipped on macOS and on the current Ubuntu image; that version runs on Ubuntu 24.04. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
 
 | Path | Role |
 |---|---|
@@ -356,6 +356,7 @@ As of this guide’s revision, `tests/test_*.py` defines **267** functions whose
 | `install.py` | Install, merge, uninstall |
 | `tools/demo_board.py` | Read-only synthetic board |
 | `tools/export_snapshot.py` | Allowlisted aggregate export |
+| `tools/battle_card.py` | SVG battle card from a snapshot or the loopback board |
 | `tools/codex_metrics.py` | Offline Codex exec JSONL summary |
 | `tools/make_dist_hashes.py` | Writes `dist-hashes.json` |
 | `tests/` | Standard-library tests and synthetic fixtures |
@@ -429,8 +430,11 @@ Bug reports, tests, docs and small integrations are welcome. Start at [CONTRIBUT
 
 ```sh
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
 ```
+
+`battle_card.py` draws one SVG from that snapshot. Aggregate figures match `export_snapshot.py`. `--session` and `--project` select a loopback board the same way, and cannot be combined with `--input`. Names, departments, elapsed time and completed tasks are drawn only when those fields are present. A stall-alert count, theater count, or retained live-hook count is drawn only when the snapshot already has that field. See [INTEGRATIONS.md](INTEGRATIONS.md).
 
 The export keeps an allowlist of numeric fields. It does not include prompts, message bodies, session ids or local paths. Raw `/snapshot.json` can still contain private text; do not publish it. The Codex exec adapter reads only the JSONL you pass. It does not launch Codex or call an API, and its output drops message text, command bodies and session ids. See [CODEX_METRICS.md](CODEX_METRICS.md).
 

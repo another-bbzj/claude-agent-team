@@ -10,6 +10,8 @@ python tools/demo_board.py --port 7790
 Open [the local demo](http://127.0.0.1:7790/) in your browser. The command prints the
 actual URL; `--port 0` chooses an available port. Stop it with Ctrl+C. It does not
 open a browser automatically or install anything into your home directory.
+「导出战报卡」downloads an SVG built in the browser from this fixture. It does not
+upload the snapshot.
 
 The page displays four synthetic subagent members and two official Agent Team
 teammates, plus coherent example departments, tool activity, token counts and
