@@ -93,6 +93,44 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(snapshot['officialTeam']['tasks'][0]['stateSince'], source['officialTeam']['tasks'][0]['stateSince'] + 600)
         self.assertEqual(json.dumps(source, sort_keys=True), original)
 
+    def test_stalled_member_crosses_the_default_alert_threshold(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        stalled = next(member for member in source['members'] if member['id'] == 'synthetic-member-4')
+        self.assertEqual(stalled['status'], 'stalled')
+        self.assertEqual(source['generatedAt'] - stalled['lastActivityAt'], 900)
+        self.assertEqual(stalled['lastActivityAt'] - stalled['startedAt'], 130)
+        snapshot = demo.snapshot_at(source, source['generatedAt'] + 50)
+        alerts = snapshot['stallAlerts']
+        self.assertEqual(alerts['thresholdSec'], 600)
+        self.assertEqual(alerts['defaultThresholdSec'], 600)
+        active = [item for item in alerts['candidates'] if item['idleSeconds'] >= alerts['thresholdSec']]
+        self.assertEqual([(item['id'], item['name'], item['idleSeconds'], item['basis']) for item in active], [
+            ('synthetic-member-4', '演示文档', 900, 'lastActivityAt'),
+        ])
+        self.assertTrue(all(item['status'] in ('idle', 'error', 'stalled') for item in alerts['candidates']))
+        later = demo.snapshot_at(source, source['generatedAt'] + 80)
+        again = next(item for item in later['stallAlerts']['candidates'] if item['id'] == 'synthetic-member-4')
+        first = next(item for item in alerts['candidates'] if item['id'] == 'synthetic-member-4')
+        self.assertEqual(again['anchor'], first['anchor'])
+        self.assertEqual(again['idleSeconds'], first['idleSeconds'])
+        self.assertNotEqual(
+            next(m for m in snapshot['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+            next(m for m in later['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+        )
+
+    def test_stall_annotation_does_not_import_the_live_backend(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        original = builtins.__import__
+
+        def restricted(name, *args, **kwargs):
+            if name == 'team_board' or (isinstance(name, str) and name.startswith('team_board.')):
+                raise AssertionError('live backend imported')
+            return original(name, *args, **kwargs)
+
+        with mock.patch('builtins.__import__', side_effect=restricted):
+            snapshot = demo.snapshot_at(source, source['generatedAt'])
+        self.assertEqual(snapshot['stallAlerts']['candidates'][0]['id'], 'synthetic-member-4')
+
 
 class DemoHttpTest(unittest.TestCase):
     @classmethod
@@ -152,6 +190,9 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(len(snapshot['members']), 6)
         self.assertEqual(sum(1 for member in snapshot['members'] if member.get('officialTeam')), 2)
         self.assertTrue(snapshot['demo'])
+        active = [item['id'] for item in snapshot['stallAlerts']['candidates']
+                  if item['idleSeconds'] >= snapshot['stallAlerts']['thresholdSec']]
+        self.assertEqual(active, ['synthetic-member-4'])
         self.assertEqual(self.request('GET', '/?demo=1')[0], 303)
 
     def test_all_mutations_including_shutdown_are_forbidden(self):

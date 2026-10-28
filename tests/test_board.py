@@ -140,6 +140,15 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(a['description'], '实现数据层 store.js')
         self.assertEqual(a['dispatchedAt'], self.tb.parse_iso('2026-01-01T10:00:05Z'))
 
+    def test_stall_alert_block_ignores_running_and_completed(self):
+        alerts = self.snap['stallAlerts']
+        self.assertEqual(alerts['defaultThresholdSec'], 600)
+        self.assertEqual(alerts['thresholdSec'], 600)
+        ids = [item['id'] for item in alerts['candidates']]
+        self.assertNotIn(self.member('backend-dev')['id'], ids)
+        self.assertNotIn(self.member('frontend-dev')['id'], ids)
+        self.assertTrue(all(item['status'] in ('idle', 'error', 'stalled') for item in alerts['candidates']))
+
     def test_model_effort_cost_tokens(self):
         a = self.member('backend-dev')
         self.assertEqual(a['modelFamily'], 'sonnet')
