@@ -6,6 +6,8 @@ Agent Team Board — 本地实时看板服务
 直接读取 Claude Code 写在 ~/.claude/projects/<project>/<session>/subagents/ 下的
 子代理 transcript (agent-*.jsonl + agent-*.meta.json)，推导每个子代理的状态与当前动作，
 通过 /snapshot.json 提供给前端页面轮询。
+可选实时通道：hook_relay.py 把 Claude Code 钩子收成短事件，POST /api/hooks/event。
+事件只留在内存里，不和转录合并。见 docs/HOOKS.md。
 
 用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600]
 """
@@ -2235,6 +2237,123 @@ def _snapshot_official_team(view, members, now):
     return public
 
 
+class HookEventLog(object):
+    """内存里的钩子事件。不落盘，满了就丢掉最旧的。不和转录合并。"""
+
+    def __init__(self, limit=200, show=40, fresh_seconds=20):
+        self.limit = limit
+        self.show = show
+        self.fresh_seconds = fresh_seconds
+        self._items = []
+        self._seq = 0
+        self._lock = threading.Lock()
+
+    def clear(self):
+        with self._lock:
+            self._items = []
+            self._seq = 0
+
+    def add(self, event):
+        with self._lock:
+            self._seq += 1
+            item = dict(event)
+            item['seq'] = self._seq
+            self._items.append(item)
+            overflow = len(self._items) - self.limit
+            if overflow > 0:
+                del self._items[:overflow]
+            return dict(item)
+
+    def view(self, session_id, now):
+        with self._lock:
+            if session_id:
+                rows = [dict(item) for item in self._items if item.get('session_id') == session_id]
+            else:
+                rows = []
+            shown = rows[-self.show:]
+        newest = shown[-1]['ts'] if shown else 0
+        return {
+            'v': 1,
+            'source': 'claude-hook',
+            # merged 保持 false：和转录去重是下一步。correlate 只声明将来用哪个键，现在不对账。
+            'merged': False,
+            'correlate': 'tool_use_id',
+            'available': True,
+            'freshSeconds': self.fresh_seconds,
+            'fresh': bool(shown) and (now - newest) <= self.fresh_seconds,
+            'retained': len(rows),
+            'limit': self.limit,
+            'events': shown,
+        }
+
+
+HOOK_LOG = HookEventLog()
+_hook_mod = None
+_hook_failed = False
+
+
+def hook_api():
+    """加载旁边的 hook_relay.py。失败时看板照常提供转录，只是没有实时通道。"""
+    global _hook_mod, _hook_failed
+    if _hook_mod is not None:
+        return _hook_mod
+    if _hook_failed:
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location('team_board_hook_relay', str(HERE / 'hook_relay.py'))
+        if spec is None or spec.loader is None:
+            _hook_failed = True
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _hook_mod = mod
+        return mod
+    except Exception:
+        _hook_failed = True
+        return None
+
+
+def loopback_host(host):
+    host = str(host or '')
+    if host.startswith('::ffff:'):
+        host = host[7:]
+    return host in ('127.0.0.1', '::1', 'localhost')
+
+
+def hook_origin_allowed(origin, server_port):
+    """实时端点必须带 Origin，并且是本机回环地址加本服务端口。"""
+    if not origin or not isinstance(origin, str):
+        return False
+    try:
+        parsed = urlparse(origin)
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+    except ValueError:
+        return False
+    if parsed.scheme not in ('http', 'https'):
+        return False
+    if parsed.username or parsed.password:
+        return False
+    if parsed.path not in ('', '/') or parsed.query or parsed.params or parsed.fragment:
+        return False
+    if not loopback_host(parsed.hostname):
+        return False
+    return port == server_port
+
+
+def empty_live_view():
+    return {
+        'v': 1, 'source': 'claude-hook', 'merged': False, 'correlate': 'tool_use_id',
+        'available': False, 'fresh': False, 'freshSeconds': HOOK_LOG.fresh_seconds,
+        'retained': 0, 'limit': HOOK_LOG.limit, 'events': [],
+    }
+
+
+def hook_live_view(session_id, now):
+    if hook_api() is None:
+        return empty_live_view()
+    return HOOK_LOG.view(session_id or '', now)
+
+
 def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
@@ -2552,6 +2671,7 @@ def build_snapshot(args):
         'bus': bus_info,
         'officialTeam': _snapshot_official_team(official_view, members, now),
         'backdrop': backdrop_state(presets=False),
+        'live': hook_live_view(session_info['id'] if session_info else '', now),
     }
 
 
@@ -2609,10 +2729,13 @@ class Handler(SimpleHTTPRequestHandler):
             with Handler._lock:
                 t, data = Handler._cache
                 if data is None or time.time() - t > 1.0 or custom:
-                    data = json.dumps(build_snapshot(args), ensure_ascii=False)
+                    data = build_snapshot(args)
                     if not custom:
                         Handler._cache = (time.time(), data)
-            body = data.encode('utf-8')
+                session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
+                view = dict(data)
+                view['live'] = hook_live_view(session_id, time.time())
+            body = json.dumps(view, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Cache-Control', 'no-store')
@@ -2746,8 +2869,49 @@ class Handler(SimpleHTTPRequestHandler):
                 break
             remaining -= len(chunk)
 
+    def _discard(self, n):
+        remaining = n
+        while remaining > 0:
+            chunk = self.rfile.read(min(remaining, 65536))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
+    def _post_hook_event(self):
+        """只收本机、带对得上的 Origin、而且不超过 4KB 的精简事件。"""
+        api = hook_api()
+        if api is None:
+            self._drain_body()
+            return self._json({'error': '实时通道不可用'}, 503)
+        if not loopback_host(self.client_address[0] if self.client_address else '') or not hook_origin_allowed(
+                self.headers.get('Origin'), self.server.server_address[1]):
+            self._drain_body()
+            return self._json({'error': '拒绝非本机或跨站的实时事件'}, 403)
+        try:
+            n = int(self.headers.get('Content-Length') or 0)
+        except (TypeError, ValueError):
+            return self._json({'error': '请求体不是合法 JSON'}, 400)
+        if n > api.BODY_LIMIT:
+            if 0 < n <= 65536:
+                self._discard(n)
+            return self._json({'error': '请求体过大'}, 413)
+        if n <= 0:
+            return self._json({'error': '请求体不是合法 JSON'}, 400)
+        body = self.rfile.read(n)
+        if len(body) != n:
+            return self._json({'error': '请求体不是合法 JSON'}, 400)
+        try:
+            payload = json.loads(body.decode('utf-8'))
+            event = api.normalize_client_event(payload, time.time())
+        except Exception:
+            return self._json({'error': '请求体不是合法 JSON'}, 400)
+        stored = HOOK_LOG.add(event)
+        return self._json({'ok': True, 'seq': stored['seq']})
+
     def do_POST(self):
         u = urlparse(self.path)
+        if u.path == '/api/hooks/event':
+            return self._post_hook_event()
         if self._reject_task_api():
             return
         if not self._same_origin():

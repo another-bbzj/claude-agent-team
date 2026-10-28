@@ -2,6 +2,10 @@
 
 These recipes use the existing Claude Code board and standard-library tools. They do not add a hosted service or interactive Codex session ingestion. See [the main guide](GUIDE.md) for board setup and [the Codex maintainer guide](CODEX.md) for using Codex to maintain this repository.
 
+## Optional Claude Code hook channel
+
+`python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` lists those events for the selected session and sets `merged` to false: they are not deduplicated against transcript rows. `correlate` is `tool_use_id`, reserved for a later join. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
+
 ## Codex exec event metrics
 
 The [Codex exec adapter](CODEX_METRICS.md) accepts an explicitly supplied `codex exec --json` log and emits aggregate counts and token usage without text, commands or identifiers:

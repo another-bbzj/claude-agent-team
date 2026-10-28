@@ -103,7 +103,7 @@ The board’s total includes cache read and cache write. A console that shows on
 
 **卸载会删掉什么？**
 
-`python install.py --uninstall` 删除 `~/.claude/team-board/` 整个目录，包括消息总线记录 `bus/` 和背景图 `backdrops/`。`settings.json` 与 `CLAUDE.md` 只移除本工具加入的部分。更新（重装）不会动这两个目录。
+`python install.py --uninstall` 删除 `~/.claude/team-board/` 整个目录，包括消息总线记录 `bus/` 和背景图 `backdrops/`。`settings.json` 与 `CLAUDE.md` 只移除本工具加入的部分，包括 `--hooks` 装上的实时钩子。更新（重装）不会动这两个目录；不加 `--hooks` 的更新也不会卸掉已经装上的实时钩子。
 
 Uninstall removes the whole `~/.claude/team-board/` directory, including `bus/` and `backdrops/`. An update does not.
 

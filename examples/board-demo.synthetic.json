@@ -577,6 +577,40 @@
       "error": false
     }
   ],
+  "live": {
+    "v": 1,
+    "source": "claude-hook",
+    "merged": false,
+    "correlate": "tool_use_id",
+    "available": true,
+    "freshSeconds": 20,
+    "fresh": false,
+    "retained": 2,
+    "limit": 200,
+    "events": [
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 1,
+        "session_id": "synthetic-session",
+        "event": "PreToolUse",
+        "tool_name": "Read",
+        "tool_use_id": "toolu_synthetic_read",
+        "agent_id": "synthetic-member-1",
+        "agent_type": "backend-dev",
+        "ts": 1767261740
+      },
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 2,
+        "session_id": "synthetic-session",
+        "event": "Stop",
+        "stop_hook_active": false,
+        "ts": 1767261738
+      }
+    ]
+  },
   "comms": [],
   "bus": {
     "count": 0,

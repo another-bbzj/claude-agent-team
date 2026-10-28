@@ -9,6 +9,7 @@
 ### 新增
 
 - 悬停、聚焦或打开官方任务详情时，看板用弧线连出当前筛选后仍在三列里的依赖。被滤掉的对端不画线。前置任务还没完成时用强调色，已经完成的更淡；空闲时不画。点弧线或端点打开那张卡的只读详情，不改变钉住。
+- 可选实时钩子：`python install.py --hooks` 在不覆盖已有 hooks 的前提下合并 `PreToolUse`、`PostToolUse`、`SubagentStop`、`Notification`、`Stop`。`hook_relay.py` 只把会话 id、事件名、工具名、`tool_use_id`、成员标识和时间 POST 到 `127.0.0.1`。看板没开时脚本退出码 0、没有输出。事件只留在内存里，快照里的 `live.merged` 仍是 `false`，不和转录去重。说明见 [docs/HOOKS.md](docs/HOOKS.md)。不加 `--hooks` 时安装行为不变；`--uninstall` 会把这些钩子和 SessionStart 一起卸掉。
 
 ## 1.4.3 — 2026-10-22
 

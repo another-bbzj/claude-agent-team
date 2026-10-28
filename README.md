@@ -48,6 +48,8 @@ python install.py
 
 新开一个会话。SessionStart 钩子会把看板留在后台：<http://127.0.0.1:7788/>。然后说「用 agent team」，让它做一件至少拆得开的事。安装写到哪、怎么更新、怎么卸载，见 [安装与更新](docs/GUIDE.md#install)。
 
+想在转录写盘之前就看到工具调用，可以加上可选的实时钩子：`python install.py --hooks`。看板没开时脚本立刻退出，不改变 Claude Code 的决定。字段、卸载方式和「还没和转录合并」写在 [实时钩子](docs/HOOKS.md)。不加这个参数时，安装行为和以前一样。
+
 <a id="why"></a>
 
 ## 为什么需要它
@@ -88,6 +90,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
 | 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
 | 只读导出、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
 | 把用量和估算成本接入 Prometheus / Grafana | [Prometheus 文本指标与 node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
