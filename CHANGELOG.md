@@ -8,6 +8,7 @@
 
 ### 新增
 
+- `tools/battle_card.py` 把离线快照或本机看板画成一张 SVG 战报卡，可放进 README。只画快照里已有的成员、部门、用时、token、缓存命中、估算成本和已完成任务；未定价标「部分」，缺的字段不补。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。快照里已有 `stallAlerts`、`theaters` 或 `live.retained` 时，卡片写出停滞提醒人数、作战区个数或实时事件条数，没有就不画。`budget.enabled` 且 `budget.ratio` 是非负有限数时，另画一条预算使用率，可以超过 100%，名字和建议不写上。不写本机路径、会话 id、邮箱、提示词或工具参数。看板顶栏「导出战报卡」在浏览器里下载同一张图，不上传。样例是 `docs/img/battle-card.svg`。
 - 可为一次会话设置估算成本预算（`team.json` 的 `budget`，或 `team_board.py` 的 `--budget` / `--budget-warn` / `--budget-member` / `--budget-dept`）。默认 80% 变黄，达到上限变红；写出花得最多的人，并按角色档位给出降档句子。未定价模型标成「成本为下限」，不补金额。不设预算时这块不出现。更新安装会保留你写过的整段 `budget`。设了会话上限时，Prometheus 文本多一个 `claude_agent_team_budget_utilization_ratio{scope="session"}`（已计价花费除以上限，可以大于 1）；没设上限时不出现。JSON 导出仍是 schemaVersion 1。
 - 同一 git 仓库在不同 worktree 里的多路会话收成一个作战区，每路显示自己的分支。任务条下方可以点分支切换。说明在 `docs/WORKTREES.md`。
 - 可选实时钩子：`python install.py --hooks` 在不覆盖已有 hooks 的前提下合并 `PreToolUse`、`PostToolUse`、`SubagentStop`、`Notification`、`Stop`。`hook_relay.py` 只把会话 id、事件名、工具名、`tool_use_id`、成员标识和时间 POST 到 `127.0.0.1`。看板没开时脚本退出码 0、没有输出。事件只留在内存里，快照里的 `live.merged` 仍是 `false`，不和转录去重。说明见 [docs/HOOKS.md](docs/HOOKS.md)。不加 `--hooks` 时安装行为不变；`--uninstall` 会把这些钩子和 SessionStart 一起卸掉。

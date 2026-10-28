@@ -68,9 +68,9 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 | 位置 | 说明 |
 |---|---|
-| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· `⚙ N 进行中` · `✓ N 已完成` · 成员数 · **部门 x/y**（收尾后若建议出场的部门没来，变黄提示「建议补位」，不是错误）· 模型构成（`opus×10 haiku×5`）· 估算成本（成员 / 含队长合计）· 全队 token 与缓存命中率 · 会话 id 与最近活动 · 未读「✉ N 条给你」· 版本 / 一键更新 · ⚙ 外观 |
+| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· 停滞角标（空闲、停滞或出错超过阈值才出现，点开可逐条忽略）· `⚙ N 进行中` · `✓ N 已完成` · 成员数 · **部门 x/y**（收尾后若建议出场的部门没来，变黄提示「建议补位」，不是错误）· 模型构成（`opus×10 haiku×5`）· 估算成本（成员 / 含队长合计）· 全队 token 与缓存命中率 · 会话 id 与最近活动 · 未读「✉ N 条给你」· 版本 / 一键更新 · 会话切换 · 导出战报卡 · ⚙ 外观 |
 | **第二行** | 会话选择（默认"自动：最近活跃的会话"，可切到任何历史会话回看）· 主题（自动 / 浅色 / 深色） |
-| **LIVE 条** | 实时监听状态：几位成员进行中 / 暂无活动；项目名；当前指令 |
+| **LIVE 条** | 实时监听状态：几位成员进行中 / 暂无活动；项目名；当前指令。旁边的「实时」指示来自可选钩子通道，还没和转录合并。同一仓库有多路 worktree 时，这条下面是作战区 |
 | **FORMATION 舞台** | 顶部中央是「你」（DOCTOR），队长在其下；每个部门一个虚线面板（名称、状态、人数、部门成本）；成员站在自己部门里。右上角图例是飞线颜色：派工 / 回报 / 队长转达 / 文件交接 / 成员私信 / 总线消息 / 停滞 / 出错。`▶ 回放通信`（快捷键 `R`）把本次会话的全部交互重新播一遍 |
 
 每位成员的卡片：动画形象 · 名牌（名字 · 岗位）· `模型 · 强度 · 成本` 胶囊 · 状态行（正在用什么工具 / 已交付·用时 / zZ 停滞 / ✕ 出错）· 当前工具调用 · 进度条 · `工具次数 · tokens · 缓存命中`。未读时卡片有 ✉ 角标。
@@ -566,7 +566,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **329** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **350** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总、预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 
@@ -680,7 +680,7 @@ agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式�
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）
-tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
+tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
@@ -691,7 +691,10 @@ install.py         安装 / 更新 / 卸载        VERSION  版本号
 
 ```bash
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 ```
+
+`battle_card.py` 用同一份快照画一张 SVG 战报卡。聚合数字与 `export_snapshot.py` 一致。`--session` 和 `--project` 也一样，只在 `--port` 下二选一。名字、部门、用时和已完成任务只在快照里有这些字段时出现。快照里已有停滞提醒、作战区或实时事件条数时会写上人数或条数。用法和隐私边界见 [集成指南](INTEGRATIONS.md)。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 

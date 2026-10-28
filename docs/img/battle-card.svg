@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="708" viewBox="0 0 960 708" role="img" aria-labelledby="battleTitle battleDesc">
+<title id="battleTitle">Agent Team 战报</title>
+<desc id="battleDesc">Agent Team 战报。只包含快照里已有的字段。2 名成员 · 1 已完成 · 1 进行中。成员成本 0.008 · 成员输出 200 · 未定价 0。成本是估算，不是服务商账单。</desc>
+<style>
+text { font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+.mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace; }
+.paper { fill: #e7e9ed; }
+.card { fill: #ffffff; }
+.ink { fill: #131722; }
+.muted { fill: #465066; }
+.faint { fill: #858c9d; }
+.accent { fill: #9c7818; }
+.ok { fill: #2b8466; }
+.run { fill: #1c74a8; }
+.warn { fill: #b36f0b; }
+.card { stroke: #d2d6de; }
+.rule { stroke: #9c7818; }
+@media (prefers-color-scheme: dark) {
+  .paper { fill: #070a11; }
+  .card { fill: #141926; }
+  .ink { fill: #eceae3; }
+  .muted { fill: #a6acba; }
+  .faint { fill: #676f83; }
+  .accent { fill: #d3b35c; }
+  .ok { fill: #62b596; }
+  .run { fill: #5fb1e3; }
+  .warn { fill: #e3a444; }
+  .card { stroke: #232a3a; }
+  .rule { stroke: #d3b35c; }
+}
+</style>
+<rect class="paper" x="0" y="0" width="960" height="708" rx="0" fill="#e7e9ed"/>
+<rect class="accent" x="0" y="0" width="4" height="708" rx="0" fill="#9c7818"/>
+<line class="rule" x1="36" y1="150" x2="924" y2="150" stroke="#9c7818" stroke-width="1"/>
+<text class="faint mono" fill="#858c9d" x="36" y="48" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="12">AGENT TEAM</text>
+<text class="ink" fill="#131722" x="36" y="90" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="36" font-weight="600">战报</text>
+<text class="faint mono" fill="#858c9d" x="924" y="90" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">BATTLE CARD</text>
+<text class="muted" fill="#465066" x="36" y="118" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="15">2 名成员 · 1 已完成 · 1 进行中</text>
+<rect class="card" x="36" y="176" width="213" height="86" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="faint" fill="#858c9d" x="52" y="206" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">成员</text>
+<text class="ink mono" fill="#131722" x="52" y="240" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="26" font-weight="600">2</text>
+<rect class="card" x="261" y="176" width="213" height="86" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="faint" fill="#858c9d" x="277" y="206" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">估算成本</text>
+<text class="ink mono" fill="#131722" x="277" y="240" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="26" font-weight="600">$0.012</text>
+<rect class="card" x="486" y="176" width="213" height="86" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="faint" fill="#858c9d" x="502" y="206" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">合计 token</text>
+<text class="ink mono" fill="#131722" x="502" y="240" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="26" font-weight="600">750</text>
+<rect class="card" x="711" y="176" width="213" height="86" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="faint" fill="#858c9d" x="727" y="206" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">缓存命中</text>
+<text class="ink mono" fill="#131722" x="727" y="240" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="26" font-weight="600">0.6667</text>
+<rect class="card" x="36" y="280" width="888" height="240" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="ink" fill="#131722" x="54" y="308" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">用量</text>
+<text class="faint" fill="#858c9d" x="554" y="308" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12" text-anchor="end">成员</text>
+<text class="faint" fill="#858c9d" x="730" y="308" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12" text-anchor="end">队长</text>
+<text class="faint" fill="#858c9d" x="906" y="308" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12" text-anchor="end">合计</text>
+<text class="muted" fill="#465066" x="54" y="336" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">输入</text>
+<text class="ink mono" fill="#131722" x="554" y="336" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">100</text>
+<text class="ink mono" fill="#131722" x="730" y="336" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">50</text>
+<text class="ink mono" fill="#131722" x="906" y="336" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">150</text>
+<text class="muted" fill="#465066" x="54" y="362" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">输出</text>
+<text class="ink mono" fill="#131722" x="554" y="362" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">200</text>
+<text class="ink mono" fill="#131722" x="730" y="362" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">100</text>
+<text class="ink mono" fill="#131722" x="906" y="362" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">300</text>
+<text class="muted" fill="#465066" x="54" y="388" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">缓存读</text>
+<text class="ink mono" fill="#131722" x="554" y="388" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">300</text>
+<text class="ink mono" fill="#131722" x="730" y="388" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0</text>
+<text class="ink mono" fill="#131722" x="906" y="388" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">300</text>
+<text class="muted" fill="#465066" x="54" y="414" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">缓存写</text>
+<text class="ink mono" fill="#131722" x="554" y="414" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0</text>
+<text class="ink mono" fill="#131722" x="730" y="414" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0</text>
+<text class="ink mono" fill="#131722" x="906" y="414" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0</text>
+<text class="muted" fill="#465066" x="54" y="440" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">合计</text>
+<text class="ink mono" fill="#131722" x="554" y="440" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">600</text>
+<text class="ink mono" fill="#131722" x="730" y="440" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">150</text>
+<text class="ink mono" fill="#131722" x="906" y="440" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">750</text>
+<text class="muted" fill="#465066" x="54" y="466" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13">缓存命中</text>
+<text class="ink mono" fill="#131722" x="554" y="466" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0.75</text>
+<text class="ink mono" fill="#131722" x="730" y="466" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0</text>
+<text class="ink mono" fill="#131722" x="906" y="466" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="13" text-anchor="end">0.6667</text>
+<text class="faint" fill="#858c9d" x="54" y="504" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">成员成本 0.008 · 成员输出 200 · 未定价 0</text>
+<text class="ink" fill="#131722" x="36" y="554" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">成员</text>
+<rect class="card" x="36" y="566" width="888" height="38" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="ink" fill="#131722" x="52" y="590" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">成员 01</text>
+<text class="ok" fill="#2b8466" x="908" y="590" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13" text-anchor="end">已完成</text>
+<rect class="card" x="36" y="612" width="888" height="38" rx="8" fill="#ffffff" stroke="#d2d6de"/>
+<text class="ink" fill="#131722" x="52" y="636" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">成员 02</text>
+<text class="run" fill="#1c74a8" x="908" y="636" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="13" text-anchor="end">进行中</text>
+<text class="faint" fill="#858c9d" x="36" y="686" font-family="Segoe UI, PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="12">未出现的字段不补 · 估算成本，不是服务商账单</text>
+<text class="faint mono" fill="#858c9d" x="924" y="686" font-family="ui-monospace, Cascadia Mono, SF Mono, Consolas, monospace" font-size="12" text-anchor="end">claude-agent-team</text>
+</svg>
