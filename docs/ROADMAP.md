@@ -10,11 +10,14 @@ Implemented extension tools include the [versioned aggregate snapshot export](IN
 
 The synthetic tree in [`examples/agent-teams.synthetic/`](../examples/agent-teams.synthetic/README.md) reproduces that command room offline: a blocked dependency chain, the same task id in two files, mixed TaskList and TaskGet shapes, and a teammate whose name matches no task owner. Tests reject credential-like strings, absolute home paths, email-shaped text, and `sk-` / API key patterns under `examples/`. The over-2MB skip uses a temporary file generated during the test. The planned shared collection below still applies that bar to every future fixture family.
 
+`python install.py --hooks` can also register Claude Code `PreToolUse`, `PostToolUse`, `SubagentStop`, `Notification`, and `Stop` hooks. `hook_relay.py` posts a short loopback event; the board keeps a bounded in-memory list and shows it separately from the transcript feed. `live.merged` stays false. See [HOOKS.md](HOOKS.md).
+
 ## Planned work
 
 | Priority | Direction | Acceptance criteria before calling it supported |
 | --- | --- | --- |
 | 1 | Full interactive transcript adapters, including Codex | Extend beyond the shipped offline exec metrics adapter; use documented or observed input formats with synthetic fixtures; identify source/version; test session selection, agent identity, tool events, errors and usage deduplication; keep existing Claude Code tests passing. |
+| 1 | Join hook events with the transcript feed | The live channel already keeps `tool_use_id` and sets `live.correlate` to that field, with `live.merged` false. A later change may collapse one hook event and the matching transcript row into one activity. Until that lands, the board shows both. Do not treat the two lists as already deduplicated. |
 | 1 | A shared, privacy-safe fixture collection | Every fixture is synthetic or explicitly sanitized; contributors can reproduce the target bug offline; tests reject accidental inclusion of credentials, local identities and private transcript content. |
 | 2 | More extension recipes | Demonstrate a specific consumer using the documented integration surface; document input/output shape and failure behavior; include an offline example and avoid requiring access to a maintainer's machine. |
 | 2 | Maintainer automation using Codex | Start with drafts for triage or review; define trusted inputs, permissions, secret handling, spending limits and human approval before posting, merging or releasing; include regression checks. No such hosted automation is currently configured. |

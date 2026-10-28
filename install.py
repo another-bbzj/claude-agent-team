@@ -3,6 +3,7 @@
 一键安装 / 更新到 ~/.claude（Windows / macOS / Linux 通用，只依赖 Python 3.8+ 标准库）。
 
     python install.py            # 安装 / 更新：复制文件、合并 SessionStart 钩子、合并全局 CLAUDE.md
+    python install.py --hooks    # 同上，并合并实时事件钩子（不覆盖你已有的 hooks）
     python install.py --uninstall
     python ~/.claude/team-board/update.py   # 之后检查 / 一键更新（看板顶栏也有按钮）
 
@@ -18,6 +19,9 @@
   skills/*     -> ~/.claude/skills/
   CLAUDE.global.md 的内容 -> 追加到 ~/.claude/CLAUDE.md（用标记包裹，可重复运行、可卸载）
   ~/.claude/settings.json -> 追加 SessionStart 钩子，路径按本机自动生成；原文件先备份为 settings.json.bak-<时间>
+  python install.py --hooks 时再合并 PreToolUse / PostToolUse / SubagentStop / Notification / Stop，
+  调用 team-board/hook_relay.py。不加 --hooks 不会新增也不会删掉这些事件上已有的钩子。
+  --uninstall 会卸掉本工具的 SessionStart 和实时钩子，留下你自己的。
 """
 import argparse
 import os
@@ -37,6 +41,9 @@ HERE = Path(__file__).resolve().parent
 CLAUDE = Path.home() / '.claude'
 MARK_BEGIN, MARK_END = '<!-- claude-agent-team:begin -->', '<!-- claude-agent-team:end -->'
 HOOK_TAG = 'team-board/ensure.py'
+LIVE_HOOK_TAG = 'team-board/hook_relay.py'
+LIVE_EVENTS = ('PreToolUse', 'PostToolUse', 'SubagentStop', 'Notification', 'Stop')
+LIVE_HOOK_TIMEOUT = 2
 MANIFEST = CLAUDE / 'team-board' / '.installed.json'   # 上次安装的文件哈希：判断用户有没有改过
 try:   # 所有历史版本的 agents/ skills/ 文件哈希（tools/make_dist_hashes.py 生成）：第一次升级、没有 .installed.json 时也能判断用户有没有改过
     DIST_HASHES = json.loads((HERE / 'dist-hashes.json').read_text(encoding='utf-8'))
@@ -146,23 +153,48 @@ def merge_claude_md(install: bool):
     path.write_text(existing, encoding='utf-8')
 
 
-def merge_settings(install: bool):
+def _is_our_hook(hook, tag):
+    if not isinstance(hook, dict):
+        return False
+    values = [hook.get('command', '')]
+    args = hook.get('args')
+    if isinstance(args, list):
+        values.extend(args)
+    return any(isinstance(value, str) and tag in value.replace('\\', '/') for value in values)
+
+
+def _without_our_hooks(entries, tag):
+    """丢掉本工具的钩子，保留同一分组里的用户钩子和 matcher 等元数据。"""
+    kept = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            kept.append(entry)
+            continue
+        grouped = entry.get('hooks')
+        if not isinstance(grouped, list):
+            kept.append(entry)
+            continue
+        remaining = [hook for hook in grouped if not _is_our_hook(hook, tag)]
+        if grouped and not remaining:
+            continue
+        kept.append({**entry, 'hooks': remaining} if 'hooks' in entry else entry)
+    return kept
+
+
+def live_hook_handler():
+    """exec 形式：command + args，不经 shell。超时是 Claude Code 的上限，脚本自己会更快退出。"""
+    script = (CLAUDE / 'team-board' / 'hook_relay.py').as_posix()
+    return {'type': 'command', 'command': 'python', 'args': [script], 'timeout': LIVE_HOOK_TIMEOUT}
+
+
+def merge_settings(install: bool, live=None):
+    """install 为真时写入 SessionStart。live 为 True 合并实时钩子，False 卸掉，None 完全不动那几条事件。"""
     path = CLAUDE / 'settings.json'
     data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
     if path.exists():
         shutil.copy2(path, path.with_name(f'settings.json.bak-{time.strftime("%Y%m%d-%H%M%S")}'))
     hooks = data.setdefault('hooks', {})
-    ss = []
-    for entry in hooks.get('SessionStart', []):
-        # One SessionStart group can contain both our command and user commands.
-        # Remove only our hook, retaining the group's matcher and other metadata.
-        remaining = []
-        for hook in entry.get('hooks', []):
-            values = [hook.get('command', '')] + hook.get('args', [])
-            if not any(isinstance(v, str) and HOOK_TAG in v.replace('\\', '/') for v in values):
-                remaining.append(hook)
-        if remaining or not entry.get('hooks'):
-            ss.append({**entry, 'hooks': remaining} if 'hooks' in entry else entry)
+    ss = _without_our_hooks(hooks.get('SessionStart') or [], HOOK_TAG)
     if install:
         ensure = (CLAUDE / 'team-board' / 'ensure.py').as_posix()
         ss.append({'hooks': [{'type': 'command', 'command': 'python', 'args': [ensure], 'timeout': 15,
@@ -171,6 +203,15 @@ def merge_settings(install: bool):
         hooks['SessionStart'] = ss
     else:
         hooks.pop('SessionStart', None)
+    if live is not None:
+        for name in LIVE_EVENTS:
+            kept = _without_our_hooks(hooks.get(name) or [], LIVE_HOOK_TAG)
+            if live:
+                kept.append({'hooks': [live_hook_handler()]})
+            if kept:
+                hooks[name] = kept
+            else:
+                hooks.pop(name, None)
     if not hooks:
         data.pop('hooks', None)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -179,6 +220,8 @@ def merge_settings(install: bool):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--uninstall', action='store_true')
+    ap.add_argument('--hooks', action='store_true',
+                    help='合并实时事件钩子（PreToolUse / PostToolUse / SubagentStop / Notification / Stop）')
     ap.add_argument('--no-pets', action='store_true', help='不尝试从本机 Codex 导入宠物形象')
     ap.add_argument('--no-restart', action='store_true', help='装完不重启正在跑的看板服务')
     ap.add_argument('--petdex', action='store_true', help='再从 petdex.dev 社区画廊下载一组桌宠形象到本机（联网）')
@@ -187,7 +230,7 @@ def main():
         sys.exit('需要 Python 3.8+')
     CLAUDE.mkdir(parents=True, exist_ok=True)
     if a.uninstall:
-        merge_settings(False)
+        merge_settings(False, live=False)
         merge_claude_md(False)
         for name in (HERE / 'agents').glob('*.md'):
             (CLAUDE / 'agents' / name.name).unlink(missing_ok=True)
@@ -211,7 +254,7 @@ def main():
     shutil.copy2(HERE / 'VERSION', CLAUDE / 'team-board' / 'VERSION') if (HERE / 'VERSION').exists() else None
     MANIFEST.write_text(json.dumps(new_manifest, ensure_ascii=False, indent=1), encoding='utf-8')
     merge_claude_md(True)
-    merge_settings(True)
+    merge_settings(True, live=True if a.hooks else None)
     print(f'安装完成（v{new_manifest["_version"] or "?"}）：')
     if kept:
         print('  以下文件你改过，没有覆盖；新版本放在旁边的 *.new 里供比较：')
@@ -221,6 +264,8 @@ def main():
     print('  成员  ->', CLAUDE / 'agents', f'（{len(list((HERE / "agents").glob("*.md")))} 位）')
     print('  技能  ->', CLAUDE / 'skills', '（agent-team）')
     print('  钩子  -> settings.json SessionStart（已备份原文件）')
+    if a.hooks:
+        print('  实时钩子 -> PreToolUse / PostToolUse / SubagentStop / Notification / Stop（hook_relay.py，不覆盖已有钩子）')
     print('现在就想看看板：python', (CLAUDE / 'team-board' / 'ensure.py').as_posix())
     # 之前启动的看板进程还在跑旧代码（页面新、服务旧会出现“导入形象 not found”），装完就重启它
     if not (a.no_restart or os.environ.get('TEAM_BOARD_NO_RESTART')):
