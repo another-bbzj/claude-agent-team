@@ -27,9 +27,20 @@ To read an already-running board:
 python tools/export_snapshot.py --port 7788 --output metrics.json
 ```
 
+When several projects are active, select the source explicitly. The same selectors work with the default JSON output and with `--format prometheus`:
+
+```sh
+python tools/export_snapshot.py --port 7788 --session sess-0001 --output metrics.json
+python tools/export_snapshot.py --port 7788 --project C--demo --format prometheus --output team.prom
+```
+
+`--session` matches a session ID prefix. `--project` prefers an exact project key, otherwise a substring; it selects the most recently active matching session. A session prefix shared by multiple sessions also selects the most recently active match, so use a full ID when you need a unique target. Project keys are the keys shown by the board, not filesystem paths. These mutually exclusive options require `--port`; they cannot filter an offline `--input` file. Omitting them preserves the server's default selection. Browser session selection is independent of this command.
+
+The exporter URL-encodes the selector and verifies the returned session metadata before rendering JSON or Prometheus text. Missing or mismatched session metadata returns 1 and leaves any existing output file unchanged. The file is replaced atomically only after a successful read and render. Selector values remain local to the request and never appear in exported aggregates, Prometheus labels, or fixed error diagnostics. The JSON output schema remains version 1.
+
 Python 3.8+ and its standard library are sufficient. Choose exactly one of `--input` or `--port`. The output directory must already exist. The exporter refuses an output path that resolves to the input file, including an existing hardlink alias. Exit code 0 means success; 1 means a read, validation or write failure; argparse uses 2 for invalid command-line arguments. Error messages omit source data and tracebacks.
 
-The live mode performs one read-only GET to `http://127.0.0.1:<port>/snapshot.json`, bypasses environment/system HTTP proxies, refuses all redirects, and has a five-second socket timeout. Both file and HTTP inputs have an 8 MiB limit. There is no arbitrary remote-URL option or automatic upload.
+The live mode performs one read-only GET to `http://127.0.0.1:<port>/snapshot.json` with an optional encoded `session` or `project` query parameter, bypasses environment/system HTTP proxies, refuses all redirects, and has a five-second socket timeout. Both file and HTTP inputs have an 8 MiB limit. There is no arbitrary remote-URL option or automatic upload.
 
 ### Output contract: schemaVersion 1
 
@@ -76,7 +87,13 @@ Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prome
 
 Every family includes `HELP` and `TYPE` metadata. **All metrics are gauges** for the board's currently selected session, not lifetime counters: selecting another session or revising prices may lower a value. Use direct gauge queries, not `rate()` or `increase()`. Scopes overlap (`all` includes lead and members), and token `total` overlaps its component buckets. Select one scope and kind rather than summing across every sample. Costs are estimates, not provider invoices.
 
-Live mode reads the server's default session through `/snapshot.json`, usually the most recent session unless the board was started with a session/project filter. Changing the browser's session selector does not change this command's source. The output is not an aggregate of every session. Use an explicit offline snapshot when you need to control the source independently of the live server.
+Live mode reads one session through `/snapshot.json`. Without `--session` or `--project`, that is the server's default session, usually the most recent one unless the board was started with a session or project filter. To publish a different project as a Prometheus textfile:
+
+```sh
+python tools/export_snapshot.py --port 7788 --project C--demo --format prometheus --output team.prom
+```
+
+Changing the browser's session selector does not change this command's source. The output is one selected session, not an aggregate of every session. Use an explicit offline snapshot when you need to control the source independently of the live server.
 
 The format has fixed metric names and fixed label values. No session IDs, member/model names, paths, messages or raw errors become labels or help text. There are no per-sample timestamps. The file and live input modes retain the JSON exporter's 8 MiB limit, validation, proxy bypass and redirect refusal. Prometheus samples must also fit a finite float64 value; excessively large JSON integers are rejected. Counts above float64's exact integer precision can be rounded by the monitoring system.
 
@@ -86,8 +103,9 @@ On a host with an existing [node_exporter textfile collector](https://github.com
 
 ```sh
 mkdir -p /tmp/team-metrics
-# From the repository root, with the board already running:
-python tools/export_snapshot.py --port 7788 --format prometheus --output /tmp/team-metrics/claude_agent_team.prom
+# From the repository root, with the board already running.
+# Omit --project to keep the server's default session.
+python tools/export_snapshot.py --port 7788 --project C--demo --format prometheus --output /tmp/team-metrics/claude_agent_team.prom
 ```
 
 ```sh
@@ -105,7 +123,7 @@ scrape_configs:
 
 This is a one-shot export. Run the Python command on your own schedule (for example, every minute using cron or a systemd timer). No scheduler, listener, monitoring service or upload is installed by this project. Keep the board bound to loopback; Prometheus reads node_exporter, not the board's private snapshot endpoint. Existing collectors expose other host metrics as well; configure their access according to your monitoring setup.
 
-Both output formats write a complete UTF-8/LF file to a temporary `.tmp` file in the destination directory, then replace the target atomically. The temporary name does not match node_exporter's `*.prom` glob. The destination directory must exist. A failed read, validation, write or replacement returns 1 and leaves existing output intact. The command refuses an output that aliases the input, including hardlinks. New output files use private temporary-file permissions; on POSIX, replacing an existing file preserves its permission bits. For a separate collector service account, provision the file/directory permissions or ACLs before scheduling exports; do not assume the new file is world-readable.
+Both output formats write a complete UTF-8/LF file to a temporary `.tmp` file in the destination directory, then replace the target atomically. The temporary name does not match node_exporter's `*.prom` glob. The destination directory must exist. A failed read, selector check, validation, write or replacement returns 1 and leaves existing output intact. A selector miss does not create or replace the output file. The command refuses an output that aliases the input, including hardlinks. New output files use private temporary-file permissions; on POSIX, replacing an existing file preserves its permission bits. For a separate collector service account, provision the file/directory permissions or ACLs before scheduling exports; do not assume the new file is world-readable.
 
 Because a failed refresh leaves the last successful file in place, monitor job exit status and file freshness. The collector's `node_textfile_mtime_seconds` exposes the last successful replacement. Example PromQL for Grafana or Prometheus:
 
