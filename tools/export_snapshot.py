@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.client import HTTPException
 from pathlib import Path
@@ -36,10 +37,25 @@ def _reject_constant(_value):
     raise ValueError('non-standard JSON numeric constant')
 
 
-def read_snapshot(input_path=None, port=None):
+def read_snapshot(input_path=None, port=None, session=None, project=None):
     """Read an offline file or the fixed loopback endpoint, without proxy/redirects."""
     if (input_path is None) == (port is None):
         raise ExportError('choose exactly one input file or local board port')
+    if session is not None and project is not None:
+        raise ExportError('choose at most one session or project selector')
+    selection = {}
+    if session is not None:
+        selection['session'] = session
+    elif project is not None:
+        selection['project'] = project
+    if selection and input_path is not None:
+        raise ExportError('session and project selectors require a local board port')
+    if any(not isinstance(value, str) or not value.strip() for value in selection.values()):
+        raise ExportError('session and project selectors must be non-empty strings')
+    try:
+        query = urllib.parse.urlencode(selection)
+    except UnicodeError:
+        raise ExportError('session and project selectors must be valid UTF-8') from None
     if input_path is not None:
         try:
             with Path(input_path).open('rb') as stream:
@@ -50,15 +66,27 @@ def read_snapshot(input_path=None, port=None):
         if type(port) is not int or not 1 <= port <= 65535:
             raise ExportError('board port must be an integer from 1 to 65535')
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        url = 'http://127.0.0.1:{}/snapshot.json'.format(port)
+        if query:
+            url += '?' + query
         try:
-            with opener.open('http://127.0.0.1:{}/snapshot.json'.format(port), timeout=TIMEOUT) as response:
+            with opener.open(url, timeout=TIMEOUT) as response:
                 data = _read_bounded(response)
         except (OSError, urllib.error.URLError, HTTPException):
             raise ExportError('cannot read local board; check the port and start the board') from None
     try:
-        return json.loads(data.decode('utf-8-sig'), parse_constant=_reject_constant)
+        snapshot = json.loads(data.decode('utf-8-sig'), parse_constant=_reject_constant)
     except (UnicodeError, ValueError, RecursionError):
         raise ExportError('snapshot input must be valid UTF-8 JSON') from None
+    if selection:
+        selected = snapshot.get('session') if isinstance(snapshot, dict) else None
+        field, requested = ('id', session) if session is not None else ('project', project)
+        actual = selected.get(field) if isinstance(selected, dict) else None
+        matches = isinstance(actual, str) and (
+            actual.startswith(requested) if session is not None else requested in actual)
+        if not matches:
+            raise ExportError('board returned no matching session; check the selector')
+    return snapshot
 
 
 def _number(value, field, count=False, ratio=False):
@@ -163,9 +191,17 @@ def main(argv=None):
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', type=Path, help='offline board snapshot JSON file')
     source.add_argument('--port', type=_port, help='local board port, normally 7788')
-    parser.add_argument('--format', choices=('json', 'prometheus'), default='json', help='output format (default: json)')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--session', help='session ID prefix (requires --port)')
+    selection.add_argument('--project', help='project key or substring (requires --port)')
+    parser.add_argument('--format', choices=('json', 'prometheus'), default='json',
+                        help='output format (default: json)')
     parser.add_argument('--output', type=Path, help='atomically write metrics here instead of stdout')
     args = parser.parse_args(argv)
+    if (args.session is not None or args.project is not None) and args.port is None:
+        parser.error('--session and --project require --port')
+    if any(value is not None and not value.strip() for value in (args.session, args.project)):
+        parser.error('session and project selectors must be non-empty')
     try:
         if args.input and args.output:
             try:
@@ -176,7 +212,7 @@ def main(argv=None):
                 raise ExportError('cannot compare input and output files; check paths and permissions') from None
             if same_file:
                 raise ExportError('output must differ from the snapshot input file')
-        snapshot = read_snapshot(args.input, args.port)
+        snapshot = read_snapshot(args.input, args.port, session=args.session, project=args.project)
         if args.format == 'prometheus':
             result = render_prometheus(snapshot)
         else:
