@@ -2788,7 +2788,7 @@ async function markUserRead(force) {
 if ('IntersectionObserver' in window) new IntersectionObserver((es) => { if (es.some(x => x.isIntersecting) && document.visibilityState === 'visible') markUserRead(); }, { threshold: 0.5 }).observe($('#comms'));
 document.addEventListener('click', (e) => { if (e.target.closest('#btn-unread')) { $('#chan').scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => $('#comms-input').focus({ preventScroll: true }), 350); markUserRead(true); } });
 
-/* ---------- 快捷键：/ 聚焦消息框 · Esc 关抽屉/弹窗/停滞提醒，再取消钉住的任务高亮 · R 回放通信 ---------- */
+/* ---------- 快捷键：/ 聚焦消息框 · Esc 关抽屉/弹窗，再取消钉住，最后收起停滞提醒 · R 回放通信 ---------- */
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
@@ -2797,8 +2797,8 @@ document.addEventListener('keydown', (e) => {
     if (open) { open.hidden = true; e.preventDefault(); return; }
     if (!$('#task-detail').hidden) { closeTaskDetail(true); e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
-    if (!$('#stall-panel').hidden && !typing) { stallCollapse(); e.preventDefault(); return; }
     if (linkPin) { linkPin = ''; applyLinkHighlight(); e.preventDefault(); return; }
+    if (!$('#stall-panel').hidden && !typing) { stallCollapse(); e.preventDefault(); return; }
     if (typing) e.target.blur();
     return;
   }

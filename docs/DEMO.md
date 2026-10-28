@@ -45,7 +45,9 @@ board, or the minutes field on the alert bar). Opening this demo therefore shows
 one alert: a header count, a `(1)` prefix on the tab title, a badge on the
 favicon, and a bar under the mission line. 「知道了」dismisses that episode in
 this browser until the activity timestamp changes; clear
-`localStorage['team-board-stall-dismissed']` to see it again. Quiet mode defaults
+`localStorage['team-board-stall-dismissed']` to see it again. Esc still closes
+the task detail and then clears a pinned highlight before it collapses this
+bar, so the kanban shortcut keeps working while the alert is open. Quiet mode defaults
 to off. Turning it on keeps the count but does not auto-open the bar or post a
 desktop notification. The page does not call `Notification.requestPermission`
 on load — only the「桌面通知」button does, and only after a click. Running and
