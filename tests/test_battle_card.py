@@ -127,6 +127,9 @@ class BattleCardRenderTest(unittest.TestCase):
         self.assertNotIn('部分', svg)
         self.assertNotIn('研发部', svg)
         self.assertNotIn('0.00', svg)
+        self.assertNotIn('停滞提醒', svg)
+        self.assertNotIn('作战区', svg)
+        self.assertNotIn('实时事件', svg)
         incomplete = {'members': [{'name': '甲', 'status': 'completed', 'cost': 1.5}], 'totals': {'cost': 9}}
         partial = battle.build_card(incomplete, static=True)
         self.assertIn('甲', partial)
@@ -189,6 +192,49 @@ class BattleCardRenderTest(unittest.TestCase):
         self.assertNotIn('backend-dev', svg)
         self.assertNotIn('synthetic-member-1', svg)
         self.assertNotIn('huhu-plan', svg)
+        self.assertIn('作战区 1', svg)
+        self.assertIn('实时事件 2', svg)
+        self.assertNotIn('synthetic-repo', svg)
+        self.assertNotIn('worktree-feature-board', svg)
+        self.assertNotIn('toolu_synthetic_read', svg)
+        self.assertNotIn('PreToolUse', svg)
+        self.assertNotIn('停滞提醒', svg)
+
+    def test_present_stall_alerts_are_counted_without_names(self):
+        snap = {
+            'members': [{'status': 'stalled', 'name': '不应出现的提醒名'}],
+            'stallAlerts': {
+                'thresholdSec': 600,
+                'candidates': [
+                    {'id': 'secret-id', 'name': '提醒甲', 'status': 'stalled', 'idleSeconds': 900},
+                    {'name': '未到阈值', 'status': 'idle', 'idleSeconds': 100},
+                    {'name': '出错的人', 'status': 'error', 'idleSeconds': 600},
+                    {'name': '进行中', 'status': 'running', 'idleSeconds': 9999},
+                    {'status': 'stalled'},
+                    'not-a-member',
+                ],
+            },
+            'theaters': [{'label': 'SECRET_REPO', 'sessions': [{'branch': 'SECRET_BRANCH'}]}, 'skip'],
+            'live': {
+                'available': True,
+                'retained': 3,
+                'events': [{'tool_name': 'SECRET_TOOL', 'session_id': 'SECRET_LIVE'}],
+            },
+        }
+        svg = battle.build_card(snap, static=True)
+        self.assertIn('1 停滞', svg)
+        self.assertIn('停滞提醒 2', svg)
+        self.assertIn('作战区 1', svg)
+        self.assertIn('实时事件 3', svg)
+        for secret in ('提醒甲', '未到阈值', '出错的人', 'secret-id', 'SECRET_REPO', 'SECRET_BRANCH', 'SECRET_TOOL', 'SECRET_LIVE'):
+            self.assertNotIn(secret, svg)
+        quiet = {'stallAlerts': {'thresholdSec': 600, 'candidates': [{'status': 'idle', 'idleSeconds': 10}]}}
+        self.assertNotIn('停滞提醒', battle.build_card(quiet, static=True))
+        broken = {'stallAlerts': {'thresholdSec': '600', 'candidates': []}, 'theaters': 'nope', 'live': {'available': False, 'retained': 4}}
+        blank = battle.build_card(broken, static=True)
+        self.assertNotIn('停滞提醒', blank)
+        self.assertNotIn('作战区', blank)
+        self.assertNotIn('实时事件', blank)
 
     def test_shipped_sample_matches_the_generator(self):
         expected = battle.build_card(self.snapshot, theme='auto', static=True)
@@ -199,12 +245,22 @@ class BattleCardRenderTest(unittest.TestCase):
         partial = json.loads(json.dumps(self.snapshot))
         partial['totals']['unpriced'] = 1
         partial['members'][0]['name'] = 'A & B <C>'
+        stall = {
+            'members': [{'status': 'idle'}],
+            'stallAlerts': {'thresholdSec': 600, 'candidates': [
+                {'status': 'stalled', 'idleSeconds': 900},
+                {'status': 'idle', 'idleSeconds': 10},
+            ]},
+            'theaters': [{'label': 'hidden-repo'}],
+            'live': {'available': True, 'retained': 1, 'events': [{'tool_name': 'Hidden'}]},
+        }
         cases = (
             (self.snapshot, 'auto', True),
             (self.snapshot, 'dark', False),
             (self.demo, 'light', True),
             (partial, 'auto', True),
             ({'members': [{'status': 'completed'}]}, 'auto', True),
+            (stall, 'auto', True),
         )
         for snapshot, theme, static in cases:
             with self.subTest(theme=theme, static=static):
@@ -235,7 +291,28 @@ class BattleCardCliTest(unittest.TestCase):
         with mock.patch.object(battle, 'read_snapshot', return_value=self.snapshot) as read:
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(battle.main(['--port', '7788', '--static']), 0)
-        read.assert_called_once_with(None, 7788)
+        read.assert_called_once_with(None, 7788, session=None, project=None)
+
+    def test_session_and_project_selectors_follow_the_exporter(self):
+        with mock.patch.object(battle, 'read_snapshot', return_value=self.snapshot) as read:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(battle.main(['--port', '7788', '--session', 'sess-0001', '--static']), 0)
+        read.assert_called_once_with(None, 7788, session='sess-0001', project=None)
+        with mock.patch.object(battle, 'read_snapshot', return_value=self.snapshot) as read:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(battle.main(['--port', '7788', '--project', 'C--demo', '--static']), 0)
+        read.assert_called_once_with(None, 7788, session=None, project='C--demo')
+        rejected = (
+            ['--input', str(self.source), '--session', 'sess-0001'],
+            ['--input', str(self.source), '--project', 'C--demo'],
+            ['--port', '7788', '--session', 'sess-0001', '--project', 'C--demo'],
+            ['--port', '7788', '--session', '   '],
+            ['--port', '7788', '--project', ''],
+        )
+        for args in rejected:
+            with self.subTest(args=args), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as raised:
+                battle.main(args)
+            self.assertEqual(raised.exception.code, 2)
 
     def test_port_read_rejects_redirects_and_proxies(self):
         response = io.BytesIO(self.source.read_bytes())

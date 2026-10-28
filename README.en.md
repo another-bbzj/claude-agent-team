@@ -46,7 +46,7 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 
 ![Battle card rendered from examples/snapshot.synthetic.json. It shows two members, estimated cost, total tokens and cache hit, and leaves out names because that fixture has none](docs/img/battle-card.svg)
 
-`auto` follows the system theme. Drop `--static` for a slow dash. Names, departments, elapsed time and completed tasks appear only when the snapshot has those fields. Unpriced models are marked 部分. Paths, session ids, e-mail addresses, prompts and tool arguments are left out. The board button「导出战报卡」downloads the same SVG in the browser and does not upload it.
+`auto` follows the system theme. Drop `--static` for a slow dash. Names, departments, elapsed time and completed tasks appear only when the snapshot has those fields. Unpriced models are marked 部分. `--session` or `--project` selects a live board session the same way `export_snapshot.py` does. A stall-alert count, theater count, or retained live-hook count is drawn only when that field is already on the snapshot. Paths, session ids, e-mail addresses, prompts and tool arguments are left out. The board button「导出战报卡」downloads the same SVG in the browser and does not upload it.
 
 **Install into your Claude Code setup:**
 
@@ -55,6 +55,8 @@ python install.py
 ```
 
 Start a new Claude Code session. A `SessionStart` hook keeps the board at <http://127.0.0.1:7788/>. Ask it to use `agent team` on a task that can be split. What the installer writes, how updates preserve your edits, and how uninstall works: [Install and update](docs/GUIDE.en.md#install).
+
+Optional live hooks: `python install.py --hooks`. They report tool calls before the transcript is flushed. If the board is down, the relay exits 0 and prints nothing, so Claude Code's decision is unchanged. Fields, uninstall, and the fact that events are not merged with transcripts: [Hooks](docs/HOOKS.md). Without `--hooks`, installation stays as before.
 
 <a id="why"></a>
 
@@ -85,7 +87,9 @@ The overview still is the stage and departments. The read-only official task row
 | Departments, models, pets | [Members](docs/GUIDE.en.md#members) · [Artwork](docs/GUIDE.en.md#pets) |
 | Third-party gateways and prices | [Providers](docs/GUIDE.en.md#providers) |
 | The board will not open, or the numbers look wrong | [FAQ](docs/GUIDE.en.md#faq) |
-| Aggregate export, battle card, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
+| Aggregate export for one session or project, battle card, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
+| Optional live hooks | [Hooks](docs/HOOKS.md) |
+| Usage and estimated costs for one session or project in Prometheus / Grafana | [Prometheus textfile export and node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
 The live board parses **Claude Code** sessions. [tools/codex_metrics.py](docs/CODEX_METRICS.md) summarizes an explicit `codex exec --json` log offline. It does not ingest interactive Codex sessions; that remains [planned](docs/ROADMAP.md). Using Codex to maintain this repository, and importing pets from a local Codex install, are separate.

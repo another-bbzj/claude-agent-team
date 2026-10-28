@@ -3,8 +3,11 @@
 import argparse
 import json
 import math
+import os
 import sys
+import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.client import HTTPException
 from pathlib import Path
@@ -34,10 +37,25 @@ def _reject_constant(_value):
     raise ValueError('non-standard JSON numeric constant')
 
 
-def read_snapshot(input_path=None, port=None):
+def read_snapshot(input_path=None, port=None, session=None, project=None):
     """Read an offline file or the fixed loopback endpoint, without proxy/redirects."""
     if (input_path is None) == (port is None):
         raise ExportError('choose exactly one input file or local board port')
+    if session is not None and project is not None:
+        raise ExportError('choose at most one session or project selector')
+    selection = {}
+    if session is not None:
+        selection['session'] = session
+    elif project is not None:
+        selection['project'] = project
+    if selection and input_path is not None:
+        raise ExportError('session and project selectors require a local board port')
+    if any(not isinstance(value, str) or not value.strip() for value in selection.values()):
+        raise ExportError('session and project selectors must be non-empty strings')
+    try:
+        query = urllib.parse.urlencode(selection)
+    except UnicodeError:
+        raise ExportError('session and project selectors must be valid UTF-8') from None
     if input_path is not None:
         try:
             with Path(input_path).open('rb') as stream:
@@ -48,15 +66,27 @@ def read_snapshot(input_path=None, port=None):
         if type(port) is not int or not 1 <= port <= 65535:
             raise ExportError('board port must be an integer from 1 to 65535')
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        url = 'http://127.0.0.1:{}/snapshot.json'.format(port)
+        if query:
+            url += '?' + query
         try:
-            with opener.open('http://127.0.0.1:{}/snapshot.json'.format(port), timeout=TIMEOUT) as response:
+            with opener.open(url, timeout=TIMEOUT) as response:
                 data = _read_bounded(response)
         except (OSError, urllib.error.URLError, HTTPException):
             raise ExportError('cannot read local board; check the port and start the board') from None
     try:
-        return json.loads(data.decode('utf-8-sig'), parse_constant=_reject_constant)
+        snapshot = json.loads(data.decode('utf-8-sig'), parse_constant=_reject_constant)
     except (UnicodeError, ValueError, RecursionError):
         raise ExportError('snapshot input must be valid UTF-8 JSON') from None
+    if selection:
+        selected = snapshot.get('session') if isinstance(snapshot, dict) else None
+        field, requested = ('id', session) if session is not None else ('project', project)
+        actual = selected.get(field) if isinstance(selected, dict) else None
+        matches = isinstance(actual, str) and (
+            actual.startswith(requested) if session is not None else requested in actual)
+        if not matches:
+            raise ExportError('board returned no matching session; check the selector')
+    return snapshot
 
 
 def _number(value, field, count=False, ratio=False):
@@ -88,6 +118,64 @@ def export_metrics(snapshot):
     return {'schemaVersion': 1, 'memberCount': len(members), 'totals': totals}
 
 
+def render_prometheus(snapshot):
+    """Render validated aggregates with fixed names and labels, without timestamps."""
+    metrics = export_metrics(snapshot)
+    totals = metrics['totals']
+    lines = []
+
+    def gauge(name, help_text, samples):
+        name = 'claude_agent_team_' + name
+        lines.extend(('# HELP {} {}'.format(name, help_text), '# TYPE {} gauge'.format(name)))
+        for labels, value in samples:
+            try:
+                finite = math.isfinite(value)
+            except OverflowError:
+                finite = False
+            if not finite:
+                raise ExportError('Prometheus sample exceeds the finite numeric range')
+            lines.append('{}{} {}'.format(name, labels, value))
+
+    gauge('members', 'Member entries in the selected snapshot, excluding the lead.',
+          [('', metrics['memberCount'])])
+    gauge('estimated_cost_usd', 'Estimated snapshot cost in USD; partial when entries are unpriced.',
+          [('{scope="all"}', totals['cost']), ('{scope="members"}', totals['membersCost'])])
+    gauge('unpriced_entries', 'Lead or member entries without a configured model price.',
+          [('', totals['unpriced'])])
+    scopes = (('members', 'usage'), ('lead', 'leadUsage'), ('all', 'allUsage'))
+    kinds = (('input', 'in'), ('output', 'out'), ('cache_read', 'cache_read'),
+             ('cache_write', 'cache_write'), ('total', 'total'))
+    gauge('tokens', 'Snapshot token usage by scope and bucket; scopes and buckets overlap.',
+          [('{scope="' + scope + '",kind="' + kind + '"}', totals[group][field])
+           for scope, group in scopes for kind, field in kinds])
+    gauge('cache_hit_ratio', 'Board-reported snapshot cache hit ratio from zero to one.',
+          [('{scope="' + scope + '"}', totals[group]['cacheHit']) for scope, group in scopes])
+    return '\n'.join(lines) + '\n'
+
+
+def _write_atomic(output, text):
+    """Keep the previous export intact until a complete replacement is ready."""
+    temporary = None
+    try:
+        mode = output.stat().st_mode & 0o777 if output.exists() else None
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', newline='\n',
+                                         dir=str(output.parent), prefix='.team-metrics-',
+                                         suffix='.tmp', delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(text)
+        if mode is not None:
+            os.chmod(str(temporary), mode)
+        os.replace(str(temporary), str(output))
+    except OSError:
+        raise ExportError('cannot write metrics output; check directory and permissions') from None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+
+
 def _port(value):
     try:
         port = int(value)
@@ -103,8 +191,17 @@ def main(argv=None):
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', type=Path, help='offline board snapshot JSON file')
     source.add_argument('--port', type=_port, help='local board port, normally 7788')
-    parser.add_argument('--output', type=Path, help='write metrics JSON here instead of stdout')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--session', help='session ID prefix (requires --port)')
+    selection.add_argument('--project', help='project key or substring (requires --port)')
+    parser.add_argument('--format', choices=('json', 'prometheus'), default='json',
+                        help='output format (default: json)')
+    parser.add_argument('--output', type=Path, help='atomically write metrics here instead of stdout')
     args = parser.parse_args(argv)
+    if (args.session is not None or args.project is not None) and args.port is None:
+        parser.error('--session and --project require --port')
+    if any(value is not None and not value.strip() for value in (args.session, args.project)):
+        parser.error('session and project selectors must be non-empty')
     try:
         if args.input and args.output:
             try:
@@ -115,13 +212,15 @@ def main(argv=None):
                 raise ExportError('cannot compare input and output files; check paths and permissions') from None
             if same_file:
                 raise ExportError('output must differ from the snapshot input file')
-        metrics = export_metrics(read_snapshot(args.input, args.port))
-        result = json.dumps(metrics, ensure_ascii=False, allow_nan=False, indent=2) + '\n'
+        snapshot = read_snapshot(args.input, args.port, session=args.session, project=args.project)
+        if args.format == 'prometheus':
+            result = render_prometheus(snapshot)
+        else:
+            result = json.dumps(export_metrics(snapshot), ensure_ascii=False, allow_nan=False, indent=2) + '\n'
         if args.output:
-            try:
-                args.output.write_text(result, encoding='utf-8')
-            except OSError:
-                raise ExportError('cannot write metrics output; check directory and permissions') from None
+            _write_atomic(args.output, result)
+        elif args.format == 'prometheus' and hasattr(sys.stdout, 'buffer'):
+            sys.stdout.buffer.write(result.encode('utf-8'))   # Windows text stdout would translate LF to CRLF.
         else:
             sys.stdout.write(result)
     except ExportError as exc:

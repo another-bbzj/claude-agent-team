@@ -48,7 +48,7 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 
 ![战报卡。数字来自 examples/snapshot.synthetic.json：2 名成员、估算成本、合计 token 和缓存命中。这份快照没有名字、部门和任务，卡片上也就不画](docs/img/battle-card.svg)
 
-深浅色跟随系统。去掉 `--static` 会多一条很慢的细线。名字、部门、用时和已完成任务只在快照里真有这些字段时出现；有未定价模型时，成本标「部分」。不写本机路径、会话 id、邮箱、提示词或工具参数。看板上的「导出战报卡」在浏览器里下载同一张图，不上传。
+深浅色跟随系统。去掉 `--static` 会多一条很慢的细线。名字、部门、用时和已完成任务只在快照里真有这些字段时出现；有未定价模型时，成本标「部分」。本机看板可以用 `--session` 或 `--project` 选会话，规则与 `export_snapshot.py` 相同。快照里已有停滞提醒、作战区或实时事件条数时会写上，没有就不画。不写本机路径、会话 id、邮箱、提示词或工具参数。看板上的「导出战报卡」在浏览器里下载同一张图，不上传。
 
 **装进自己的 Claude Code：**
 
@@ -57,6 +57,8 @@ python install.py
 ```
 
 新开一个会话。SessionStart 钩子会把看板留在后台：<http://127.0.0.1:7788/>。然后说「用 agent team」，让它做一件至少拆得开的事。安装写到哪、怎么更新、怎么卸载，见 [安装与更新](docs/GUIDE.md#install)。
+
+想在转录写盘之前就看到工具调用，可以加上可选的实时钩子：`python install.py --hooks`。看板没开时脚本立刻退出，不改变 Claude Code 的决定。字段、卸载方式和「还没和转录合并」写在 [实时钩子](docs/HOOKS.md)。不加这个参数时，安装行为和以前一样。
 
 <a id="why"></a>
 
@@ -97,7 +99,9 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
 | 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
-| 只读导出、战报卡、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 只读导出指定会话或项目、战报卡、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
+| 把指定会话或项目的用量和估算成本接入 Prometheus / Grafana | [Prometheus 文本指标与 node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
 看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。

@@ -6,7 +6,8 @@ are left out. Aggregate cost, token and cache figures come from
 export_snapshot.export_metrics so they cannot drift from the metrics export.
 Local paths, session ids, e-mail addresses, prompts and tool arguments are not
 drawn. Run ``python tools/battle_card.py --help`` for the offline file and
-loopback-port modes; both reuse export_snapshot.read_snapshot.
+loopback-port modes; both reuse export_snapshot.read_snapshot. ``--session``
+and ``--project`` select a loopback snapshot the same way that reader does.
 """
 import argparse
 import importlib.util
@@ -389,6 +390,55 @@ def _task_rows(snapshot):
     return rows
 
 
+def _stall_alert_count(snapshot):
+    """Active stall alerts already attached to the snapshot, or None."""
+    if 'stallAlerts' not in snapshot:
+        return None
+    block = snapshot.get('stallAlerts')
+    if not isinstance(block, dict) or 'candidates' not in block or 'thresholdSec' not in block:
+        return None
+    threshold = block.get('thresholdSec')
+    candidates = block.get('candidates')
+    if not _finite(threshold) or threshold < 0 or not isinstance(candidates, list):
+        return None
+    count = 0
+    for item in candidates:
+        if not isinstance(item, dict) or 'status' not in item or 'idleSeconds' not in item:
+            continue
+        if item.get('status') not in ('idle', 'error', 'stalled'):
+            continue
+        age = item.get('idleSeconds')
+        if not _finite(age) or age < 0 or age < threshold:
+            continue
+        count += 1
+    return count
+
+
+def _theater_count(snapshot):
+    """Number of theater objects, or None when the snapshot has no theaters key."""
+    if 'theaters' not in snapshot:
+        return None
+    theaters = snapshot.get('theaters')
+    if not isinstance(theaters, list):
+        return None
+    return sum(1 for item in theaters if isinstance(item, dict))
+
+
+def _live_retained(snapshot):
+    """Retained hook events when the live channel is available, else None."""
+    if 'live' not in snapshot:
+        return None
+    live = snapshot.get('live')
+    if not isinstance(live, dict) or 'available' not in live or 'retained' not in live:
+        return None
+    if live.get('available') is not True:
+        return None
+    retained = live.get('retained')
+    if not _count(retained):
+        return None
+    return retained
+
+
 def _summary(snapshot, metrics):
     members = _member_dicts(snapshot)
     if metrics is not None:
@@ -410,6 +460,15 @@ def _summary(snapshot, metrics):
     for key in ('completed', 'running', 'stalled', 'error'):
         if seen.get(key):
             parts.append('{} {}'.format(num_text(seen[key]), _STATUS[key]))
+    stall = _stall_alert_count(snapshot)
+    if stall:
+        parts.append('停滞提醒 {}'.format(num_text(stall)))
+    theaters = _theater_count(snapshot)
+    if theaters:
+        parts.append('作战区 {}'.format(num_text(theaters)))
+    retained = _live_retained(snapshot)
+    if retained:
+        parts.append('实时事件 {}'.format(num_text(retained)))
     return parts
 
 
@@ -696,16 +755,23 @@ def main(argv=None):
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', type=Path, help='offline board snapshot JSON file')
     source.add_argument('--port', type=_port, help='local board port, normally 7788')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--session', help='session ID prefix (requires --port)')
+    selection.add_argument('--project', help='project key or substring (requires --port)')
     parser.add_argument('--output', type=Path, help='write the SVG here instead of stdout')
     parser.add_argument('--theme', choices=('auto', 'light', 'dark'), default='auto',
                         help='auto follows prefers-color-scheme; light or dark is fixed')
     parser.add_argument('--static', action='store_true', dest='static_card',
                         help='omit the restrained dash motion')
     args = parser.parse_args(argv)
+    if (args.session is not None or args.project is not None) and args.port is None:
+        parser.error('--session and --project require --port')
+    if any(value is not None and not value.strip() for value in (args.session, args.project)):
+        parser.error('session and project selectors must be non-empty')
     try:
         if args.input and args.output:
             _same_file(args.input, args.output)
-        snapshot = read_snapshot(args.input, args.port)
+        snapshot = read_snapshot(args.input, args.port, session=args.session, project=args.project)
         svg = build_card(snapshot, args.theme, args.static_card)
         if args.output:
             try:

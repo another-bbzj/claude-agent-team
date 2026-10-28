@@ -68,9 +68,9 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 | 位置 | 说明 |
 |---|---|
-| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· `⚙ N 进行中` · `✓ N 已完成` · 成员数 · **部门 x/y**（收尾后若建议出场的部门没来，变黄提示「建议补位」，不是错误）· 模型构成（`opus×10 haiku×5`）· 估算成本（成员 / 含队长合计）· 全队 token 与缓存命中率 · 会话 id 与最近活动 · 未读「✉ N 条给你」· 版本 / 一键更新 · ⚙ 外观 |
+| **顶栏** | 阶段（组队中 / 协调中 / 收尾完成）· 停滞角标（空闲、停滞或出错超过阈值才出现，点开可逐条忽略）· `⚙ N 进行中` · `✓ N 已完成` · 成员数 · **部门 x/y**（收尾后若建议出场的部门没来，变黄提示「建议补位」，不是错误）· 模型构成（`opus×10 haiku×5`）· 估算成本（成员 / 含队长合计）· 全队 token 与缓存命中率 · 会话 id 与最近活动 · 未读「✉ N 条给你」· 版本 / 一键更新 · 会话切换 · 导出战报卡 · ⚙ 外观 |
 | **第二行** | 会话选择（默认"自动：最近活跃的会话"，可切到任何历史会话回看）· 主题（自动 / 浅色 / 深色） |
-| **LIVE 条** | 实时监听状态：几位成员进行中 / 暂无活动；项目名；当前指令 |
+| **LIVE 条** | 实时监听状态：几位成员进行中 / 暂无活动；项目名；当前指令。旁边的「实时」指示来自可选钩子通道，还没和转录合并。同一仓库有多路 worktree 时，这条下面是作战区 |
 | **FORMATION 舞台** | 顶部中央是「你」（DOCTOR），队长在其下；每个部门一个虚线面板（名称、状态、人数、部门成本）；成员站在自己部门里。右上角图例是飞线颜色：派工 / 回报 / 队长转达 / 文件交接 / 成员私信 / 总线消息 / 停滞 / 出错。`▶ 回放通信`（快捷键 `R`）把本次会话的全部交互重新播一遍 |
 
 每位成员的卡片：动画形象 · 名牌（名字 · 岗位）· `模型 · 强度 · 成本` 胶囊 · 状态行（正在用什么工具 / 已交付·用时 / zZ 停滞 / ✕ 出错）· 当前工具调用 · 进度条 · `工具次数 · tokens · 缓存命中`。未读时卡片有 ✉ 角标。
@@ -196,7 +196,8 @@ skills:
 
 ## 6. 会话切换与回放
 
-- 顶栏下拉默认跟随**最近活跃的会话**；列表里是所有派出过子代理的会话（项目 · 会话 id · 人数 · 最近活动），选一个即可回看当时的团队。
+- 顶栏下拉默认跟随**最近活跃的会话**；列表里是所有派出过子代理的会话（项目 · 分支（认得出时）· 会话 id · 人数 · 最近活动），选一个即可回看当时的团队。
+- 同一仓库开了多路 git worktree 时，任务条下面多一行**作战区**：仓库名和每一路的分支。点分支切换会话。规则和边界在 [WORKTREES.md](WORKTREES.md)。
 - `▶ 回放通信`：把当前会话的派工 / 回报 / 私信 / 交接 / 转达按顺序重新飞一遍，看清楚信息是怎么流动的。
 - 主题：`自动` 跟随系统，`浅色` / `深色` 固定；选择记在浏览器里。
 
@@ -304,7 +305,8 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 
 | 接口 | 用途 |
 |---|---|
-| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务） |
+| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务、`live` 实时钩子） |
+| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘，不和转录合并。见 [HOOKS.md](HOOKS.md) |
 | `/api/tasks` | 不存在的写入口。任意方法都返回 405，并带 `Allow: GET`。非法 JSON 也是 405，不改 `~/.claude/tasks/` |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
 | `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
@@ -347,9 +349,9 @@ python install.py
 | `~/.claude/skills/agent-team/` | 团队协议技能（步骤、部门表、办公目录规范、省 token 规则） |
 | `~/.claude/team-board/` | 看板服务（单文件后端 + 单文件前端）、13 只自带形象、导入 / 下载 / 更新脚本 |
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
-| `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份） |
+| `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份）。`--hooks` 时再合并实时事件钩子 |
 
-`install.py` 的可选参数：`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 `STARTER` 里的 16 只桌宠；`--no-pets` 跳过本机 Codex 宠物导入；`--no-restart` 装完不重启已经在跑的看板。
+`install.py` 的可选参数：`--hooks` 合并 `PreToolUse` / `PostToolUse` / `SubagentStop` / `Notification` / `Stop`，调用 `hook_relay.py`（不覆盖已有钩子；细节在 [HOOKS.md](HOOKS.md)）；`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 `STARTER` 里的 16 只桌宠；`--no-pets` 跳过本机 Codex 宠物导入；`--no-restart` 装完不重启已经在跑的看板。不加 `--hooks` 不会新增或删除实时钩子。`python install.py --uninstall` 会把本工具的 SessionStart 和实时钩子一起卸掉。
 
 看板顶栏出现 **「⬆ 有新版本 vX · 一键更新」** 就点它：自动下载 GitHub 最新版、重装、重启看板（每 12 小时自动检查一次）。命令行等价：
 
@@ -541,7 +543,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **249** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 不跑 3.8。当前 `ubuntu-latest` 没有 Python 3.8，这一档改在 `ubuntu-24.04` 上跑，见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **331** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 
@@ -660,7 +662,7 @@ python tools/export_snapshot.py --input examples/snapshot.synthetic.json
 python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 ```
 
-`battle_card.py` 用同一份快照画一张 SVG 战报卡。聚合数字与 `export_snapshot.py` 一致。名字、部门、用时和已完成任务只在快照里有这些字段时出现。用法和隐私边界见 [集成指南](INTEGRATIONS.md)。
+`battle_card.py` 用同一份快照画一张 SVG 战报卡。聚合数字与 `export_snapshot.py` 一致。`--session` 和 `--project` 也一样，只在 `--port` 下二选一。名字、部门、用时和已完成任务只在快照里有这些字段时出现。快照里已有停滞提醒、作战区或实时事件条数时会写上人数或条数。用法和隐私边界见 [集成指南](INTEGRATIONS.md)。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 

@@ -83,6 +83,17 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(board['tasks'][4]['notices'], [])
         self.assertIsNone(board['tasks'][4]['ownerMatch'])
 
+    def test_synthetic_theater_lists_two_worktree_branches(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        self.assertEqual([t['label'] for t in source['theaters']], ['synthetic-repo'])
+        sessions = source['theaters'][0]['sessions']
+        self.assertEqual([s['branch'] for s in sessions], ['main', 'worktree-feature-board'])
+        self.assertEqual([s['worktree'] for s in sessions], ['', 'feature-board'])
+        self.assertTrue(sessions[0]['primary'])
+        self.assertFalse(sessions[1]['primary'])
+        self.assertEqual(source['session']['branch'], 'main')
+        self.assertEqual(source['session']['theaterId'], source['theaters'][0]['id'])
+
     def test_time_refresh_is_in_memory_and_preserves_durations(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
         original = json.dumps(source, sort_keys=True)
@@ -92,6 +103,44 @@ class FixtureTest(unittest.TestCase):
             self.assertEqual(new['lastActivityAt'] - new['startedAt'], old['lastActivityAt'] - old['startedAt'])
         self.assertEqual(snapshot['officialTeam']['tasks'][0]['stateSince'], source['officialTeam']['tasks'][0]['stateSince'] + 600)
         self.assertEqual(json.dumps(source, sort_keys=True), original)
+
+    def test_stalled_member_crosses_the_default_alert_threshold(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        stalled = next(member for member in source['members'] if member['id'] == 'synthetic-member-4')
+        self.assertEqual(stalled['status'], 'stalled')
+        self.assertEqual(source['generatedAt'] - stalled['lastActivityAt'], 900)
+        self.assertEqual(stalled['lastActivityAt'] - stalled['startedAt'], 130)
+        snapshot = demo.snapshot_at(source, source['generatedAt'] + 50)
+        alerts = snapshot['stallAlerts']
+        self.assertEqual(alerts['thresholdSec'], 600)
+        self.assertEqual(alerts['defaultThresholdSec'], 600)
+        active = [item for item in alerts['candidates'] if item['idleSeconds'] >= alerts['thresholdSec']]
+        self.assertEqual([(item['id'], item['name'], item['idleSeconds'], item['basis']) for item in active], [
+            ('synthetic-member-4', '演示文档', 900, 'lastActivityAt'),
+        ])
+        self.assertTrue(all(item['status'] in ('idle', 'error', 'stalled') for item in alerts['candidates']))
+        later = demo.snapshot_at(source, source['generatedAt'] + 80)
+        again = next(item for item in later['stallAlerts']['candidates'] if item['id'] == 'synthetic-member-4')
+        first = next(item for item in alerts['candidates'] if item['id'] == 'synthetic-member-4')
+        self.assertEqual(again['anchor'], first['anchor'])
+        self.assertEqual(again['idleSeconds'], first['idleSeconds'])
+        self.assertNotEqual(
+            next(m for m in snapshot['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+            next(m for m in later['members'] if m['id'] == 'synthetic-member-4')['lastActivityAt'],
+        )
+
+    def test_stall_annotation_does_not_import_the_live_backend(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        original = builtins.__import__
+
+        def restricted(name, *args, **kwargs):
+            if name == 'team_board' or (isinstance(name, str) and name.startswith('team_board.')):
+                raise AssertionError('live backend imported')
+            return original(name, *args, **kwargs)
+
+        with mock.patch('builtins.__import__', side_effect=restricted):
+            snapshot = demo.snapshot_at(source, source['generatedAt'])
+        self.assertEqual(snapshot['stallAlerts']['candidates'][0]['id'], 'synthetic-member-4')
 
 
 class DemoHttpTest(unittest.TestCase):
@@ -152,7 +201,30 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(len(snapshot['members']), 6)
         self.assertEqual(sum(1 for member in snapshot['members'] if member.get('officialTeam')), 2)
         self.assertTrue(snapshot['demo'])
+        active = [item['id'] for item in snapshot['stallAlerts']['candidates']
+                  if item['idleSeconds'] >= snapshot['stallAlerts']['thresholdSec']]
+        self.assertEqual(active, ['synthetic-member-4'])
         self.assertEqual(self.request('GET', '/?demo=1')[0], 303)
+        self.assertIn('作战区'.encode('utf-8'), body)
+        self.assertIn(b'id="theater"', body)
+        self.assertIn(b'renderTheater', body)
+        self.assertIn(b'id="stall-panel"', body)
+        self.assertLess(body.find(b'id="theater"'), body.find(b'id="stall-panel"'))
+        self.assertLess(body.find(b'id="stall-panel"'), body.find(b'id="task-board"'))
+
+    def test_theater_query_switches_the_label_and_keeps_members(self):
+        status, _, raw = self.request('GET', '/snapshot.json?session=synthetic-session-wt')
+        self.assertEqual(status, 200)
+        snapshot = json.loads(raw)
+        self.assertEqual(snapshot['session']['id'], 'synthetic-session-wt')
+        self.assertEqual(snapshot['session']['branch'], 'worktree-feature-board')
+        self.assertEqual(snapshot['session']['worktree'], 'feature-board')
+        self.assertEqual(len(snapshot['members']), 6)
+        plain = json.loads(self.request('GET', '/snapshot.json')[2])
+        self.assertEqual(plain['session']['id'], 'synthetic-session')
+        self.assertEqual(plain['session']['branch'], 'main')
+        unknown = json.loads(self.request('GET', '/snapshot.json?session=not-a-session')[2])
+        self.assertEqual(unknown['session']['id'], 'synthetic-session')
 
     def test_all_mutations_including_shutdown_are_forbidden(self):
         for method in ('POST', 'PUT', 'PATCH', 'DELETE'):

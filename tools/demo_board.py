@@ -2,6 +2,7 @@
 """Serve the existing board UI with synthetic data and no user-home access."""
 import argparse
 import copy
+import importlib.util
 import json
 import sys
 import time
@@ -24,15 +25,55 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
 STATIC.update({'/sprites/' + pet + '.webp': ('sprites/' + pet + '.webp', 'image/webp')
                for pet in SHIPPED_PETS})
 TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts', 'stateSince'}
+_STALL = None
+
+
+def _stall_alerts():
+    """Pure helper only. The demo must not import team_board."""
+    global _STALL
+    if _STALL is None:
+        path = ROOT / 'team-board' / 'stall_alerts.py'
+        spec = importlib.util.spec_from_file_location('demo_stall_alerts', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _STALL = module
+    return _STALL
 BANNER = ('<aside id="synthetic-demo-notice" role="status" '
           'style="position:fixed;bottom:0;left:0;right:0;z-index:1000;text-align:center;'
           'padding:7px;background:#153d50;color:#fff;font:14px sans-serif">'
           '只读演示 · 全部为合成数据 · Read-only demo / synthetic data</aside>')
 
 
+def focus_demo_theater(snapshot, session_id):
+    """Point the synthetic theater label at a known session. Member cards stay the one example team."""
+    if not session_id or not isinstance(snapshot.get('session'), dict):
+        return snapshot
+    for theater in snapshot.get('theaters') or []:
+        if not isinstance(theater, dict):
+            continue
+        for item in theater.get('sessions') or []:
+            if not isinstance(item, dict) or item.get('id') != session_id:
+                continue
+            session = snapshot['session']
+            session['id'] = item['id']
+            if item.get('project'):
+                session['project'] = item['project']
+            session['branch'] = item.get('branch') or ''
+            session['worktree'] = item.get('worktree') or ''
+            session['theaterId'] = theater.get('id') or ''
+            if 'mtime' in item:
+                session['lastActivity'] = item['mtime']
+            return snapshot
+    return snapshot
+
+
 def snapshot_at(source, now=None):
     """Refresh display times in memory; never read transcripts or write fixtures."""
     snapshot = copy.deepcopy(source)
+    # Age is invariant under the display-clock shift, but the dismiss key must
+    # stay on the fixture clock. Shifting first would move lastActivityAt on
+    # every request and bring a dismissed alert back.
+    _stall_alerts().attach_stall_alerts(snapshot, snapshot.get('generatedAt'))
     delta = (time.time() if now is None else now) - snapshot['generatedAt']
 
     def shift(value):
@@ -80,7 +121,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if path == '/snapshot.json':
-            body = json.dumps(snapshot_at(self.server.snapshot), ensure_ascii=False, allow_nan=False).encode('utf-8')
+            snapshot = snapshot_at(self.server.snapshot)
+            session_id = parse_qs(request.query).get('session', [''])[0]
+            body = json.dumps(focus_demo_theater(snapshot, session_id), ensure_ascii=False, allow_nan=False).encode('utf-8')
             return self.respond(body)
         item = STATIC.get(path)
         if item is None:

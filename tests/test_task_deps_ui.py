@@ -5,16 +5,14 @@ A headless Chrome pass, when the browser is installed, checks hover, focus,
 click, Escape, pin, themes and a 390px column stack.
 """
 import json
-import os
 import shutil
-import signal
-import socket
 import subprocess
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
+
+import headless_chrome
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = ROOT / 'team-board' / 'index.html'
@@ -206,99 +204,50 @@ class DepEdgeTest(unittest.TestCase):
         self.assertLess(report['stack']['c2x'], 20)
 
 
-def chrome_binary():
-    for name in ('google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'):
-        found = shutil.which(name)
-        if found:
-            return found
-    return ''
-
-
-def free_port():
-    probe = socket.socket()
-    probe.bind(('127.0.0.1', 0))
-    port = probe.getsockname()[1]
-    probe.close()
-    return port
-
-
-def _kill_processes_using(directory):
-    """Stop Chrome children still writing a user-data directory. /proc is Linux-only."""
-    if not hasattr(signal, 'SIGKILL'):
-        return
-    proc = Path('/proc')
-    if not proc.is_dir():
-        return
-    needle = os.fsencode(str(directory))
-    for entry in proc.iterdir():
-        if not entry.name.isdigit():
-            continue
-        try:
-            command = (entry / 'cmdline').read_bytes()
-        except OSError:
-            continue
-        if needle not in command:
-            continue
-        try:
-            os.kill(int(entry.name), signal.SIGKILL)
-        except OSError:
-            pass
-
-
-def remove_chrome_profile(directory, timeout=5):
-    """Delete a Chrome profile without failing the test.
-
-    Python 3.8's TemporaryDirectory has no ignore_cleanup_errors. Chrome can
-    recreate Default/ while rmtree is removing it, which raises ENOTEMPTY.
-    """
-    path = str(directory)
-    deadline = time.time() + timeout
-    while os.path.exists(path):
-        _kill_processes_using(path)
-        try:
-            shutil.rmtree(path)
-        except OSError:
-            if time.time() >= deadline:
-                shutil.rmtree(path, ignore_errors=True)
-                return
-            time.sleep(0.05)
-            continue
-        if not os.path.exists(path):
-            return
+def _with_chrome_tail(detail, chrome):
+    tail = chrome.stderr_tail().strip()
+    if tail:
+        return '%s\n--- chrome stderr tail ---\n%s' % (detail.rstrip(), tail)
+    return detail
 
 
 class DepBrowserTest(unittest.TestCase):
     def test_headless_board_draws_arcs_without_breaking_pin_or_escape(self):
         if not shutil.which('node'):
             self.skipTest('node is not installed')
-        binary = chrome_binary()
+        binary = headless_chrome.chrome_binary()
         if not binary:
             self.skipTest('chrome is not installed')
         import test_demo_board
         server = test_demo_board.demo.DemoServer(0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        directory = tempfile.mkdtemp(prefix='task-deps-chrome-')
         try:
-            shots = Path(directory) / 'shots'
-            shots.mkdir()
-            completed = subprocess.run(
-                [
-                    shutil.which('node'), str(BROWSER),
-                    'http://127.0.0.1:%d/' % server.server_port,
-                    binary, str(free_port()), directory, str(shots),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            if completed.returncode != 0:
-                self.fail(completed.stderr or completed.stdout)
-            report = json.loads(completed.stdout)
-            self._keep_shots(shots)
+            with tempfile.TemporaryDirectory(prefix='task-deps-shots-') as directory:
+                shots = Path(directory) / 'shots'
+                shots.mkdir()
+                with headless_chrome.launch_headless_chrome(binary) as chrome:
+                    try:
+                        completed = subprocess.run(
+                            [
+                                shutil.which('node'), str(BROWSER),
+                                'http://127.0.0.1:%d/' % server.server_port,
+                                str(chrome.port), str(shots),
+                            ],
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                            timeout=60,
+                        )
+                    except subprocess.TimeoutExpired as exc:
+                        detail = exc.stderr or exc.stdout or ('browser check timed out: %s' % exc)
+                        self.fail(_with_chrome_tail(detail, chrome))
+                    if completed.returncode != 0:
+                        detail = completed.stderr or completed.stdout or 'browser check failed'
+                        self.fail(_with_chrome_tail(detail, chrome))
+                    report = json.loads(completed.stdout)
+                    self._keep_shots(shots)
         finally:
-            remove_chrome_profile(directory)
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
@@ -376,34 +325,6 @@ class DepBrowserTest(unittest.TestCase):
         self.assertEqual(filt['restored']['for'], 'id:3')
         self.assertEqual(filt['restored']['arcs'][0]['target'], 'id:1')
         self.assertEqual(filt['restored']['arcs'][0]['open'], '1')
-
-    def test_remove_chrome_profile_drops_a_tree_and_a_late_default_dir(self):
-        root = Path(tempfile.mkdtemp(prefix='task-deps-cleanup-'))
-        default = root / 'Default'
-        default.mkdir()
-        (default / 'Cookies').write_text('x', encoding='utf-8')
-        remove_chrome_profile(root, timeout=1)
-        self.assertFalse(root.exists())
-
-        raced = Path(tempfile.mkdtemp(prefix='task-deps-cleanup-'))
-        (raced / 'Default').mkdir()
-        real_rmtree = shutil.rmtree
-        calls = {'n': 0}
-
-        def flaky(path, ignore_errors=False):
-            calls['n'] += 1
-            if calls['n'] == 1 and not ignore_errors:
-                os.makedirs(os.path.join(path, 'Default'), exist_ok=True)
-                raise OSError(39, 'Directory not empty', 'Default')
-            return real_rmtree(path, ignore_errors=ignore_errors)
-
-        shutil.rmtree = flaky
-        try:
-            remove_chrome_profile(raced, timeout=1)
-        finally:
-            shutil.rmtree = real_rmtree
-        self.assertGreaterEqual(calls['n'], 2)
-        self.assertFalse(raced.exists())
 
     def _keep_shots(self, shots):
         destination = Path('/opt/cursor/artifacts/task-deps')
