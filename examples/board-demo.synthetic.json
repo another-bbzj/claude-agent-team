@@ -207,11 +207,11 @@
       "status": "stalled",
       "avatar": "docs-coordinator",
       "pet": "huhu-plan",
-      "description": "合成演示任务；不代表真实项目活动",
+      "description": "合成演示：读完示例后已停住，用来触发停滞提醒",
       "prompt": "合成示例：检查界面和团队协作流程。",
-      "startedAt": 1767261600,
+      "startedAt": 1767260710,
       "endedAt": null,
-      "lastActivityAt": 1767261730,
+      "lastActivityAt": 1767260840,
       "toolCount": 5,
       "thinkingCount": 1,
       "outputTokens": 200,
@@ -231,7 +231,7 @@
         {
           "kind": "tool",
           "label": "Read · synthetic example",
-          "ts": 1767261730,
+          "ts": 1767260840,
           "done": true,
           "ms": 10
         }
@@ -568,7 +568,7 @@
       "error": false
     },
     {
-      "ts": 1767261730,
+      "ts": 1767260840,
       "memberId": "synthetic-member-4",
       "name": "演示文档",
       "avatar": "docs-coordinator",

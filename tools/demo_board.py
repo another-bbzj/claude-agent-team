@@ -2,6 +2,7 @@
 """Serve the existing board UI with synthetic data and no user-home access."""
 import argparse
 import copy
+import importlib.util
 import json
 import sys
 import time
@@ -24,6 +25,19 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
 STATIC.update({'/sprites/' + pet + '.webp': ('sprites/' + pet + '.webp', 'image/webp')
                for pet in SHIPPED_PETS})
 TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts', 'stateSince'}
+_STALL = None
+
+
+def _stall_alerts():
+    """Pure helper only. The demo must not import team_board."""
+    global _STALL
+    if _STALL is None:
+        path = ROOT / 'team-board' / 'stall_alerts.py'
+        spec = importlib.util.spec_from_file_location('demo_stall_alerts', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _STALL = module
+    return _STALL
 BANNER = ('<aside id="synthetic-demo-notice" role="status" '
           'style="position:fixed;bottom:0;left:0;right:0;z-index:1000;text-align:center;'
           'padding:7px;background:#153d50;color:#fff;font:14px sans-serif">'
@@ -33,6 +47,10 @@ BANNER = ('<aside id="synthetic-demo-notice" role="status" '
 def snapshot_at(source, now=None):
     """Refresh display times in memory; never read transcripts or write fixtures."""
     snapshot = copy.deepcopy(source)
+    # Age is invariant under the display-clock shift, but the dismiss key must
+    # stay on the fixture clock. Shifting first would move lastActivityAt on
+    # every request and bring a dismissed alert back.
+    _stall_alerts().attach_stall_alerts(snapshot, snapshot.get('generatedAt'))
     delta = (time.time() if now is None else now) - snapshot['generatedAt']
 
     def shift(value):

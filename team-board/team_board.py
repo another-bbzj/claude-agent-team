@@ -9,7 +9,7 @@ Agent Team Board — 本地实时看板服务
 可选实时通道：hook_relay.py 把 Claude Code 钩子收成短事件，POST /api/hooks/event。
 事件只留在内存里，不和转录合并。见 docs/HOOKS.md。
 
-用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600]
+用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600] [--stall-alert 600]
 """
 import argparse
 import importlib.util
@@ -37,6 +37,18 @@ for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打
 
 HERE = Path(__file__).resolve().parent
 PROJECTS = Path.home() / '.claude' / 'projects'
+
+
+def _load_stall_alerts():
+    """Load the sibling helper from this copy of the board, not whatever is on sys.path."""
+    path = HERE / 'stall_alerts.py'
+    spec = importlib.util.spec_from_file_location('stall_alerts_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_stall_alerts = _load_stall_alerts()
 
 AVATAR_RULES = [
     ('release-engineer', r'release|build|packag|deploy|ops|ci|ship|部署|发布|打包|构建'),
@@ -2655,7 +2667,7 @@ def build_snapshot(args):
                    'pet': TEAM_CFG['agents'][k].get('pet', '')} if k in TEAM_CFG['agents'] else {})}
               for k, v in agent_defs.items()]
 
-    return {
+    snapshot = {
         'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
         'session': session_info,
@@ -2673,6 +2685,8 @@ def build_snapshot(args):
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info else '', now),
     }
+    threshold = getattr(args, 'stall_alert', _stall_alerts.DEFAULT_STALL_ALERT_SEC)
+    return _stall_alerts.attach_stall_alerts(snapshot, now, threshold)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -3019,6 +3033,8 @@ def main():
     ap.add_argument('--session', default=None, help='会话 id 前缀；默认取最近活跃的会话')
     ap.add_argument('--project', default=None, help='项目 key 子串')
     ap.add_argument('--stale', type=float, default=600, help='多少秒无更新视为停滞')
+    ap.add_argument('--stall-alert', dest='stall_alert', type=float, default=600,
+                    help='空闲、停滞或出错超过多少秒才进入提醒名单，默认 600（10 分钟）')
     ap.add_argument('--dump', action='store_true', help='只打印一次快照后退出')
     args = ap.parse_args()
     Handler.args = args

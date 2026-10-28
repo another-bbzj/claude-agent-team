@@ -1,14 +1,21 @@
 'use strict';
-/* Headless check for official-task dependency arcs. Invoked by tests/test_task_deps_ui.py. */
+/* Headless check for official-task dependency arcs.
+
+   Invoked by tests/test_task_deps_ui.py after headless_chrome.py has started Chrome:
+     node check_task_deps_browser.js <pageUrl> <debugPort> [shotDir]
+   Chrome is already listening on debugPort. This script only drives the page.
+*/
 const http = require('http');
 const fs = require('fs');
-const { spawn } = require('child_process');
 
 const pageUrl = process.argv[2];
-const chromePath = process.argv[3];
-const debugPort = process.argv[4];
-const userData = process.argv[5];
-const shotDir = process.argv[6] || '';
+const debugPort = process.argv[3];
+const shotDir = process.argv[4] || '';
+
+if (!pageUrl || !debugPort) {
+  console.error('usage: node check_task_deps_browser.js <pageUrl> <debugPort> [shotDir]');
+  process.exit(1);
+}
 
 function getJson(url) {
   return new Promise((resolve, reject) => {
@@ -35,43 +42,11 @@ async function waitJson(url) {
   throw new Error('chrome debug port not ready: ' + last);
 }
 
-const chrome = spawn(chromePath, [
-  '--headless=new',
-  '--no-sandbox',
-  '--disable-gpu',
-  '--disable-dev-shm-usage',
-  '--disable-extensions',
-  '--no-first-run',
-  '--no-default-browser-check',
-  '--window-size=1280,900',
-  '--remote-debugging-port=' + debugPort,
-  '--user-data-dir=' + userData,
-  'about:blank',
-], { stdio: 'ignore', detached: true });
-
 let socket = null;
-function killChromeGroup() {
-  if (!chrome || !chrome.pid) return;
-  try {
-    process.kill(-chrome.pid, 'SIGKILL');
-  } catch (err) {
-    try { chrome.kill('SIGKILL'); } catch (err2) { /* already gone */ }
-  }
-}
-function stopChrome() {
+function closeSocket() {
   try { if (socket) socket.close(); } catch (err) { /* already closed */ }
   socket = null;
-  if (!chrome || chrome.exitCode !== null || chrome.signalCode) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, 3000);
-    chrome.once('exit', () => {
-      clearTimeout(timer);
-      setTimeout(resolve, 150);
-    });
-    killChromeGroup();
-  });
 }
-process.on('exit', killChromeGroup);
 
 function connect(url) {
   const ws = new WebSocket(url);
@@ -352,10 +327,10 @@ function prepare(theme, id) {
     fs.writeFileSync(shotDir + '/narrow-dark-stack.png', Buffer.from(shot.data, 'base64'));
   }
   process.stdout.write(JSON.stringify({ wide: wide, narrow: narrow, narrowDark: narrowDark }));
-  await stopChrome();
+  closeSocket();
   process.exit(0);
-})().catch(async (err) => {
+})().catch((err) => {
   console.error(err && err.stack ? err.stack : err);
-  await stopChrome();
+  closeSocket();
   process.exit(1);
 });
