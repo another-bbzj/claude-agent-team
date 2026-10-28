@@ -246,6 +246,42 @@ class LiveSelectionTest(unittest.TestCase):
             self.assertNotIn('PRIVATE', error.getvalue())
             self.assertNotIn('Traceback', error.getvalue())
 
+    def test_selector_prometheus_output_matches_selected_snapshot_and_keeps_old_file(self):
+        target = self.env.tmp / 'team.prom'
+        cases = (('--project', 'C--demo'), ('--project', 'C--other'), ('--session', 'sess-0002'))
+        for flag, value in cases:
+            kwargs = {'project': value} if flag == '--project' else {'session': value}
+            snapshot = exporter.read_snapshot(port=self.port, **kwargs)
+            expected = exporter.render_prometheus(snapshot)
+            with self.subTest(flag=flag, value=value):
+                self.assertEqual(exporter.main(['--port', str(self.port), flag, value,
+                                                '--format', 'prometheus', '--output', str(target)]), 0)
+                self.assertEqual(target.read_text(encoding='utf-8'), expected)
+                self.assertNotIn(value, expected)
+                self.assertNotIn('sess-', expected)
+                self.assertEqual(list(target.parent.glob('.team-metrics-*')), [])
+
+        default = exporter.render_prometheus(exporter.read_snapshot(port=self.port))
+        selected = exporter.render_prometheus(exporter.read_snapshot(port=self.port, project='C--other'))
+        self.assertIn('claude_agent_team_members 2\n', default)
+        self.assertIn('claude_agent_team_members 1\n', selected)
+        self.assertNotEqual(default, selected)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(exporter.main(['--port', str(self.port), '--project', 'C--other',
+                                            '--format', 'prometheus']), 0)
+        self.assertEqual(output.getvalue(), selected)
+
+        target.write_text('previous_metric 1\n', encoding='utf-8')
+        with contextlib.redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(exporter.main(['--port', str(self.port), '--project', 'PRIVATE_UNKNOWN',
+                                            '--format', 'prometheus', '--output', str(target)]), 1)
+        self.assertEqual(target.read_text(encoding='utf-8'), 'previous_metric 1\n')
+        self.assertEqual(list(target.parent.glob('*.prom')), [target])
+        self.assertEqual(list(target.parent.glob('.team-metrics-*')), [])
+        self.assertIn('no matching session', error.getvalue())
+        self.assertNotIn('PRIVATE', error.getvalue())
+        self.assertNotIn('Traceback', error.getvalue())
+
 
 class SelectorValidationTest(unittest.TestCase):
     def test_query_encoding_cannot_inject_extra_parameters(self):

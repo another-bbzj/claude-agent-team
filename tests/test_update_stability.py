@@ -71,7 +71,7 @@ class UpdateFailureTest(unittest.TestCase):
             self.assertEqual(update.apply(restart=True), 5)
 
     def test_restart_failure_does_not_report_success(self):
-        with mock.patch.object(update.urllib.request, 'urlopen', side_effect=OSError('offline')), \
+        with mock.patch.object(update._LOCAL_OPENER, 'open', side_effect=OSError('offline')), \
                 mock.patch.object(update.time, 'sleep'), \
                 mock.patch.object(update.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4)), \
                 contextlib.redirect_stdout(io.StringIO()) as output:

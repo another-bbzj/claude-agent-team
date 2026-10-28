@@ -87,7 +87,8 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
 | 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
-| 只读导出、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 只读导出指定会话或项目、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 把指定会话或项目的用量和估算成本接入 Prometheus / Grafana | [Prometheus 文本指标与 node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
 看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。
