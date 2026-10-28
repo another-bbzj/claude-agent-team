@@ -8,8 +8,11 @@
 
 ### 新增
 
+- 可为一次会话设置估算成本预算（`team.json` 的 `budget`，或 `team_board.py` 的 `--budget` / `--budget-warn` / `--budget-member` / `--budget-dept`）。默认 80% 变黄，达到上限变红；写出花得最多的人，并按角色档位给出降档句子。未定价模型标成「成本为下限」，不补金额。不设预算时这块不出现。更新安装会保留你写过的整段 `budget`。设了会话上限时，Prometheus 文本多一个 `claude_agent_team_budget_utilization_ratio{scope="session"}`（已计价花费除以上限，可以大于 1）；没设上限时不出现。JSON 导出仍是 schemaVersion 1。
+- 同一 git 仓库在不同 worktree 里的多路会话收成一个作战区，每路显示自己的分支。任务条下方可以点分支切换。说明在 `docs/WORKTREES.md`。
+- 可选实时钩子：`python install.py --hooks` 在不覆盖已有 hooks 的前提下合并 `PreToolUse`、`PostToolUse`、`SubagentStop`、`Notification`、`Stop`。`hook_relay.py` 只把会话 id、事件名、工具名、`tool_use_id`、成员标识和时间 POST 到 `127.0.0.1`。看板没开时脚本退出码 0、没有输出。事件只留在内存里，快照里的 `live.merged` 仍是 `false`，不和转录去重。说明见 [docs/HOOKS.md](docs/HOOKS.md)。不加 `--hooks` 时安装行为不变；`--uninstall` 会把这些钩子和 SessionStart 一起卸掉。
+- 成员空闲、停滞或出错超过阈值（默认 10 分钟）时，顶栏、标签标题和图标出现可关闭的提醒。安静模式默认关闭；桌面通知只在你点「桌面通知」之后才向浏览器要权限。进行中和已完成的成员不提醒，没有活动时间的也不提醒。只读演示里的「演示文档」停了 15 分钟，打开就能看到这一条。Esc 先关详情和成员抽屉、再取消钉住的任务高亮，最后才收起这条提醒。
 - 悬停、聚焦或打开官方任务详情时，看板用弧线连出当前筛选后仍在三列里的依赖。被滤掉的对端不画线。前置任务还没完成时用强调色，已经完成的更淡；空闲时不画。点弧线或端点打开那张卡的只读详情，不改变钉住。
-- 可为一次会话设置估算成本预算（`team.json` 的 `budget`，或 `team_board.py` 的 `--budget` / `--budget-warn` / `--budget-member` / `--budget-dept`）。默认 80% 变黄，达到上限变红；写出花得最多的人，并按角色档位给出降档句子。未定价模型标成「成本为下限」，不补金额。不设预算时这块不出现。更新安装会保留你写过的整段 `budget`。
 
 ## 1.4.3 — 2026-10-22
 

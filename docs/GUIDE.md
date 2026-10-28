@@ -219,7 +219,8 @@ skills:
 
 ## 6. 会话切换与回放
 
-- 顶栏下拉默认跟随**最近活跃的会话**；列表里是所有派出过子代理的会话（项目 · 会话 id · 人数 · 最近活动），选一个即可回看当时的团队。
+- 顶栏下拉默认跟随**最近活跃的会话**；列表里是所有派出过子代理的会话（项目 · 分支（认得出时）· 会话 id · 人数 · 最近活动），选一个即可回看当时的团队。
+- 同一仓库开了多路 git worktree 时，任务条下面多一行**作战区**：仓库名和每一路的分支。点分支切换会话。规则和边界在 [WORKTREES.md](WORKTREES.md)。
 - `▶ 回放通信`：把当前会话的派工 / 回报 / 私信 / 交接 / 转达按顺序重新飞一遍，看清楚信息是怎么流动的。
 - 主题：`自动` 跟随系统，`浅色` / `深色` 固定；选择记在浏览器里。
 
@@ -327,7 +328,8 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 
 | 接口 | 用途 |
 |---|---|
-| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务） |
+| `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务、`live` 实时钩子） |
+| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘，不和转录合并。见 [HOOKS.md](HOOKS.md) |
 | `/api/tasks` | 不存在的写入口。任意方法都返回 405，并带 `Allow: GET`。非法 JSON 也是 405，不改 `~/.claude/tasks/` |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
 | `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
@@ -370,9 +372,9 @@ python install.py
 | `~/.claude/skills/agent-team/` | 团队协议技能（步骤、部门表、办公目录规范、省 token 规则） |
 | `~/.claude/team-board/` | 看板服务（单文件后端 + 单文件前端）、13 只自带形象、导入 / 下载 / 更新脚本 |
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
-| `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份） |
+| `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份）。`--hooks` 时再合并实时事件钩子 |
 
-`install.py` 的可选参数：`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 `STARTER` 里的 16 只桌宠；`--no-pets` 跳过本机 Codex 宠物导入；`--no-restart` 装完不重启已经在跑的看板。
+`install.py` 的可选参数：`--hooks` 合并 `PreToolUse` / `PostToolUse` / `SubagentStop` / `Notification` / `Stop`，调用 `hook_relay.py`（不覆盖已有钩子；细节在 [HOOKS.md](HOOKS.md)）；`--petdex` 顺便从 [petdex](https://petdex.dev) 下载 `STARTER` 里的 16 只桌宠；`--no-pets` 跳过本机 Codex 宠物导入；`--no-restart` 装完不重启已经在跑的看板。不加 `--hooks` 不会新增或删除实时钩子。`python install.py --uninstall` 会把本工具的 SessionStart 和实时钩子一起卸掉。
 
 看板顶栏出现 **「⬆ 有新版本 vX · 一键更新」** 就点它：自动下载 GitHub 最新版、重装、重启看板（每 12 小时自动检查一次）。命令行等价：
 
@@ -564,7 +566,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **247** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 不跑 3.8，见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **329** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 

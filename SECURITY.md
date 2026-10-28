@@ -27,7 +27,10 @@ For a non-sensitive reliability bug, use the
 ## Scope and updates
 
 Reports about unsafe local file access, cross-origin API requests, private-data
-exposure, imported files and install/update behavior are relevant. Test only on
+exposure, imported files and install/update behavior are relevant. The optional
+hook endpoint (`POST /api/hooks/event`) is in that set: it is loopback-only,
+requires a matching Origin, caps the body, and is documented as storing
+identifiers rather than tool input or output. See [docs/HOOKS.md](docs/HOOKS.md). Test only on
 systems and data you control. The repository currently has no published schedule
 for security backports or a separately maintained release line; identify the
 exact commit in reports and check current `main` when validating a fix.

@@ -25,6 +25,7 @@ for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打
 
 HERE = Path(__file__).resolve().parent
 PORT = int(os.environ.get('TEAM_BOARD_PORT', '7788'))
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # 本机看板：绕过系统 / 环境 HTTP 代理
 
 
 def local_version() -> str:
@@ -43,7 +44,7 @@ def listening() -> bool:
 def running_version() -> str:
     """问正在跑的服务它的版本；老版本没有 version 字段返回 ''。"""
     try:
-        with urllib.request.urlopen(f'http://127.0.0.1:{PORT}/snapshot.json', timeout=3) as r:
+        with _OPENER.open(f'http://127.0.0.1:{PORT}/snapshot.json', timeout=3) as r:
             return str(json.loads(r.read().decode('utf-8')).get('version') or '')
     except Exception:
         return ''
@@ -93,8 +94,9 @@ def stop_server(reason: str):
     """先礼后兵：POST /api/shutdown（1.3+ 有），不行就按端口找进程杀掉（老版本）。"""
     print(f'重启看板服务（{reason}）…')
     try:
-        urllib.request.urlopen(urllib.request.Request(f'http://127.0.0.1:{PORT}/api/shutdown', data=b'{}',
-                                                      headers={'Content-Type': 'application/json'}), timeout=3).read()
+        with _OPENER.open(urllib.request.Request(f'http://127.0.0.1:{PORT}/api/shutdown', data=b'{}',
+                                                headers={'Content-Type': 'application/json'}), timeout=3) as r:
+            r.read()
     except Exception:
         pass
     for _ in range(12):

@@ -68,9 +68,9 @@ python install.py
 | `~/.claude/skills/agent-team/` | Team skill: steps, departments, office layout, token rules |
 | `~/.claude/team-board/` | Board server, single-file UI, 13 shipped sprites, import / download / update scripts |
 | `~/.claude/CLAUDE.md` | One marked block appended; existing text stays |
-| `~/.claude/settings.json` | A `SessionStart` hook so the board stays up. The previous file is backed up first |
+| `~/.claude/settings.json` | A `SessionStart` hook so the board stays up. The previous file is backed up first. `--hooks` also merges the live event hooks |
 
-Flags from `install.py`: `--petdex` also downloads the 16-slug starter set from [petdex](https://petdex.dev); `--no-pets` skips importing pets from the local Codex install; `--no-restart` skips restarting a board that is already running.
+Flags from `install.py`: `--hooks` merges `PreToolUse`, `PostToolUse`, `SubagentStop`, `Notification`, and `Stop` without replacing hooks you already have ([HOOKS.md](HOOKS.md)); `--petdex` also downloads the 16-slug starter set from [petdex](https://petdex.dev); `--no-pets` skips importing pets from the local Codex install; `--no-restart` skips restarting a board that is already running. Omitting `--hooks` neither adds nor removes the live hooks. `python install.py --uninstall` removes this tool's SessionStart hook and the live hooks together.
 
 When the top bar says there is a newer version, that button downloads the GitHub revision, reinstalls and restarts. The check runs on its own about every 12 hours. The same actions from a shell:
 
@@ -194,7 +194,7 @@ Screenshots and every control are in the [Chinese illustrated guide](GUIDE.md#ui
 
 | Region | What it is |
 |---|---|
-| **Top bar** | Phase (forming / coordinating / wrapped) · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · appearance · theme (auto / light / dark) |
+| **Top bar** | Phase (forming / coordinating / wrapped) · unread notes for you · in progress / done · which departments showed up · model mix · estimated cost · team tokens and cache hit rate · version / one-click update · session switch · appearance · theme (auto / light / dark). When one repository has sessions in more than one git worktree, a theater strip under the mission line lists each branch; assumptions are in [WORKTREES.md](WORKTREES.md) |
 | **Formation** | You (labeled DOCTOR) at the top, the lead under that, then a panel per department. Each member: sprite, nameplate, `model · effort · cost`, current tool, progress, elapsed time, unread mark. Lines: assign / report / relay / file handoff / direct / bus. **Replay** (shortcut `R`) replays this session’s traffic |
 | **Department totals** | Headcount, running / done / failed, tool calls, tokens, cache hit, time, models, cost, then comparison bars |
 | **Cost rank** | Members ordered by estimated cost. Color separates opus / sonnet / haiku |
@@ -343,7 +343,7 @@ From the repository root:
 python -m unittest discover -s tests -v
 ```
 
-As of this guide’s revision, `tests/test_*.py` defines **247** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the read-only demo, aggregate export, offline Codex exec metrics, and the budget guard (unset, near the cap, over, unpriced lower bound, per-member caps, invalid config). Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Ubuntu, Windows and macOS with Python 3.8, 3.12 and 3.13, and skips Python 3.8 on macOS. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
+As of this guide’s revision, `tests/test_*.py` defines **329** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the optional live hook install / relay / loopback endpoint, the read-only demo, aggregate export, offline Codex exec metrics, and the budget guard (unset, near the cap, over, unpriced lower bound, per-member caps, invalid config). Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Windows, macOS and Linux with Python 3.8, 3.12 and 3.13. Python 3.8 is skipped on macOS and on the current Ubuntu image; that version runs on Ubuntu 24.04. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
 
 | Path | Role |
 |---|---|

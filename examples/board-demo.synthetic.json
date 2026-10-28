@@ -8,14 +8,55 @@
   "session": {
     "id": "synthetic-session",
     "project": "synthetic-example",
-    "lastActivity": 1767261740
+    "lastActivity": 1767261740,
+    "branch": "main",
+    "worktree": "",
+    "theaterId": "wt-syntheticrepo"
   },
   "sessions": [
     {
       "id": "synthetic-session",
       "project": "synthetic-example",
       "mtime": 1767261740,
-      "count": 4
+      "count": 4,
+      "branch": "main",
+      "worktree": "",
+      "theaterId": "wt-syntheticrepo"
+    },
+    {
+      "id": "synthetic-session-wt",
+      "project": "synthetic-worktree",
+      "mtime": 1767261680,
+      "count": 2,
+      "branch": "worktree-feature-board",
+      "worktree": "feature-board",
+      "theaterId": "wt-syntheticrepo"
+    }
+  ],
+  "theaters": [
+    {
+      "id": "wt-syntheticrepo",
+      "label": "synthetic-repo",
+      "sessions": [
+        {
+          "id": "synthetic-session",
+          "project": "synthetic-example",
+          "branch": "main",
+          "worktree": "",
+          "primary": true,
+          "mtime": 1767261740,
+          "count": 4
+        },
+        {
+          "id": "synthetic-session-wt",
+          "project": "synthetic-worktree",
+          "branch": "worktree-feature-board",
+          "worktree": "feature-board",
+          "primary": false,
+          "mtime": 1767261680,
+          "count": 2
+        }
+      ]
     }
   ],
   "lead": {
@@ -207,11 +248,11 @@
       "status": "stalled",
       "avatar": "docs-coordinator",
       "pet": "huhu-plan",
-      "description": "合成演示任务；不代表真实项目活动",
+      "description": "合成演示：读完示例后已停住，用来触发停滞提醒",
       "prompt": "合成示例：检查界面和团队协作流程。",
-      "startedAt": 1767261600,
+      "startedAt": 1767260710,
       "endedAt": null,
-      "lastActivityAt": 1767261730,
+      "lastActivityAt": 1767260840,
       "toolCount": 5,
       "thinkingCount": 1,
       "outputTokens": 200,
@@ -231,7 +272,7 @@
         {
           "kind": "tool",
           "label": "Read · synthetic example",
-          "ts": 1767261730,
+          "ts": 1767260840,
           "done": true,
           "ms": 10
         }
@@ -568,7 +609,7 @@
       "error": false
     },
     {
-      "ts": 1767261730,
+      "ts": 1767260840,
       "memberId": "synthetic-member-4",
       "name": "演示文档",
       "avatar": "docs-coordinator",
@@ -577,6 +618,40 @@
       "error": false
     }
   ],
+  "live": {
+    "v": 1,
+    "source": "claude-hook",
+    "merged": false,
+    "correlate": "tool_use_id",
+    "available": true,
+    "freshSeconds": 20,
+    "fresh": false,
+    "retained": 2,
+    "limit": 200,
+    "events": [
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 1,
+        "session_id": "synthetic-session",
+        "event": "PreToolUse",
+        "tool_name": "Read",
+        "tool_use_id": "toolu_synthetic_read",
+        "agent_id": "synthetic-member-1",
+        "agent_type": "backend-dev",
+        "ts": 1767261740
+      },
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 2,
+        "session_id": "synthetic-session",
+        "event": "Stop",
+        "stop_hook_active": false,
+        "ts": 1767261738
+      }
+    ]
+  },
   "comms": [],
   "bus": {
     "count": 0,
