@@ -2235,6 +2235,18 @@ def _snapshot_official_team(view, members, now):
     return public
 
 
+def _load_budget():
+    """本目录的 budget.py。按文件加载，测试换了看板副本时不会串到别的路径。"""
+    path = HERE / 'budget.py'
+    spec = importlib.util.spec_from_file_location('budget_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_budget_mod = _load_budget()
+
+
 def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
@@ -2536,7 +2548,7 @@ def build_snapshot(args):
                    'pet': TEAM_CFG['agents'][k].get('pet', '')} if k in TEAM_CFG['agents'] else {})}
               for k, v in agent_defs.items()]
 
-    return {
+    snapshot = {
         'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
         'session': session_info,
@@ -2553,6 +2565,8 @@ def build_snapshot(args):
         'officialTeam': _snapshot_official_team(official_view, members, now),
         'backdrop': backdrop_state(presets=False),
     }
+    # 预算在独立模块里算。没设预算时只多一个 enabled=false 的字段，页面不画。
+    return _budget_mod.attach_budget(snapshot, _budget_mod.cli_from_args(args), TEAM_CFG.get('budget'))
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -2854,6 +2868,12 @@ def main():
     ap.add_argument('--port', type=int, default=7788)
     ap.add_argument('--session', default=None, help='会话 id 前缀；默认取最近活跃的会话')
     ap.add_argument('--project', default=None, help='项目 key 子串')
+    ap.add_argument('--budget', type=float, default=None, help='本次会话估算成本上限（美元）。不设则不显示预算')
+    ap.add_argument('--budget-warn', dest='budget_warn', type=float, default=None, help='接近预算的比例，默认 0.8')
+    ap.add_argument('--budget-member', dest='budget_member', action='append', default=None,
+                    help='成员上限，可重复：backend-dev=1.5（角色、成员 id 或显示名）')
+    ap.add_argument('--budget-dept', dest='budget_dept', action='append', default=None,
+                    help='部门上限，可重复：dev=3。指挥部 hq 含队长')
     ap.add_argument('--stale', type=float, default=600, help='多少秒无更新视为停滞')
     ap.add_argument('--dump', action='store_true', help='只打印一次快照后退出')
     args = ap.parse_args()

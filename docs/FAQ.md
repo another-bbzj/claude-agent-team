@@ -98,8 +98,15 @@ Point `WALLPAPER_ENGINE_DIRS` at the workshop folder if the list is empty. A blu
 
 - 看板的「合计」是输入 + 输出 + 缓存读 + 缓存写。缓存读通常占 90% 以上。服务商后台可能只显示输入 + 输出，对比时要看同一口径。
 - 成本按 `team-board/team.json` 的公开单价估算，不是账单。
+- 设了预算且有未定价模型时，合计标成「成本为下限」，不会把缺价的部分估成一个数。
 
-The board’s total includes cache read and cache write. A console that shows only input and output is a different sum. Cost is the public price table, not an invoice.
+The board’s total includes cache read and cache write. A console that shows only input and output is a different sum. Cost is the public price table, not an invoice. With a budget and an unpriced model, the figure is labeled a lower bound and the missing price is not invented.
+
+**预算条没有出现，或者黄的、红的是什么意思？**
+
+没写 `budget`，也没加 `--budget` / `--budget-member` / `--budget-dept` 时，预算护栏不显示。黄是达到 `warnRatio`（默认 80%）还没到上限；红是已计价金额达到或超过上限，成员或部门上限有一个超出也算红。配置不合法时写「预算配置无效，告警未启用」。
+
+The guard stays hidden until a budget is configured. Yellow is the warn ratio (default 80%). Red means a session, member, or department cap is met. An invalid block says the guard is off.
 
 **卸载会删掉什么？**
 

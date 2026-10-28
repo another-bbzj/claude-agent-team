@@ -11,6 +11,12 @@ Open [the local demo](http://127.0.0.1:7790/) in your browser. The command print
 actual URL; `--port 0` chooses an available port. Stop it with Ctrl+C. It does not
 open a browser automatically or install anything into your home directory.
 
+To see a red budget guard on the same synthetic cast, add `--budget-alert` or open
+`http://127.0.0.1:7790/?budget=over`. The session cap is half of the fixture total, so
+the bar is already over; the synthetic docs member is on sonnet while the role table
+says haiku, so the panel includes a downgrade line. The default command sets no budget
+and the panel stays hidden. The numbers are still the example scenario, not a bill.
+
 The page displays four synthetic subagent members and two official Agent Team
 teammates, plus coherent example departments, tool activity, token counts and
 estimated costs. Official teammates are marked with a 官方 Team badge. When the
