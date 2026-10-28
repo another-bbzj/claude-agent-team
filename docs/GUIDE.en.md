@@ -342,7 +342,7 @@ From the repository root:
 python -m unittest discover -s tests -v
 ```
 
-As of this guide’s revision, `tests/test_*.py` defines **151** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the read-only demo, aggregate export, and offline Codex exec metrics. Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Ubuntu, Windows and macOS with Python 3.8 and 3.12, and skips Python 3.8 on macOS. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
+As of this guide’s revision, `tests/test_*.py` defines **249** functions whose names start with `test_` (a source count, not a benchmark). An older README said 86; that was the count at the time. The suite uses the standard library. It covers synthetic Claude Code transcripts (status, model, usage de-dupe, pricing, assign / report / note / handoff / relay, department presence, small teams, ad-hoc members), member and department edits that keep unknown fields, sprite import, `msg.py`, backdrop and Wallpaper Engine discovery, third-party transcripts, HTTP, install/update/uninstall, the read-only demo, aggregate export, offline Codex exec metrics, and SVG battle cards. Some tests bind a loopback port. The optional Pillow image test skips when Pillow is missing. [CI](../.github/workflows/test.yml) runs Ubuntu, Windows and macOS with Python 3.8 and 3.12, and skips Python 3.8 on macOS. The inline-JavaScript check needs Node.js; the command is in [AGENTS.md](../AGENTS.md).
 
 | Path | Role |
 |---|---|
@@ -356,6 +356,7 @@ As of this guide’s revision, `tests/test_*.py` defines **151** functions whose
 | `install.py` | Install, merge, uninstall |
 | `tools/demo_board.py` | Read-only synthetic board |
 | `tools/export_snapshot.py` | Allowlisted aggregate export |
+| `tools/battle_card.py` | SVG battle card from a snapshot or the loopback board |
 | `tools/codex_metrics.py` | Offline Codex exec JSONL summary |
 | `tools/make_dist_hashes.py` | Writes `dist-hashes.json` |
 | `tests/` | Standard-library tests and synthetic fixtures |
@@ -429,8 +430,11 @@ Bug reports, tests, docs and small integrations are welcome. Start at [CONTRIBUT
 
 ```sh
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
 ```
+
+`battle_card.py` draws one SVG from that snapshot. Aggregate figures match `export_snapshot.py`. Names, departments, elapsed time and completed tasks are drawn only when those fields are present. See [INTEGRATIONS.md](INTEGRATIONS.md).
 
 The export keeps an allowlist of numeric fields. It does not include prompts, message bodies, session ids or local paths. Raw `/snapshot.json` can still contain private text; do not publish it. The Codex exec adapter reads only the JSONL you pass. It does not launch Codex or call an API, and its output drops message text, command bodies and session ids. See [CODEX_METRICS.md](CODEX_METRICS.md).
 

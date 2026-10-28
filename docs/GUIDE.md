@@ -541,7 +541,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **151** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，以及后来加上的只读演示、聚合导出和 Codex exec JSONL 离线汇总。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑；macOS 不跑 3.8，见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **249** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 上自动跑；macOS 不跑 3.8，见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 
@@ -646,7 +646,7 @@ agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式�
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）
-tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
+tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
@@ -657,7 +657,10 @@ install.py         安装 / 更新 / 卸载        VERSION  版本号
 
 ```bash
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 ```
+
+`battle_card.py` 用同一份快照画一张 SVG 战报卡。聚合数字与 `export_snapshot.py` 一致。名字、部门、用时和已完成任务只在快照里有这些字段时出现。用法和隐私边界见 [集成指南](INTEGRATIONS.md)。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 

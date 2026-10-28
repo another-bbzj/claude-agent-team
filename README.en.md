@@ -38,6 +38,16 @@ Open <http://127.0.0.1:7790/>. See [the demo guide](docs/DEMO.md). The page incl
 
 ![Synthetic official task board: three columns, a read-only detail, and exact-name highlight. Fields come from examples/board-demo.synthetic.json. The drawing does not respond to the pointer](docs/img/task-board.svg)
 
+The same kind of snapshot can become one SVG battle card. This sample is `examples/snapshot.synthetic.json`, which has member status, tokens, cache hit and an estimated cost, and does not have names, departments or tasks:
+
+```sh
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
+```
+
+![Battle card rendered from examples/snapshot.synthetic.json. It shows two members, estimated cost, total tokens and cache hit, and leaves out names because that fixture has none](docs/img/battle-card.svg)
+
+`auto` follows the system theme. Drop `--static` for a slow dash. Names, departments, elapsed time and completed tasks appear only when the snapshot has those fields. Unpriced models are marked 部分. Paths, session ids, e-mail addresses, prompts and tool arguments are left out. The board button「导出战报卡」downloads the same SVG in the browser and does not upload it.
+
 **Install into your Claude Code setup:**
 
 ```sh
@@ -75,7 +85,7 @@ The overview still is the stage and departments. The read-only official task row
 | Departments, models, pets | [Members](docs/GUIDE.en.md#members) · [Artwork](docs/GUIDE.en.md#pets) |
 | Third-party gateways and prices | [Providers](docs/GUIDE.en.md#providers) |
 | The board will not open, or the numbers look wrong | [FAQ](docs/GUIDE.en.md#faq) |
-| Aggregate export, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
+| Aggregate export, battle card, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
 The live board parses **Claude Code** sessions. [tools/codex_metrics.py](docs/CODEX_METRICS.md) summarizes an explicit `codex exec --json` log offline. It does not ingest interactive Codex sessions; that remains [planned](docs/ROADMAP.md). Using Codex to maintain this repository, and importing pets from a local Codex install, are separate.

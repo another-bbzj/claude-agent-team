@@ -40,6 +40,16 @@ python tools/demo_board.py --port 7790
 
 > 演示使用合成数据，不读取你的 `~/.claude/tasks/`，也不是用量基准。[成员动画](docs/img/demo-synthetic.svg) · [官方任务看板示意图](docs/img/task-board.svg) · [演示说明](docs/DEMO.md)
 
+同一份快照可以画成一张能贴进 README 或社交平台的战报卡，仍然不读你的会话：
+
+```bash
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static
+```
+
+![战报卡。数字来自 examples/snapshot.synthetic.json：2 名成员、估算成本、合计 token 和缓存命中。这份快照没有名字、部门和任务，卡片上也就不画](docs/img/battle-card.svg)
+
+深浅色跟随系统。去掉 `--static` 会多一条很慢的细线。名字、部门、用时和已完成任务只在快照里真有这些字段时出现；有未定价模型时，成本标「部分」。不写本机路径、会话 id、邮箱、提示词或工具参数。看板上的「导出战报卡」在浏览器里下载同一张图，不上传。
+
 **装进自己的 Claude Code：**
 
 ```bash
@@ -87,7 +97,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
 | 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
 | 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
-| 只读导出、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
+| 只读导出、战报卡、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
 看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。

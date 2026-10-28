@@ -13,6 +13,7 @@ This repository provides a local team board for Claude Code transcripts. The sep
 - `tests/`: standard-library unittest tests, including synthetic transcripts and temporary user homes.
 - `tools/codex_metrics.py`: read-only aggregate metrics for documented Codex exec JSONL events.
 - `tools/demo_board.py`: isolated read-only board using synthetic data and shipped assets only.
+- `tools/battle_card.py`: self-contained SVG battle card from an offline snapshot or the loopback board.
 
 ## Change and test
 

@@ -22,10 +22,10 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - name: Install dev requirements
         run: python -m pip install -r requirements-dev.txt
-      - run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: python -m unittest discover -s tests -v
       - run: node -e "const s=require('fs').readFileSync('team-board/index.html','utf8'); new Function(s.slice(s.indexOf('<script>')+8, s.lastIndexOf('</script>'))); console.log('index.html js ok')"
 
   # ubuntu-latest 预装 lsof。卸掉后再跑整套测试，覆盖没有 lsof 的 Linux。
@@ -49,10 +49,10 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - name: Install dev requirements
         run: python -m pip install -r requirements-dev.txt
-      - run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: python -m unittest discover -s tests -v
       - run: node -e "const s=require('fs').readFileSync('team-board/index.html','utf8'); new Function(s.slice(s.indexOf('<script>')+8, s.lastIndexOf('</script>'))); console.log('index.html js ok')"
 
   lint:

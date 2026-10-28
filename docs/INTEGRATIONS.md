@@ -55,6 +55,38 @@ The source board JSON is an internal interface that can evolve. The exporter val
 
 Exported JSON contains numeric aggregates only. Session IDs, timestamps, local paths, member names, prompts, tool arguments, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
 
+## Battle card
+
+Render one self-contained SVG from the synthetic fixture, or from a board that is already running:
+
+```sh
+python tools/battle_card.py --input examples/snapshot.synthetic.json --static --output card.svg
+python tools/battle_card.py --port 7788 --theme dark --output card.svg
+```
+
+Choose exactly one of `--input` or `--port`. The port mode performs one read-only GET to `http://127.0.0.1:<port>/snapshot.json` through `export_snapshot.read_snapshot`: proxies are bypassed, redirects are refused, the socket timeout is five seconds, and the body limit is 8 MiB. There is no arbitrary remote URL and no upload.
+
+`--theme auto` (the default) follows `prefers-color-scheme`. `light` and `dark` bake a single palette into the presentation attributes, so the card still has color if a viewer drops the stylesheet. `--static` omits the slow dash. The file names system fonts only. It has no script, no external image and no `foreignObject`.
+
+The card draws a section only when the snapshot already has that data:
+
+| On the snapshot | On the card |
+| --- | --- |
+| `totals` with every field the aggregate export requires, plus a `members` array | Member count, estimated cost, combined tokens, cache hit, and the usage table. The figures are the `export_metrics` values. |
+| `totals.unpriced` greater than zero | The cost is marked 部分. Missing prices are not drawn as zero. |
+| Member `name`, `roleTitle` or `agentType`, `dept`, `status`, `cost`, `totalTokens`, `cacheHit`, `toolCount` | One row. A member with no safe name is labeled by position, such as 成员 01. |
+| Both `startedAt` and `endedAt` | Elapsed time. A missing end is not replaced with the current time. |
+| `departments` | A row when that department has people, an active status, or a non-zero figure. Ids inside `members` are counted, not printed. |
+| `officialTeam.tasks` whose `normalizedStatus` (or `status`, when the normalized field is absent) is `completed` | Subject and owner. Task descriptions are not printed. Other statuses are not listed. |
+
+Sections with nothing to show are omitted. The SVG does not include session ids, local paths, e-mail addresses, prompts, tool arguments, message bodies or model ids. Cost is the board's estimate, not a provider invoice. [`docs/img/battle-card.svg`](img/battle-card.svg) is this command with `--static` on `examples/snapshot.synthetic.json`.
+
+![Battle card from the synthetic aggregate fixture](img/battle-card.svg)
+
+The board button「导出战报卡」builds the same SVG in the browser from the snapshot the page already holds, then downloads `battle-card.svg`. Nothing is uploaded. It follows the page theme, and it omits motion when the browser requests reduced motion.
+
+Exit code 0 means the SVG was written. Exit code 1 is a read, validation or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks. The output path must not be the input file.
+
 ## File-based handoffs from other tools
 
 The existing `team-board/msg.py` can send a handoff to a project inbox without a running board:
