@@ -5,6 +5,7 @@ This repository provides a local team board for Claude Code transcripts. The sep
 ## Source map
 
 - `team-board/team_board.py`: transcript parsing, snapshots, local HTTP API, message bus, in-memory hook events.
+- `team-board/test_results.py`: Bash test commands and their pass, fail, skip and exit status. Unknown when the output is truncated or unrecognized.
 - `team-board/hook_relay.py`: optional Claude Code hook relay. It posts a short loopback event and exits 0 when the board is down.
 - `team-board/index.html`: browser UI and embedded JavaScript.
 - `team-board/team.json`: default departments, agents, pets and estimated pricing.

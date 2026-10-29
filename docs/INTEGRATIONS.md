@@ -77,7 +77,7 @@ python tools/export_snapshot.py --input examples/snapshot.synthetic.json --forma
 python tools/export_snapshot.py --input examples/snapshot.synthetic.json --format prometheus --output team.prom
 ```
 
-Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prometheus.synthetic.prom). The fixture contains five metric families and 22 samples, all derived from the existing synthetic snapshot. That fixture has no session budget, so it does not include `claude_agent_team_budget_utilization_ratio`. The series appears only when `budget.enabled` is true and `budget.ratio` is a finite nonnegative number (known spend divided by the session cap, which may exceed 1). It is not part of the JSON schemaVersion 1 object.
+Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prometheus.synthetic.prom). The fixture contains five metric families and 22 samples, all derived from the existing synthetic snapshot. That fixture has no session budget, so it does not include `claude_agent_team_budget_utilization_ratio`. The series appears only when `budget.enabled` is true and `budget.ratio` is a finite nonnegative number (known spend divided by the session cap, which may exceed 1). It is not part of the JSON schemaVersion 1 object. The same fixture has no parsed test result, so it also omits `claude_agent_team_test_results`. That family appears only when at least one member `lastTest.status` is `pass`, `fail` or `unknown`. Task copies are not counted again. It is not part of the JSON schemaVersion 1 object.
 
 ### Metric contract
 
@@ -89,6 +89,7 @@ Compare the output with [`examples/prometheus.synthetic.prom`](../examples/prome
 | `claude_agent_team_tokens` | `scope="members"`, `"lead"`, `"all"`; `kind="input"`, `"output"`, `"cache_read"`, `"cache_write"`, `"total"` | Board-reported token buckets for each scope |
 | `claude_agent_team_cache_hit_ratio` | `scope="members"`, `"lead"`, `"all"` | Board-reported cache hit ratio between 0 and 1 |
 | `claude_agent_team_budget_utilization_ratio` | `scope="session"` | Optional. Known session spend divided by the configured USD cap. Omitted when no session cap is set. May exceed 1 |
+| `claude_agent_team_test_results` | `status="pass"`, `"fail"` or `"unknown"` | Optional. Latest parsed test per member. Omitted when no member has one of those statuses. Counts can fall when the selection changes |
 
 Every family includes `HELP` and `TYPE` metadata. **All metrics are gauges** for the board's currently selected session, not lifetime counters: selecting another session or revising prices may lower a value. Use direct gauge queries, not `rate()` or `increase()`. Scopes overlap (`all` includes lead and members), and token `total` overlaps its component buckets. Select one scope and kind rather than summing across every sample. Costs are estimates, not provider invoices.
 
@@ -145,7 +146,7 @@ The last two expressions catch stale files and missing first exports, respective
 
 ### Privacy boundary
 
-Exported JSON and Prometheus samples contain numeric aggregates only; Prometheus labels come from fixed scope/kind enums. The optional budget gauge adds only `scope="session"`. Session IDs, timestamps, local paths, member names, prompts, tool arguments, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
+Exported JSON and Prometheus samples contain numeric aggregates only; Prometheus labels come from fixed scope/kind enums. The optional budget gauge adds only `scope="session"`. The optional test gauge adds only `status="pass"`, `"fail"` or `"unknown"`. Session IDs, timestamps, local paths, member names, prompts, tool arguments, commands, test output, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
 
 ## Battle card
 

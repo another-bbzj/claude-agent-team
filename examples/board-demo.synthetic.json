@@ -127,6 +127,30 @@
           "ts": 1767261700,
           "done": false,
           "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · go test ./...",
+          "ts": 1767261705,
+          "done": true,
+          "error": true,
+          "ms": 180,
+          "toolId": "tool-demo-go-fail",
+          "test": {
+            "framework": "go",
+            "status": "fail",
+            "passed": 2,
+            "failed": 1,
+            "skipped": 0,
+            "errors": null,
+            "exitCode": null,
+            "exitStatus": "nonzero",
+            "truncated": false,
+            "toolId": "tool-demo-go-fail",
+            "ts": 1767261705,
+            "memberId": "synthetic-member-1"
+          }
         }
       ],
       "writes": [],
@@ -140,7 +164,21 @@
       },
       "unread": 0,
       "hasDef": true,
-      "custom": false
+      "custom": false,
+      "lastTest": {
+        "framework": "go",
+        "status": "fail",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-go-fail",
+        "ts": 1767261705,
+        "memberId": "synthetic-member-1"
+      }
     },
     {
       "id": "synthetic-member-2",
@@ -179,6 +217,30 @@
           "ts": 1767261710,
           "done": true,
           "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · npm test",
+          "ts": 1767261712,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-npm-unknown",
+          "test": {
+            "framework": "npm",
+            "status": "unknown",
+            "passed": null,
+            "failed": null,
+            "skipped": null,
+            "errors": null,
+            "exitCode": null,
+            "exitStatus": "unknown",
+            "truncated": true,
+            "toolId": "tool-demo-npm-unknown",
+            "ts": 1767261712,
+            "memberId": "synthetic-member-2"
+          }
         }
       ],
       "writes": [],
@@ -188,7 +250,21 @@
       "current": null,
       "unread": 0,
       "hasDef": true,
-      "custom": false
+      "custom": false,
+      "lastTest": {
+        "framework": "npm",
+        "status": "unknown",
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "unknown",
+        "truncated": true,
+        "toolId": "tool-demo-npm-unknown",
+        "ts": 1767261712,
+        "memberId": "synthetic-member-2"
+      }
     },
     {
       "id": "synthetic-member-3",
@@ -227,6 +303,31 @@
           "ts": 1767261720,
           "done": true,
           "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · pytest -q",
+          "ts": 1767261722,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-pytest-pass",
+          "test": {
+            "framework": "pytest",
+            "status": "pass",
+            "passed": 4,
+            "failed": 0,
+            "skipped": 1,
+            "errors": 0,
+            "exitCode": 0,
+            "exitStatus": "zero",
+            "truncated": false,
+            "toolId": "tool-demo-pytest-pass",
+            "ts": 1767261722,
+            "memberId": "synthetic-member-3",
+            "ticket": "03-check.md"
+          }
         }
       ],
       "writes": [],
@@ -236,7 +337,22 @@
       "current": null,
       "unread": 0,
       "hasDef": true,
-      "custom": false
+      "custom": false,
+      "lastTest": {
+        "framework": "pytest",
+        "status": "pass",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 1,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-pass",
+        "ts": 1767261722,
+        "memberId": "synthetic-member-3",
+        "ticket": "03-check.md"
+      }
     },
     {
       "id": "synthetic-member-4",
@@ -317,7 +433,32 @@
       "model": "",
       "modelFamily": "",
       "effort": "",
-      "timeline": [],
+      "timeline": [
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · pytest -q",
+          "ts": 1767261730,
+          "done": true,
+          "error": true,
+          "ms": 180,
+          "toolId": "tool-demo-pytest-fail",
+          "test": {
+            "framework": "pytest",
+            "status": "fail",
+            "passed": 1,
+            "failed": 2,
+            "skipped": 0,
+            "errors": 1,
+            "exitCode": 1,
+            "exitStatus": "nonzero",
+            "truncated": false,
+            "toolId": "tool-demo-pytest-fail",
+            "ts": 1767261730,
+            "memberId": "synthetic-official-researcher"
+          }
+        }
+      ],
       "writes": [],
       "reads": [],
       "messages": [],
@@ -325,7 +466,21 @@
       "current": null,
       "unread": 0,
       "hasDef": true,
-      "custom": false
+      "custom": false,
+      "lastTest": {
+        "framework": "pytest",
+        "status": "fail",
+        "passed": 1,
+        "failed": 2,
+        "skipped": 0,
+        "errors": 1,
+        "exitCode": 1,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-fail",
+        "ts": 1767261730,
+        "memberId": "synthetic-official-researcher"
+      }
     },
     {
       "id": "synthetic-official-writer",
@@ -358,7 +513,32 @@
       "model": "",
       "modelFamily": "",
       "effort": "",
-      "timeline": [],
+      "timeline": [
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · cargo test",
+          "ts": 1767261724,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-cargo-pass",
+          "test": {
+            "framework": "cargo",
+            "status": "pass",
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0,
+            "errors": 0,
+            "exitCode": 0,
+            "exitStatus": "zero",
+            "truncated": false,
+            "toolId": "tool-demo-cargo-pass",
+            "ts": 1767261724,
+            "memberId": "synthetic-official-writer"
+          }
+        }
+      ],
       "writes": [],
       "reads": [],
       "messages": [],
@@ -366,7 +546,21 @@
       "current": null,
       "unread": 0,
       "hasDef": false,
-      "custom": false
+      "custom": false,
+      "lastTest": {
+        "framework": "cargo",
+        "status": "pass",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-cargo-pass",
+        "ts": 1767261724,
+        "memberId": "synthetic-official-writer"
+      }
     }
   ],
   "departments": [
@@ -582,6 +776,127 @@
   ],
   "feed": [
     {
+      "ts": 1767261730,
+      "memberId": "synthetic-official-researcher",
+      "name": "合成研究员",
+      "avatar": "data-analyst",
+      "label": "Bash · pytest -q",
+      "done": true,
+      "error": true,
+      "toolId": "tool-demo-pytest-fail",
+      "test": {
+        "framework": "pytest",
+        "status": "fail",
+        "passed": 1,
+        "failed": 2,
+        "skipped": 0,
+        "errors": 1,
+        "exitCode": 1,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-fail",
+        "ts": 1767261730,
+        "memberId": "synthetic-official-researcher"
+      }
+    },
+    {
+      "ts": 1767261724,
+      "memberId": "synthetic-official-writer",
+      "name": "合成写手",
+      "avatar": "docs-coordinator",
+      "label": "Bash · cargo test",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-cargo-pass",
+      "test": {
+        "framework": "cargo",
+        "status": "pass",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-cargo-pass",
+        "ts": 1767261724,
+        "memberId": "synthetic-official-writer"
+      }
+    },
+    {
+      "ts": 1767261722,
+      "memberId": "synthetic-member-3",
+      "name": "演示测试",
+      "avatar": "qa-engineer",
+      "label": "Bash · pytest -q",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-pytest-pass",
+      "test": {
+        "framework": "pytest",
+        "status": "pass",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 1,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-pass",
+        "ts": 1767261722,
+        "memberId": "synthetic-member-3",
+        "ticket": "03-check.md"
+      }
+    },
+    {
+      "ts": 1767261712,
+      "memberId": "synthetic-member-2",
+      "name": "演示前端",
+      "avatar": "ui-designer",
+      "label": "Bash · npm test",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-npm-unknown",
+      "test": {
+        "framework": "npm",
+        "status": "unknown",
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "unknown",
+        "truncated": true,
+        "toolId": "tool-demo-npm-unknown",
+        "ts": 1767261712,
+        "memberId": "synthetic-member-2"
+      }
+    },
+    {
+      "ts": 1767261705,
+      "memberId": "synthetic-member-1",
+      "name": "演示后端",
+      "avatar": "server-engineer",
+      "label": "Bash · go test ./...",
+      "done": true,
+      "error": true,
+      "toolId": "tool-demo-go-fail",
+      "test": {
+        "framework": "go",
+        "status": "fail",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-go-fail",
+        "ts": 1767261705,
+        "memberId": "synthetic-member-1"
+      }
+    },
+    {
       "ts": 1767261700,
       "memberId": "synthetic-member-1",
       "name": "演示后端",
@@ -674,18 +989,39 @@
         "owner": "合成研究员",
         "ownerMatch": "合成研究员",
         "blockedBy": [],
-        "blocks": ["3"],
+        "blocks": [
+          "3"
+        ],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [],
         "blocksDetail": [
-          {"id": "3", "subject": "Wait for the synthetic survey", "resolved": true, "normalizedStatus": "pending"}
+          {
+            "id": "3",
+            "subject": "Wait for the synthetic survey",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
         ],
         "flags": [],
         "notices": [],
         "stateSince": 1767261600,
         "stateSinceKind": "observed",
-        "stateSeconds": 140
+        "stateSeconds": 140,
+        "lastTest": {
+          "framework": "pytest",
+          "status": "fail",
+          "passed": 1,
+          "failed": 2,
+          "skipped": 0,
+          "errors": 1,
+          "exitCode": 1,
+          "exitStatus": "nonzero",
+          "truncated": false,
+          "toolId": "tool-demo-pytest-fail",
+          "ts": 1767261730,
+          "memberId": "synthetic-official-researcher"
+        }
       },
       {
         "id": "2",
@@ -696,18 +1032,39 @@
         "owner": "合成写手",
         "ownerMatch": "合成写手",
         "blockedBy": [],
-        "blocks": ["4"],
+        "blocks": [
+          "4"
+        ],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [],
         "blocksDetail": [
-          {"id": "4", "subject": "Ask the synthetic lead", "resolved": true, "normalizedStatus": "pending"}
+          {
+            "id": "4",
+            "subject": "Ask the synthetic lead",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
         ],
         "flags": [],
         "notices": [],
         "stateSince": 1767261000,
         "stateSinceKind": "file",
-        "stateSeconds": 740
+        "stateSeconds": 740,
+        "lastTest": {
+          "framework": "cargo",
+          "status": "pass",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "errors": 0,
+          "exitCode": 0,
+          "exitStatus": "zero",
+          "truncated": false,
+          "toolId": "tool-demo-cargo-pass",
+          "ts": 1767261724,
+          "memberId": "synthetic-official-writer"
+        }
       },
       {
         "id": "3",
@@ -717,16 +1074,35 @@
         "normalizedStatus": "pending",
         "owner": null,
         "ownerMatch": null,
-        "blockedBy": ["1", "9"],
+        "blockedBy": [
+          "1",
+          "9"
+        ],
         "blocks": [],
         "blocked": true,
-        "waitingOn": ["1", "9"],
+        "waitingOn": [
+          "1",
+          "9"
+        ],
         "blockedByDetail": [
-          {"id": "1", "subject": "Survey the synthetic module", "resolved": true, "normalizedStatus": "in_progress"},
-          {"id": "9", "subject": null, "resolved": false, "normalizedStatus": null}
+          {
+            "id": "1",
+            "subject": "Survey the synthetic module",
+            "resolved": true,
+            "normalizedStatus": "in_progress"
+          },
+          {
+            "id": "9",
+            "subject": null,
+            "resolved": false,
+            "normalizedStatus": null
+          }
         ],
         "blocksDetail": [],
-        "flags": ["blocked", "approximate"],
+        "flags": [
+          "blocked",
+          "approximate"
+        ],
         "notices": [],
         "stateSince": 1767261700,
         "stateSinceKind": "file-shared",
@@ -740,12 +1116,19 @@
         "normalizedStatus": "pending",
         "owner": "演示队长",
         "ownerMatch": "演示队长",
-        "blockedBy": ["2"],
+        "blockedBy": [
+          "2"
+        ],
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [
-          {"id": "2", "subject": "Draft synthetic notes", "resolved": true, "normalizedStatus": "completed"}
+          {
+            "id": "2",
+            "subject": "Draft synthetic notes",
+            "resolved": true,
+            "normalizedStatus": "completed"
+          }
         ],
         "blocksDetail": [],
         "flags": [],
