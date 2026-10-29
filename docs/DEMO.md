@@ -51,6 +51,8 @@ The same fixture includes one synthetic worktree theater, `synthetic-repo`, with
 Choosing the other branch updates that label only; the member cards stay the one
 example team. How live transcripts are grouped is [WORKTREES.md](WORKTREES.md).
 
+Under the cost rank, the same fixture shows three cache-advice lines: 演示后端 waited past the 5-minute TTL, 演示前端 switched models twice, and 演示测试 rewrote the cache on every turn. Each line cites token counts from `cacheTurns` and an estimated saving from `team.json` prices. The panel stays empty when a snapshot has no such signal. These requests are synthetic; they are not a bill and not a benchmark.
+
 The same fixture shows the latest test on a member card, on that member's task card, and on an official task whose `owner` is exactly that member's name. 演示测试 is green (pytest, 4 passed, 1 skipped). 演示后端 and 合成研究员 are red (a failed `go test`, and a pytest collection that reported failures). 演示前端 is gray: `npm test` output was truncated, so the badge says 未知. 合成写手 is green from `cargo test`, and that result is also on official task 2. Clicking a badge scrolls to the activity row and expands the counts, skip count and exit status. It does not open the member drawer or the task detail. The numbers are part of the example, not a test report from this repository.
 
 The synthetic member 演示文档 is stalled on purpose. The fixture clock is 15 minutes

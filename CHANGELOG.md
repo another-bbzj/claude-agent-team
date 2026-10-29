@@ -8,6 +8,7 @@
 
 ### 新增
 
+- 成本排行下面多一块「缓存诊断」。成员或队长的 prompt cache 命中率低于 `team.json` 里 `cacheAdvice.hitRatio`（默认 0.5），并且转录里有足够的请求记录时，才写出原因：缓存写入远多于读取且前缀被反复重建、相邻请求间隔超过 TTL（默认 300 秒）、系统提示指纹或工具列表在会话中途变化、模型来回切换、多个子代理各自只有一轮冷启动。每条带上 token 数，并用价格表估算可省的差价，句子里标明是估算、不是账单。时间戳、系统提示或工具列表在转录里没有时，对应那条不写。`cacheAdvice` 设为 `false` 就关掉。更新安装会保留你改过的整段。只读演示用合成请求至少展示两条。
 - 看板从转录里的 Bash 测试命令读出通过、失败、跳过和退出状态，标在成员卡和对应的任务卡上。覆盖 pytest、`python -m unittest`、npm/pnpm/yarn test、go test、cargo test，以及这些命令常见的 jest、vitest、mocha 输出。收集错误算失败。输出被截断、对不上摘要，或摘要和退出状态互相矛盾时显示「未知」，不按零星的 PASS 行猜总数。失败的卡变红。点徽章跳到动作流并展开那一条。官方任务只在 `owner` 与成员名字完全一致时带上同一条结果。`python tools/demo_board.py` 的合成快照里有通过、失败和未知各一例。成员带有这类结果时，Prometheus 文本多一组 `claude_agent_team_test_results{status="pass|fail|unknown"}`；没有就不输出。原始输出、命令和路径不进指标。
 - `tools/battle_card.py` 把离线快照或本机看板画成一张 SVG 战报卡，可放进 README。只画快照里已有的成员、部门、用时、token、缓存命中、估算成本和已完成任务；未定价标「部分」，缺的字段不补。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。快照里已有 `stallAlerts`、`theaters` 或 `live.retained` 时，卡片写出停滞提醒人数、作战区个数或实时事件条数，没有就不画。`budget.enabled` 且 `budget.ratio` 是非负有限数时，另画一条预算使用率，可以超过 100%，名字和建议不写上。不写本机路径、会话 id、邮箱、提示词或工具参数。看板顶栏「导出战报卡」在浏览器里下载同一张图，不上传。样例是 `docs/img/battle-card.svg`。
 - 可为一次会话设置估算成本预算（`team.json` 的 `budget`，或 `team_board.py` 的 `--budget` / `--budget-warn` / `--budget-member` / `--budget-dept`）。默认 80% 变黄，达到上限变红；写出花得最多的人，并按角色档位给出降档句子。未定价模型标成「成本为下限」，不补金额。不设预算时这块不出现。更新安装会保留你写过的整段 `budget`。设了会话上限时，Prometheus 文本多一个 `claude_agent_team_budget_utilization_ratio{scope="session"}`（已计价花费除以上限，可以大于 1）；没设上限时不出现。JSON 导出仍是 schemaVersion 1。

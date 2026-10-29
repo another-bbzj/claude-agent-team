@@ -51,6 +51,15 @@ def _load_stall_alerts():
 _stall_alerts = _load_stall_alerts()
 
 
+def _load_cache_advice():
+    """缓存诊断是纯函数。和停滞提醒一样，按本目录加载，测试换看板副本时不会串路径。"""
+    path = HERE / 'cache_advice.py'
+    spec = importlib.util.spec_from_file_location('cache_advice_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_test_results():
     """本目录的 test_results.py。装到用户目录后的副本也读自己旁边的文件。"""
     path = HERE / 'test_results.py'
@@ -60,6 +69,7 @@ def _load_test_results():
     return module
 
 
+_cache_advice = _load_cache_advice()
 _test_results = _load_test_results()
 
 AVATAR_RULES = [
@@ -1139,8 +1149,10 @@ def _parse_agent_file(jsonl: Path):
     last_text, last_stop, last_kind = '', None, None
     model, ledger = '', UsageLedger()
     messages, writes, reads = [], [], []
+    trace = _cache_advice.Trace(agent_id, agent_id, True)
 
     for e in entries:
+        trace.see(e)
         ts = parse_iso(e.get('timestamp'))
         if ts:
             first_ts = first_ts or ts
@@ -1218,7 +1230,8 @@ def _parse_agent_file(jsonl: Path):
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
             'tool_count': tool_count, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
-            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads}
+            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads,
+            'cacheTurns': trace.turns()}
 
 
 def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
@@ -1275,6 +1288,7 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'current': current,
         'lastText': short(last_text, 400),
         'timeline': _clip_timeline(timeline, 80),
+        'cacheTurns': [dict(item) for item in (P.get('cacheTurns') or []) if isinstance(item, dict)],
         'lastTest': last_test,
     }
 
@@ -1303,9 +1317,11 @@ def parse_lead(path: Path, now: float):
         cwds = {}   # 队长转录里出现过的 cwd → 最后出现的序号（队长会 cd 走；键顺序 = 首次出现顺序）
         notifications = {}
         lead_model, lead_ledger = '', UsageLedger()
+        lead_trace = _cache_advice.Trace('__lead', '队长', False)
         for i, e in enumerate(read_jsonl(path)):
             if e.get('isSidechain'):
                 continue
+            lead_trace.see(e)
             ts = parse_iso(e.get('timestamp'))
             if ts:
                 last_ts = ts
@@ -1381,7 +1397,8 @@ def parse_lead(path: Path, now: float):
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
                 'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime,
-                'cwd': _launch_cwd(list(cwds), path.parent.name), 'cwds': sorted(cwds, key=lambda c: -cwds[c])}
+                'cwd': _launch_cwd(list(cwds), path.parent.name), 'cwds': sorted(cwds, key=lambda c: -cwds[c]),
+                'cacheTurns': lead_trace.turns()}
         _lead_cache[path] = (key, data)
     current = next((it for it in reversed(data['timeline']) if it['kind'] == 'tool'), None)
     active = now - data['mtime'] < 20
@@ -3208,8 +3225,29 @@ def build_snapshot(args):
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info else '', now),
     }
+    cache_turns = []
+    for member in members:
+        for raw in member.pop('cacheTurns', None) or []:
+            if not isinstance(raw, dict):
+                continue
+            item = dict(raw)
+            item['actor'] = member.get('id') or item.get('actor') or ''
+            item['name'] = member.get('name') or item.get('name') or item['actor']
+            item['subagent'] = True
+            cache_turns.append(item)
+    if lead_data:
+        for raw in lead_data.get('cacheTurns') or []:
+            if not isinstance(raw, dict):
+                continue
+            item = dict(raw)
+            item['actor'] = '__lead'
+            item['name'] = '队长'
+            item['subagent'] = False
+            cache_turns.append(item)
     # 预算在独立模块里算。没设预算时只多一个 enabled=false 的字段，页面不画。
     _budget_mod.attach_budget(snapshot, _budget_mod.cli_from_args(args), TEAM_CFG.get('budget'))
+    _cache_advice.attach_cache_advice(
+        snapshot, TEAM_CFG.get('pricing_usd_per_mtok'), TEAM_CFG.get('cacheAdvice'), cache_turns)
     threshold = getattr(args, 'stall_alert', _stall_alerts.DEFAULT_STALL_ALERT_SEC)
     return _stall_alerts.attach_stall_alerts(snapshot, now, threshold)
 
