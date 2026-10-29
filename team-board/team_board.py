@@ -60,7 +60,17 @@ def _load_cache_advice():
     return module
 
 
+def _load_test_results():
+    """本目录的 test_results.py。装到用户目录后的副本也读自己旁边的文件。"""
+    path = HERE / 'test_results.py'
+    spec = importlib.util.spec_from_file_location('test_results_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 _cache_advice = _load_cache_advice()
+_test_results = _load_test_results()
 
 AVATAR_RULES = [
     ('release-engineer', r'release|build|packag|deploy|ops|ci|ship|部署|发布|打包|构建'),
@@ -907,6 +917,122 @@ def is_tool_result_block(content):
 _agent_cache = {}
 
 
+def _note_test_command(item, name, inp, tool_id):
+    if name not in ('Bash', 'bash') or not isinstance(inp, dict):
+        return
+    command = inp.get('command') if isinstance(inp.get('command'), str) else ''
+    if not command and isinstance(inp.get('cmd'), str):
+        command = inp['cmd']
+    if not command or not _test_results.detect_frameworks(command):
+        return
+    item['toolId'] = tool_id if isinstance(tool_id, str) else ''
+    item['_test_command'] = command
+    desc = inp.get('description')
+    item['_test_extra'] = desc if isinstance(desc, str) else ''
+
+
+def _tool_output(content):
+    if isinstance(content, list):
+        return content_text(content)
+    if content is None:
+        return ''
+    return str(content)
+
+
+def _finish_test_item(item, block, output):
+    command = item.pop('_test_command', None)
+    extra = item.pop('_test_extra', '')
+    if not command:
+        return
+    parsed = _test_results.from_invocation(
+        command, output, block if isinstance(block, dict) else {}, extra or '')
+    if not parsed:
+        return
+    parsed['toolId'] = item.get('toolId') or ''
+    if item.get('ts') is not None:
+        parsed['ts'] = item.get('ts')
+    item['test'] = parsed
+
+
+def _scrub_test_privates(timeline):
+    for item in timeline:
+        if isinstance(item, dict):
+            item.pop('_test_command', None)
+            item.pop('_test_extra', None)
+
+
+def _apply_ticket_hints(timeline, reads, writes):
+    """测试之前读过或写过的 .team/tickets/<文件> 记到结果上，只留文件名。"""
+    paths = []
+    for rec in list(reads or []) + list(writes or []):
+        if isinstance(rec, dict) and isinstance(rec.get('path'), str):
+            paths.append((rec.get('ts') or 0, rec['path']))
+    if not paths:
+        return
+    for item in timeline:
+        test = item.get('test') if isinstance(item, dict) else None
+        if not isinstance(test, dict) or test.get('ticket'):
+            continue
+        ts = item.get('ts') or 0
+        best, name = None, ''
+        for pts, path in paths:
+            if pts > ts:
+                continue
+            found = _test_results.ticket_basename(path)
+            if found and (best is None or pts >= best):
+                best, name = pts, found
+        if name:
+            test['ticket'] = name
+
+
+def _latest_test(timeline, member_id):
+    found, found_ts = None, -1
+    for item in timeline:
+        test = item.get('test') if isinstance(item, dict) else None
+        if not isinstance(test, dict):
+            continue
+        test['memberId'] = member_id
+        ts = item.get('ts') or 0
+        if found is None or ts >= found_ts:
+            found, found_ts = test, ts
+    return found
+
+
+def _clip_timeline(timeline, limit):
+    """时间线只留最近若干条，但最近一次测试要留在里面，方便跳到动作流。"""
+    if len(timeline) <= limit:
+        return timeline
+    shown = list(timeline[-limit:])
+    latest = None
+    for item in reversed(timeline):
+        if isinstance(item, dict) and isinstance(item.get('test'), dict):
+            latest = item
+            break
+    if latest is not None and all(item is not latest for item in shown):
+        shown = shown[1:] + [latest]
+        shown.sort(key=lambda item: item.get('ts') or 0)
+    return shown
+
+
+def _keep_test_rows(feed, limit):
+    if len(feed) <= limit:
+        return feed
+    shown = list(feed[:limit])
+    latest = {}
+    for row in feed:
+        if not isinstance(row, dict) or not isinstance(row.get('test'), dict):
+            continue
+        mid = row.get('memberId')
+        prev = latest.get(mid)
+        if prev is None or (row.get('ts') or 0) >= (prev.get('ts') or 0):
+            latest[mid] = row
+    for row in latest.values():
+        if all(item is not row for item in shown):
+            shown.append(row)
+    shown.sort(key=lambda row: -(row.get('ts') or 0))
+    return shown
+
+
 def parse_agent(jsonl: Path, meta: dict, now: float, stale: float, group):
     try:
         st = jsonl.stat()
@@ -1052,6 +1178,8 @@ def _parse_agent_file(jsonl: Path):
                                     item['msg']['delivered'] = False
                                     item['error'] = True
                                 item.pop('msg', None)
+                            if item.get('_test_command'):
+                                _finish_test_item(item, c, _tool_output(c.get('content')))
                         last_kind = 'tool_result'
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
@@ -1073,6 +1201,7 @@ def _parse_agent_file(jsonl: Path):
                                 'done': False, 'error': False}
                         pending[c.get('id')] = item
                         timeline.append(item)
+                        _note_test_command(item, name, inp, c.get('id'))
                         if isinstance(inp, dict):
                             if name == 'SendMessage' or name.endswith('send_message'):
                                 mrec = {'ts': ts, 'to': str(inp.get('to') or inp.get('session_id') or ''), 'delivered': True,
@@ -1097,6 +1226,7 @@ def _parse_agent_file(jsonl: Path):
                         thinking_count += 1
             last_kind = 'tool_use' if has_tool else 'assistant_text'
 
+    _scrub_test_privates(timeline)
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
             'tool_count': tool_count, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
@@ -1106,6 +1236,8 @@ def _parse_agent_file(jsonl: Path):
 
 def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
     agent_id, prompt, timeline = P['agent_id'], P['prompt'], P['timeline']
+    _apply_ticket_hints(timeline, P['reads'], P['writes'])
+    last_test = _latest_test(timeline, agent_id)
     first_ts, last_ts, last_kind, last_stop = P['first_ts'], P['last_ts'], P['last_kind'], P['last_stop']
     tool_count, out_tokens, thinking_count, last_text = P['tool_count'], P['out_tokens'], P['thinking_count'], P['last_text']
 
@@ -1155,8 +1287,9 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'outputTokens': out_tokens,
         'current': current,
         'lastText': short(last_text, 400),
-        'timeline': timeline[-80:],
+        'timeline': _clip_timeline(timeline, 80),
         'cacheTurns': [dict(item) for item in (P.get('cacheTurns') or []) if isinstance(item, dict)],
+        'lastTest': last_test,
     }
 
 
@@ -1223,6 +1356,8 @@ def parse_lead(path: Path, now: float):
                                 item['error'] = bool(c.get('is_error'))
                                 if ts and item['ts']:
                                     item['ms'] = int((ts - item['ts']) * 1000)
+                                if item.get('_test_command'):
+                                    _finish_test_item(item, c, _tool_output(c.get('content')))
             elif et == 'assistant':
                 lead_ledger.add(msg, e.get('requestId') or '')
                 if real_model(msg.get('model')):
@@ -1237,6 +1372,7 @@ def parse_lead(path: Path, now: float):
                                 'done': False, 'error': False}
                         pending[tid] = item
                         timeline.append(item)
+                        _note_test_command(item, name, inp, tid)
                         if name == 'Agent' and isinstance(inp, dict):
                             dispatches[tid] = {'ts': ts, 'description': inp.get('description') or '',
                                                'agentType': inp.get('subagent_type') or 'general-purpose',
@@ -1253,7 +1389,10 @@ def parse_lead(path: Path, now: float):
                                                  'text': '留言：' + short(body, 200)})
         lead_usage = lead_ledger.total()
         out_tokens = lead_usage['out']
-        data = {'timeline': timeline[-60:], 'toolCount': tool_count, 'outputTokens': out_tokens,
+        _scrub_test_privates(timeline)
+        last_test = _latest_test(timeline, '__lead')
+        data = {'timeline': _clip_timeline(timeline, 60), 'lastTest': last_test,
+                'toolCount': tool_count, 'outputTokens': out_tokens,
                 'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
@@ -2601,14 +2740,25 @@ def _public_official_team(view, now):
     return public
 
 
-def _snapshot_official_team(view, members, now):
-    """公开快照上的官方团队。ownerMatch 只在这里写，不写回任务目录。"""
+def _snapshot_official_team(view, members, now, lead=None):
+    """公开快照上的官方团队。ownerMatch 只在这里写，不写回任务目录。
+
+    成员最近一次测试在 owner 与名字完全一致时抄到任务上。队长用官方 lead 名字，不用舞台上的「队长 · Claude」。
+    """
     public = _public_official_team(view, now)
     annotate_owner_matches(
         public.get('tasks') or [],
         [member.get('name') for member in members or ()],
         public.get('lead') or '',
     )
+    people = [member for member in members or () if isinstance(member, dict)]
+    if isinstance(lead, dict) and isinstance(lead.get('lastTest'), dict):
+        named = dict(lead)
+        official = public.get('lead') or ''
+        if isinstance(official, str) and official:
+            named['name'] = official
+        people.append(named)
+    _test_results.attach_last_tests(public.get('tasks') or [], people)
     return public
 
 
@@ -2951,23 +3101,33 @@ def build_snapshot(args):
         phase = 'waiting'
 
     feed = []
+
+    def _feed_row(it, member_id, name, avatar):
+        row = {'ts': it['ts'], 'memberId': member_id, 'name': name, 'avatar': avatar,
+               'label': it['label'], 'error': it.get('error', False), 'done': it.get('done', False)}
+        if isinstance(it.get('test'), dict):
+            row['test'] = it['test']
+            if it.get('toolId'):
+                row['toolId'] = it['toolId']
+        return row
+
     for m in members:
         for it in m['timeline']:
             if it['kind'] == 'tool' and it['ts']:
-                feed.append({'ts': it['ts'], 'memberId': m['id'], 'name': m['name'], 'avatar': m['avatar'],
-                             'label': it['label'], 'error': it.get('error', False), 'done': it.get('done', False)})
+                feed.append(_feed_row(it, m['id'], m['name'], m['avatar']))
     if lead_data:
         for it in lead_data['timeline']:
             if it['kind'] == 'tool' and it['ts']:
-                feed.append({'ts': it['ts'], 'memberId': '__lead', 'name': '队长', 'avatar': 'team-lead',
-                             'label': it['label'], 'error': it.get('error', False), 'done': it.get('done', False)})
-    feed.sort(key=lambda x: -x['ts'])
+                feed.append(_feed_row(it, '__lead', '队长', 'team-lead'))
+    feed.sort(key=lambda x: -(x['ts'] or 0))
+    feed = _keep_test_rows(feed, 100)
 
     lead = {'name': 'Claude', 'avatar': 'team-lead', 'phase': phase, 'running': running, 'done': done, 'total': len(members),
             'dept': 'hq', 'model': '', 'cost': 0.0, 'usage': {}, 'pet': TEAM_CFG.get('lead_pet', '')}
     if lead_data:
         lead.update({'active': lead_data['active'], 'current': lead_data['current'], 'toolCount': lead_data['toolCount'],
                      'outputTokens': lead_data['outputTokens'], 'timeline': lead_data['timeline'],
+                     'lastTest': lead_data.get('lastTest'),
                      'lastUserPrompt': lead_data['lastUserPrompt'], 'lastActivityAt': lead_data['mtime'],
                      'model': lead_data.get('model', ''), 'modelFamily': model_family(lead_data.get('model', '')),
                      'cost': lead_data.get('cost', 0.0), 'usage': lead_data.get('usage', {}),
@@ -3058,10 +3218,10 @@ def build_snapshot(args):
         'departments': departments,
         'totals': totals,
         'roster': roster,
-        'feed': feed[:100],
+        'feed': feed,
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _snapshot_official_team(official_view, members, now),
+        'officialTeam': _snapshot_official_team(official_view, members, now, lead),
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info else '', now),
     }
