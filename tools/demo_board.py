@@ -44,6 +44,24 @@ BANNER = ('<aside id="synthetic-demo-notice" role="status" '
           '只读演示 · 全部为合成数据 · Read-only demo / synthetic data</aside>')
 
 
+def _cache_advice():
+    """合成演示只借诊断函数，不导入 team_board，也不读用户主目录。"""
+    cached = getattr(_cache_advice, 'mod', None)
+    if cached is not None:
+        return cached
+    path = BOARD / 'cache_advice.py'
+    spec = importlib.util.spec_from_file_location('demo_cache_advice', str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _cache_advice.mod = module
+    return module
+
+
+def _pricing_and_cache_config():
+    cfg = json.loads((BOARD / 'team.json').read_text(encoding='utf-8'))
+    return cfg.get('pricing_usd_per_mtok') or {}, cfg.get('cacheAdvice')
+
+
 def _budget_module():
     """合成演示只借预算计算，不导入 team_board，也不读用户主目录。"""
     cached = getattr(_budget_module, 'mod', None)
@@ -100,6 +118,9 @@ def snapshot_at(source, now=None):
             for item in value:
                 shift(item)
     shift(snapshot)
+    pricing, advice_cfg = _pricing_and_cache_config()
+    _cache_advice().attach_cache_advice(snapshot, pricing, advice_cfg)
+    snapshot.pop('cacheTurns', None)
     return snapshot
 
 

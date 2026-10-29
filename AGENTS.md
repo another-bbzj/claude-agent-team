@@ -5,6 +5,7 @@ This repository provides a local team board for Claude Code transcripts. The sep
 ## Source map
 
 - `team-board/team_board.py`: transcript parsing, snapshots, local HTTP API, message bus, in-memory hook events.
+- `team-board/cache_advice.py`: pure cache-hit diagnosis. Thresholds come from `team.json` `cacheAdvice`. No suggestion when the transcript signal is thin.
 - `team-board/hook_relay.py`: optional Claude Code hook relay. It posts a short loopback event and exits 0 when the board is down.
 - `team-board/index.html`: browser UI and embedded JavaScript.
 - `team-board/team.json`: default departments, agents, pets and estimated pricing.

@@ -51,6 +51,8 @@ The same fixture includes one synthetic worktree theater, `synthetic-repo`, with
 Choosing the other branch updates that label only; the member cards stay the one
 example team. How live transcripts are grouped is [WORKTREES.md](WORKTREES.md).
 
+Under the cost rank, the same fixture shows three cache-advice lines: 演示后端 waited past the 5-minute TTL, 演示前端 switched models twice, and 演示测试 rewrote the cache on every turn. Each line cites token counts from `cacheTurns` and an estimated saving from `team.json` prices. The panel stays empty when a snapshot has no such signal. These requests are synthetic; they are not a bill and not a benchmark.
+
 The synthetic member 演示文档 is stalled on purpose. The fixture clock is 15 minutes
 after that member's last event (a finished `Read`, then silence). The stall alert
 threshold defaults to **10 minutes** (`600` seconds; `--stall-alert` on the live

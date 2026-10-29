@@ -107,16 +107,16 @@
       "lastActivityAt": 1767261700,
       "toolCount": 2,
       "thinkingCount": 1,
-      "outputTokens": 50,
-      "totalTokens": 360,
-      "cacheHit": 0.6452,
+      "outputTokens": 400,
+      "totalTokens": 325200,
+      "cacheHit": 0.4926,
       "usage": {
-        "in": 100,
-        "out": 50,
-        "cache_read": 200,
-        "cache_write": 10
+        "in": 4800,
+        "out": 400,
+        "cache_read": 160000,
+        "cache_write": 160000
       },
-      "cost": 0.01,
+      "cost": 0.6684,
       "model": "synthetic-model",
       "modelFamily": "sonnet",
       "effort": "medium",
@@ -159,16 +159,16 @@
       "lastActivityAt": 1767261710,
       "toolCount": 3,
       "thinkingCount": 1,
-      "outputTokens": 100,
-      "totalTokens": 720,
-      "cacheHit": 0.6452,
+      "outputTokens": 240,
+      "totalTokens": 154740,
+      "cacheHit": 0.0,
       "usage": {
-        "in": 200,
-        "out": 100,
-        "cache_read": 400,
-        "cache_write": 20
+        "in": 4500,
+        "out": 240,
+        "cache_read": 0,
+        "cache_write": 150000
       },
-      "cost": 0.02,
+      "cost": 0.7084,
       "model": "synthetic-model",
       "modelFamily": "sonnet",
       "effort": "medium",
@@ -207,16 +207,16 @@
       "lastActivityAt": 1767261720,
       "toolCount": 4,
       "thinkingCount": 1,
-      "outputTokens": 150,
-      "totalTokens": 1080,
-      "cacheHit": 0.6452,
+      "outputTokens": 200,
+      "totalTokens": 165000,
+      "cacheHit": 0.0,
       "usage": {
-        "in": 300,
-        "out": 150,
-        "cache_read": 600,
-        "cache_write": 30
+        "in": 4800,
+        "out": 200,
+        "cache_read": 0,
+        "cache_write": 160000
       },
-      "cost": 0.03,
+      "cost": 0.6174,
       "model": "synthetic-model",
       "modelFamily": "sonnet",
       "effort": "medium",
@@ -403,15 +403,15 @@
       "status": "running",
       "needed": true,
       "missing": false,
-      "cost": 0.03,
+      "cost": 1.3768,
       "unpriced": 0,
       "running": 1,
       "done": 1,
       "failed": 0,
       "tools": 5,
-      "tokens": 1080,
-      "outTokens": 150,
-      "cacheHit": 0.6452,
+      "tokens": 479940,
+      "outTokens": 640,
+      "cacheHit": 0.3338,
       "seconds": 210,
       "models": [
         "sonnet"
@@ -428,15 +428,15 @@
       "status": "completed",
       "needed": true,
       "missing": false,
-      "cost": 0.03,
+      "cost": 0.6174,
       "unpriced": 0,
       "running": 0,
       "done": 1,
       "failed": 0,
       "tools": 4,
-      "tokens": 1080,
-      "outTokens": 150,
-      "cacheHit": 0.6452,
+      "tokens": 165000,
+      "outTokens": 200,
+      "cacheHit": 0.0,
       "seconds": 120,
       "models": [
         "sonnet"
@@ -493,21 +493,21 @@
     }
   ],
   "totals": {
-    "cost": 0.105,
-    "membersCost": 0.1,
+    "cost": 2.0392,
+    "membersCost": 2.0342,
     "unpriced": 0,
     "unpricedModels": [],
     "modelMix": {
       "sonnet": 4
     },
-    "tokens": 500,
+    "tokens": 1040,
     "usage": {
-      "in": 1000,
-      "out": 500,
-      "cache_read": 2000,
-      "cache_write": 100,
-      "total": 3600,
-      "cacheHit": 0.6452
+      "in": 14500,
+      "out": 1040,
+      "cache_read": 160800,
+      "cache_write": 470040,
+      "total": 646380,
+      "cacheHit": 0.2492
     },
     "leadUsage": {
       "in": 50,
@@ -518,12 +518,12 @@
       "cacheHit": 0.6667
     },
     "allUsage": {
-      "in": 1050,
-      "out": 520,
-      "cache_read": 2100,
-      "cache_write": 100,
-      "total": 3770,
-      "cacheHit": 0.6462
+      "in": 14550,
+      "out": 1060,
+      "cache_read": 160900,
+      "cache_write": 470040,
+      "total": 646550,
+      "cacheHit": 0.2493
     }
   },
   "roster": [
@@ -674,12 +674,19 @@
         "owner": "合成研究员",
         "ownerMatch": "合成研究员",
         "blockedBy": [],
-        "blocks": ["3"],
+        "blocks": [
+          "3"
+        ],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [],
         "blocksDetail": [
-          {"id": "3", "subject": "Wait for the synthetic survey", "resolved": true, "normalizedStatus": "pending"}
+          {
+            "id": "3",
+            "subject": "Wait for the synthetic survey",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
         ],
         "flags": [],
         "notices": [],
@@ -696,12 +703,19 @@
         "owner": "合成写手",
         "ownerMatch": "合成写手",
         "blockedBy": [],
-        "blocks": ["4"],
+        "blocks": [
+          "4"
+        ],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [],
         "blocksDetail": [
-          {"id": "4", "subject": "Ask the synthetic lead", "resolved": true, "normalizedStatus": "pending"}
+          {
+            "id": "4",
+            "subject": "Ask the synthetic lead",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
         ],
         "flags": [],
         "notices": [],
@@ -717,16 +731,35 @@
         "normalizedStatus": "pending",
         "owner": null,
         "ownerMatch": null,
-        "blockedBy": ["1", "9"],
+        "blockedBy": [
+          "1",
+          "9"
+        ],
         "blocks": [],
         "blocked": true,
-        "waitingOn": ["1", "9"],
+        "waitingOn": [
+          "1",
+          "9"
+        ],
         "blockedByDetail": [
-          {"id": "1", "subject": "Survey the synthetic module", "resolved": true, "normalizedStatus": "in_progress"},
-          {"id": "9", "subject": null, "resolved": false, "normalizedStatus": null}
+          {
+            "id": "1",
+            "subject": "Survey the synthetic module",
+            "resolved": true,
+            "normalizedStatus": "in_progress"
+          },
+          {
+            "id": "9",
+            "subject": null,
+            "resolved": false,
+            "normalizedStatus": null
+          }
         ],
         "blocksDetail": [],
-        "flags": ["blocked", "approximate"],
+        "flags": [
+          "blocked",
+          "approximate"
+        ],
         "notices": [],
         "stateSince": 1767261700,
         "stateSinceKind": "file-shared",
@@ -740,12 +773,19 @@
         "normalizedStatus": "pending",
         "owner": "演示队长",
         "ownerMatch": "演示队长",
-        "blockedBy": ["2"],
+        "blockedBy": [
+          "2"
+        ],
         "blocks": [],
         "blocked": false,
         "waitingOn": [],
         "blockedByDetail": [
-          {"id": "2", "subject": "Draft synthetic notes", "resolved": true, "normalizedStatus": "completed"}
+          {
+            "id": "2",
+            "subject": "Draft synthetic notes",
+            "resolved": true,
+            "normalizedStatus": "completed"
+          }
         ],
         "blocksDetail": [],
         "flags": [],
@@ -1057,5 +1097,183 @@
         1
       ]
     }
-  }
+  },
+  "cacheTurns": [
+    {
+      "actor": "synthetic-member-1",
+      "name": "演示后端",
+      "subagent": true,
+      "ts": 1767261000,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 80000,
+      "input": 2000,
+      "output": 100,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-1",
+      "name": "演示后端",
+      "subagent": true,
+      "ts": 1767261060,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 80000,
+      "cache_write": 0,
+      "input": 400,
+      "output": 100,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-1",
+      "name": "演示后端",
+      "subagent": true,
+      "ts": 1767261900,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 80000,
+      "input": 2000,
+      "output": 100,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-1",
+      "name": "演示后端",
+      "subagent": true,
+      "ts": 1767261960,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 80000,
+      "cache_write": 0,
+      "input": 400,
+      "output": 100,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-2",
+      "name": "演示前端",
+      "subagent": true,
+      "ts": 1767261000,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 50000,
+      "input": 1500,
+      "output": 80,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-2",
+      "name": "演示前端",
+      "subagent": true,
+      "ts": 1767261030,
+      "model": "claude-opus-4-5",
+      "cache_read": 0,
+      "cache_write": 50000,
+      "input": 1500,
+      "output": 80,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-2",
+      "name": "演示前端",
+      "subagent": true,
+      "ts": 1767261060,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 50000,
+      "input": 1500,
+      "output": 80,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-3",
+      "name": "演示测试",
+      "subagent": true,
+      "ts": 1767261000,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 40000,
+      "input": 1200,
+      "output": 50,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-3",
+      "name": "演示测试",
+      "subagent": true,
+      "ts": 1767261020,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 40000,
+      "input": 1200,
+      "output": 50,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-3",
+      "name": "演示测试",
+      "subagent": true,
+      "ts": 1767261040,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 40000,
+      "input": 1200,
+      "output": 50,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    },
+    {
+      "actor": "synthetic-member-3",
+      "name": "演示测试",
+      "subagent": true,
+      "ts": 1767261060,
+      "model": "claude-sonnet-4-5",
+      "cache_read": 0,
+      "cache_write": 40000,
+      "input": 1200,
+      "output": 50,
+      "system": "synthetic-system-stable",
+      "tools": [
+        "Read",
+        "Bash"
+      ]
+    }
+  ]
 }
