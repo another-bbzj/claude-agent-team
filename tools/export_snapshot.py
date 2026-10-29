@@ -133,6 +133,33 @@ def _budget_utilization(snapshot):
     return _number(budget.get('ratio'), 'budget.ratio')
 
 
+def _test_result_counts(snapshot):
+    """Latest parsed test per member. None omits the series.
+
+    Only the fixed status enum is counted. Task copies are not counted again.
+    Names, commands and output stay out of the sample.
+    """
+    members = snapshot.get('members') if isinstance(snapshot, dict) else None
+    if not isinstance(members, list):
+        return None
+    counts = {'pass': 0, 'fail': 0, 'unknown': 0}
+    saw = False
+    for member in members:
+        if not isinstance(member, dict):
+            continue
+        test = member.get('lastTest')
+        if not isinstance(test, dict):
+            continue
+        status = test.get('status')
+        if status not in counts:
+            continue
+        counts[status] += 1
+        saw = True
+    if not saw:
+        return None
+    return counts
+
+
 def render_prometheus(snapshot):
     """Render validated aggregates with fixed names and labels, without timestamps."""
     metrics = export_metrics(snapshot)
@@ -170,6 +197,11 @@ def render_prometheus(snapshot):
         gauge('budget_utilization_ratio',
               'Session estimated spend divided by the configured USD cap; may exceed one.',
               [('{scope="session"}', utilization)])
+    results = _test_result_counts(snapshot)
+    if results is not None:
+        gauge('test_results',
+              'Latest parsed test result per member. Omitted when no member has one.',
+              [('{status="' + status + '"}', results[status]) for status in ('pass', 'fail', 'unknown')])
     return '\n'.join(lines) + '\n'
 
 

@@ -100,6 +100,59 @@ class PrometheusFormatTest(unittest.TestCase):
                 exporter.render_prometheus(snapshot)
             self.assertNotIn('PRIVATE_VALUE', str(error.exception))
 
+    def test_test_result_counts_are_fixed_status_gauges(self):
+        self.snapshot['members'][0]['lastTest'] = {
+            'status': 'fail',
+            'framework': 'pytest',
+            'command': 'PRIVATE_COMMAND',
+            'ticket': 'PRIVATE_TICKET',
+            'passed': 1,
+            'failed': 2,
+        }
+        self.snapshot['members'][1]['lastTest'] = {
+            'status': 'pass',
+            'summary': 'PRIVATE_SUMMARY',
+        }
+        self.snapshot['officialTeam'] = {'tasks': [{'owner': 'PRIVATE_NAME', 'lastTest': {'status': 'fail'}}]}
+        text = exporter.render_prometheus(self.snapshot)
+        self.assertTrue(text.startswith(GOLDEN.read_text(encoding='utf-8')))
+        self.assertIn('claude_agent_team_test_results{status="pass"} 1\n', text)
+        self.assertIn('claude_agent_team_test_results{status="fail"} 1\n', text)
+        self.assertIn('claude_agent_team_test_results{status="unknown"} 0\n', text)
+        self.assertNotIn('PRIVATE', text)
+        self.assertNotIn('pytest', text)
+        types = [line for line in text.splitlines() if line.startswith('# TYPE ')]
+        self.assertEqual(len(types), 6)
+        metrics = exporter.export_metrics(self.snapshot)
+        self.assertEqual(set(metrics), {'schemaVersion', 'memberCount', 'totals'})
+        ignored = copy.deepcopy(self.snapshot)
+        ignored['members'][1]['lastTest'] = {'status': 'PASS', 'command': 'PRIVATE_COMMAND'}
+        ignored_text = exporter.render_prometheus(ignored)
+        self.assertIn('claude_agent_team_test_results{status="pass"} 0\n', ignored_text)
+        self.assertIn('claude_agent_team_test_results{status="fail"} 1\n', ignored_text)
+        self.assertNotIn('PRIVATE', ignored_text)
+
+    def test_test_result_series_is_omitted_without_a_parsed_status(self):
+        golden = GOLDEN.read_text(encoding='utf-8')
+        cases = (
+            None,
+            'PRIVATE_NAME',
+            {},
+            {'status': 'PASS', 'command': 'PRIVATE_COMMAND'},
+            {'status': None},
+        )
+        for last_test in cases:
+            snapshot = copy.deepcopy(self.snapshot)
+            if last_test is None:
+                snapshot['members'][0].pop('lastTest', None)
+            else:
+                snapshot['members'][0]['lastTest'] = last_test
+            with self.subTest(last_test=last_test):
+                result = exporter.render_prometheus(snapshot)
+                self.assertEqual(result, golden)
+                self.assertNotIn('test_results', result)
+                self.assertNotIn('PRIVATE', result)
+
     def test_budget_series_is_omitted_without_a_session_ratio(self):
         golden = GOLDEN.read_text(encoding='utf-8')
         cases = (

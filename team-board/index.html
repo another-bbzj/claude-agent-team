@@ -286,6 +286,17 @@
   .person .badge.ok { background: var(--ok); }
   .person .badge.err { background: var(--err); }
   .person .badge.busy { background: var(--brand); animation: spin 3s linear infinite; }
+  .person.test-fail .name { border-left-color: var(--err); }
+  .person.test-fail .avatar-wrap::before { border-color: var(--err); box-shadow: 0 0 14px -2px var(--err); }
+  .testline { min-height: 0; }
+  .testline:not(:empty) { margin-top: 3px; }
+  .test-badge { display: inline-flex; align-items: center; height: 16px; padding: 0 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text-3); font: 700 10px/16px var(--mono); letter-spacing: .04em; cursor: pointer; }
+  .test-badge.pass { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+  .test-badge.fail { color: var(--on-accent); background: var(--err); border-color: var(--err); }
+  .test-badge.unknown { color: var(--text-3); background: var(--card); }
+  .test-badge:hover { border-color: var(--line-2); }
+  .test-badge:focus { outline: none; }
+  .test-badge:focus-visible { outline: 1px solid var(--gold); outline-offset: 1px; }
   .person .unread { position: absolute; left: 0; top: 2px; min-width: 20px; height: 18px; padding: 0 6px 0 5px; display: flex; align-items: center; justify-content: center; gap: 2px; font: 700 10.5px var(--mono); background: var(--gold); color: #10131c; clip-path: polygon(0 0, 100% 0, 100% 100%, 6px 100%, 0 calc(100% - 6px)); z-index: 7; }
   .person .unread[hidden] { display: none; }
   .person .mail { position: absolute; left: 6px; top: 20px; font-size: 15px; animation: bob .6s ease-in-out infinite alternate; }
@@ -397,6 +408,7 @@
   .task::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 2px; background: var(--k); }
   .task::after { content: ""; position: absolute; right: -1px; top: -1px; width: 8px; height: 8px; border-top: 1px solid var(--k); border-right: 1px solid var(--k); }
   .task.running { --k: var(--brand); } .task.completed { --k: var(--ok); } .task.stalled { --k: var(--warn); } .task.error { --k: var(--err); }
+  .task.test-fail { --k: var(--err); border-color: color-mix(in srgb, var(--err) 70%, var(--line)); background: color-mix(in srgb, var(--err) 8%, var(--card)); }
   .task.fresh { animation: enter .35s ease-out both; }
   .task:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--line-2); }
   .task:focus { outline: none; }
@@ -452,6 +464,7 @@
   .kcard.in_progress { --k: var(--brand); }
   .kcard.completed { --k: var(--ok); }
   .kcard.blocked { --k: var(--warn); }
+  .kcard.test-fail { --k: var(--err); border-color: color-mix(in srgb, var(--err) 70%, var(--line)); background: color-mix(in srgb, var(--err) 8%, var(--card)); }
   .kcard .ksub { font-size: 13px; font-weight: 650; line-height: 1.4; }
   .kcard .kdesc { margin-top: 4px; font-size: 11.5px; color: var(--text-2); line-height: 1.45; max-height: 2.9em; overflow: hidden; }
   .kcard .krow { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 11px; color: var(--text-2); }
@@ -525,6 +538,11 @@
   .feed .n { font-family: var(--mono); font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .feed .l { font-family: var(--mono); font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .feed .l.err { color: var(--err); }
+  .feed .row.has-test { cursor: pointer; }
+  .feed .row.flash { background: color-mix(in srgb, var(--gold) 18%, transparent); }
+  .feed .row.open { background: color-mix(in srgb, var(--card) 88%, transparent); }
+  .feed .test-detail { display: none; grid-column: 1 / -1; padding: 1px 0 4px 64px; font-family: var(--mono); font-size: 10.5px; color: var(--text-2); white-space: normal; line-height: 1.45; }
+  .feed .row.open .test-detail { display: block; }
   .feed .row.hook { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
   .feed .row.hook .l { color: var(--ok); }
   .feed .l b { color: var(--text); font-weight: 600; }
@@ -1351,6 +1369,54 @@ function spriteState(m, isLead, snap) {
   return { completed: 'ambient', stalled: 'waiting', error: 'failed' }[m.status] || 'idle';
 }
 
+const feedOpen = new Set();
+function testCountText(n) { return typeof n === 'number' ? String(n) : '未知'; }
+function testExitText(test) {
+  if (!test) return '未知';
+  if (typeof test.exitCode === 'number') return String(test.exitCode);
+  if (test.exitStatus === 'nonzero') return '非 0';
+  if (test.exitStatus === 'zero') return '0';
+  return '未知';
+}
+function testFeedId(memberId, test) {
+  if (!test) return '';
+  return String(test.memberId || memberId || '') + '|' + String(test.toolId || '') + '|' + String(test.ts || '');
+}
+function testWord(status) { return status === 'pass' ? '通过' : status === 'fail' ? '失败' : '未知'; }
+function testDetailText(test) {
+  if (!test) return '未知';
+  const bits = [test.framework || '测试', testWord(test.status)];
+  const hasCount = typeof test.passed === 'number' || typeof test.failed === 'number' || typeof test.skipped === 'number';
+  if (hasCount) {
+    bits.push('通过 ' + testCountText(test.passed));
+    bits.push('失败 ' + testCountText(test.failed));
+    bits.push('跳过 ' + testCountText(test.skipped));
+  } else if (test.status !== 'unknown') bits.push('数量未知');
+  if (typeof test.errors === 'number' && test.errors > 0) bits.push('收集错误 ' + test.errors);
+  bits.push('退出 ' + testExitText(test));
+  if (test.truncated) bits.push('输出被截断');
+  if (test.ticket) bits.push('工单 ' + test.ticket);
+  return bits.join(' · ');
+}
+function testBadgeHtml(test, feedId) {
+  if (!test || (test.status !== 'pass' && test.status !== 'fail' && test.status !== 'unknown')) return '';
+  const title = testDetailText(test);
+  return `<button type="button" class="test-badge ${esc(test.status)}" data-feed="${esc(feedId)}" title="${esc(title)}" aria-label="${esc(title)}">${esc(testWord(test.status))}</button>`;
+}
+function openTestFeed(feedId) {
+  if (!feedId) return;
+  feedOpen.add(feedId);
+  const rows = document.querySelectorAll('#feed .row');
+  let row = null;
+  for (let i = 0; i < rows.length; i++) if (rows[i].dataset.feed === feedId) row = rows[i];
+  const feed = $('#feed');
+  if (!row) { if (feed) feed.scrollIntoView({ block: 'nearest' }); return; }
+  row.classList.add('open');
+  row.classList.add('flash');
+  row.scrollIntoView({ block: 'nearest' });
+  clearTimeout(row._flash);
+  row._flash = setTimeout(() => row.classList.remove('flash'), 1600);
+}
 function ensurePerson(m, isLead, snap) {
   let el = personEls.get(m.id), fresh = false;
   if (!el) {
@@ -1359,7 +1425,7 @@ function ensurePerson(m, isLead, snap) {
     el.className = 'person appear'; el.dataset.id = m.id;
     el.innerHTML = `<div class="avatar-wrap"><div class="bubble"></div><div class="shadow"></div><div class="sprite"></div><div class="foot"></div><span class="extra"></span><span class="mailbox"></span><span class="unread" hidden></span></div>
       <div class="name"><span class="nm"></span><span class="role"></span><span class="star" hidden title="用户自定义 agent">★</span></div><div class="official-team" hidden>官方 Team</div>
-      <div class="chip"></div><div class="state"></div><div class="act"></div><div class="bar"><i></i></div><div class="meta"></div>`;
+      <div class="chip"></div><div class="state"></div><div class="act"></div><div class="testline"></div><div class="bar"><i></i></div><div class="meta"></div>`;
     el.querySelector('.avatar-wrap').addEventListener('click', () => openDrawer(m.id));
     $('#stage').appendChild(el);
     el._sprite = new Sprite(el.querySelector('.sprite'), m);
@@ -1367,7 +1433,8 @@ function ensurePerson(m, isLead, snap) {
   }
   const prevStatus = el.dataset.status;
   el.dataset.status = m.status;
-  el.className = `person ${isLead ? 'lead' : ''} ${m.status} ${selectedId === m.id ? 'selected' : ''}`;
+  const testFail = m.lastTest && m.lastTest.status === 'fail';
+  el.className = `person ${isLead ? 'lead' : ''} ${m.status} ${selectedId === m.id ? 'selected' : ''}${testFail ? ' test-fail' : ''}`;
   el._sprite.setPet(m);
   const st = spriteState(m, isLead, snap);
   if (!isLead && prevStatus && prevStatus !== 'completed' && m.status === 'completed') el._sprite.play(st, 'celebrate');
@@ -1377,7 +1444,9 @@ function ensurePerson(m, isLead, snap) {
   el.querySelector('.role').textContent = m.roleTitle;
   el.querySelector('.star').hidden = !m.custom;
   el.querySelector('.official-team').hidden = !m.officialTeam;
-  el.querySelector('.foot').style.background = isLead ? 'var(--gold)' : accent(m.id);
+  el.querySelector('.foot').style.background = testFail ? 'var(--err)' : (isLead ? 'var(--gold)' : accent(m.id));
+  const testLine = el.querySelector('.testline');
+  if (testLine) testLine.innerHTML = testBadgeHtml(m.lastTest, testFeedId(m.id, m.lastTest));
   el.querySelector('.name').style.setProperty('--acc', isLead ? 'var(--gold)' : accent(m.id));
   const ur = el.querySelector('.unread'), nUr = m.unread || 0; ur.hidden = !nUr; ur.textContent = nUr ? `✉${nUr > 99 ? '99+' : nUr}` : ''; ur.title = nUr ? `${nUr} 条未读总线消息` : '';
   el.querySelector('.chip').innerHTML = modelChip(m);
@@ -1422,7 +1491,7 @@ function layout(snap) {
 
   const L = snap.lead;
   const leadStatus = L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle';
-  const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '' }, true, snap);
+  const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '', lastTest: L.lastTest }, true, snap);
   lead.dataset.link = (snap.officialTeam && typeof snap.officialTeam.lead === 'string') ? snap.officialTeam.lead : '';
   lead.tabIndex = 0;
   lead.querySelector('.name').title = linkPinTitle(lead.dataset.link);
@@ -1561,8 +1630,8 @@ function renderTasks(snap) {
     let el = taskEls.get(m.id), fresh = false;
     if (!el) { el = document.createElement('div'); el.tabIndex = 0; el.addEventListener('click', () => openDrawer(m.id)); wrap.appendChild(el); taskEls.set(m.id, el); fresh = true; }
     el.dataset.link = m.name || '';
-    el.className = `task ${m.status} ${fresh ? 'fresh' : ''}`;
-    el.innerHTML = `<div class="top">${miniPet(m, 26)}<span class="who">${esc(m.name)}</span><span class="dp">${esc(DEPT_NAME[m.dept] || '')}</span>${m.unread ? `<span class="ur" title="${m.unread} 条未读总线消息">✉${m.unread}</span>` : ''}<span class="pill ${STATUS_PILL[m.status]}">${STATUS_LABEL[m.status]}</span></div>
+    el.className = `task ${m.status} ${fresh ? 'fresh' : ''}${m.lastTest && m.lastTest.status === 'fail' ? ' test-fail' : ''}`;
+    el.innerHTML = `<div class="top">${miniPet(m, 26)}<span class="who">${esc(m.name)}</span><span class="dp">${esc(DEPT_NAME[m.dept] || '')}</span>${m.unread ? `<span class="ur" title="${m.unread} 条未读总线消息">✉${m.unread}</span>` : ''}${testBadgeHtml(m.lastTest, testFeedId(m.id, m.lastTest))}<span class="pill ${STATUS_PILL[m.status]}">${STATUS_LABEL[m.status]}</span></div>
       <div class="subject">${esc(m.description)}</div>
       <div class="desc">${m.status === 'completed' && m.lastText ? esc(m.lastText) : esc(m.prompt)}</div>
       <div class="bar"><i></i></div>
@@ -1805,6 +1874,7 @@ function taskDetailHtml(task, snap) {
   const ownerNote = task.owner && !owner.known ? `<span class="td-note">${esc(owner.title)}</span>` : '';
   return `<dl class="td-kv">
       <dt>状态</dt><dd><span class="pill ${pill}">${esc(status)}</span>${raw}</dd>
+      ${task.lastTest ? `<dt>测试</dt><dd>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest.memberId, task.lastTest))}<span class="td-note">${esc(testDetailText(task.lastTest))}</span></dd>` : ''}
       <dt>负责人</dt><dd>${esc(owner.text)}${ownerNote}</dd>
       <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
     </dl>
@@ -1825,6 +1895,7 @@ function taskDetailSignature(task, snap) {
     owner: owner.text,
     known: owner.known,
     ageTitle: taskAgeTitle(task),
+    lastTest: task.lastTest ? testDetailText(task.lastTest) : '',
     view: taskDetailView(task, team.tasks || [], team.warnings || []),
   });
 }
@@ -2025,9 +2096,10 @@ function renderTaskBoard(snap) {
       const pin = match
         ? `<button type="button" class="kpin${pinned ? ' on' : ''}" data-pin="${esc(match)}" aria-pressed="${pinned ? 'true' : 'false'}" title="${esc(pinned ? '取消钉住「' + match + '」' : '钉住「' + match + '」，不打开详情')}">钉</button>`
         : '';
-      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
+      const testFail = task.lastTest && task.lastTest.status === 'fail';
+      return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}${testFail ? ' test-fail' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
-        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${pin}</div>
+        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${pin}</div>
         <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
       </article>`;
     }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;
@@ -2411,13 +2483,34 @@ function renderFeed(snap) {
     seenFeed.add(key);
     return `<div class="row hook ${fresh ? 'fresh' : ''} ${who.id === '__lead' ? 'lead' : ''}"><span class="t">${fmtClock(ev.ts)}</span>${miniPet(who, 22)}<span class="n">${esc(who.name || who.agentType || '')}</span><span class="l">${esc(label)}</span></div>`;
   }).join('');
-  const rows = (snap.feed || []).map(f => { const key = `${f.memberId}|${f.ts}|${f.label}`; const fresh = !seenFeed.has(key) && !firstLoad; return `<div class="row ${fresh ? 'fresh' : ''} ${f.memberId === '__lead' ? 'lead' : ''}"><span class="t">${fmtClock(f.ts)}</span>${miniPet(memberFor(f.memberId, f.avatar), 22)}<span class="n">${esc(f.name)}</span><span class="l ${f.error ? 'err' : ''}">${!f.done ? '<span class="spin"></span>' : ''}${zhTool(f.label)}</span></div>`; }).join('');
+  const rows = (snap.feed || []).map(f => {
+    const key = `${f.memberId}|${f.ts}|${f.label}`;
+    const fresh = !seenFeed.has(key) && !firstLoad;
+    const fid = f.test ? testFeedId(f.memberId, f.test) : '';
+    const open = fid && feedOpen.has(fid);
+    const tone = f.test && (f.test.status === 'pass' || f.test.status === 'fail' || f.test.status === 'unknown') ? ' test-' + f.test.status : '';
+    const detail = f.test ? `<div class="test-detail">${esc(testDetailText(f.test))}</div>` : '';
+    return `<div class="row${fresh ? ' fresh' : ''}${f.memberId === '__lead' ? ' lead' : ''}${tone}${fid ? ' has-test' : ''}${open ? ' open' : ''}"${fid ? ` data-feed="${esc(fid)}"` : ''}><span class="t">${fmtClock(f.ts)}</span>${miniPet(memberFor(f.memberId, f.avatar), 22)}<span class="n">${esc(f.name)}</span><span class="l ${f.error ? 'err' : ''}">${!f.done ? '<span class="spin"></span>' : ''}${zhTool(f.label)}</span>${detail}</div>`;
+  }).join('');
   $('#feed').innerHTML = hooks + rows;
   for (const f of snap.feed || []) seenFeed.add(`${f.memberId}|${f.ts}|${f.label}`);
   const nHook = hookEvents(snap).length;
   const nFeed = (snap.feed || []).length;
   $('#feed-count').textContent = nFeed ? `${nFeed} 条${nHook ? ` · 实时 ${nHook}` : ''}` : (nHook ? `实时 ${nHook}` : '');
 }
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('.test-badge');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openTestFeed(btn.getAttribute('data-feed') || '');
+}, true);
+$('#feed').addEventListener('click', (e) => {
+  const row = e.target.closest('.row.has-test');
+  if (!row || !row.dataset.feed) return;
+  if (row.classList.contains('open')) { row.classList.remove('open'); feedOpen.delete(row.dataset.feed); }
+  else { row.classList.add('open'); feedOpen.add(row.dataset.feed); }
+});
 
 function renderRoster(snap) {
   const active = new Set(snap.members.map(m => m.agentType));
