@@ -15,6 +15,7 @@
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-green)
+[![XERJ Corpus Hub](https://img.shields.io/badge/XERJ_Corpus_Hub-indexed-7C3AED)](https://hub.xerj.org/contributors/another-bbzj)
 
 [30 秒开始](#start) · [为什么](#why) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
 
