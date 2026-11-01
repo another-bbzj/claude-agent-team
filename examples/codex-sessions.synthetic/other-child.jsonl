@@ -1,0 +1,4 @@
+{"timestamp":"2026-01-01T00:00:06Z","type":"session_meta","payload":{"id":"codex-demo-other-child","cwd":"demo-project","source":{"subagent":{"other":"synthetic-desktop-child"}}}}
+{"timestamp":"2026-01-01T00:00:07Z","type":"turn_context","payload":{"model":"gpt-demo-check"}}
+{"timestamp":"2026-01-01T00:00:08Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"UserMessage","id":"user-demo-child","content":[{"type":"text","text":"Review the synthetic summary."}]}}}
+{"timestamp":"2026-01-01T00:00:09Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","id":"answer-demo-child","content":[{"type":"text","text":"The synthetic summary looks consistent."}]}}}

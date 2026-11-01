@@ -967,7 +967,56 @@
       }
     ]
   },
-  "comms": [],
+  "comms": [
+    {
+      "ts": 1767261725,
+      "kind": "report",
+      "from": "synthetic-member-3",
+      "fromName": "演示测试",
+      "fromAvatar": "qa-engineer",
+      "to": "__lead",
+      "toName": "演示队长",
+      "toAvatar": "team-lead",
+      "text": "【合成演示】示例验收记录已回报；UI 集成仍需在实际项目独立执行。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261700,
+      "kind": "handoff",
+      "from": "synthetic-member-2",
+      "fromName": "演示前端",
+      "fromAvatar": "ui-designer",
+      "to": "synthetic-member-3",
+      "toName": "演示测试",
+      "toAvatar": "qa-engineer",
+      "text": "【合成演示】筛选交互已交接。请核对空结果、清空筛选和状态与负责人组合的边界。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261665,
+      "kind": "peer",
+      "from": "synthetic-member-1",
+      "fromName": "演示后端",
+      "fromAvatar": "server-engineer",
+      "to": "synthetic-member-2",
+      "toName": "演示前端",
+      "toAvatar": "ui-designer",
+      "text": "【合成演示】签名已冻结：filter_issues(issues, status=None, assignee=None)。两个条件按 AND 组合。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261640,
+      "kind": "assign",
+      "from": "__lead",
+      "fromName": "演示队长",
+      "fromAvatar": "team-lead",
+      "to": "synthetic-member-1",
+      "toName": "演示后端",
+      "toAvatar": "server-engineer",
+      "text": "【合成演示】实现过滤接口；只修改工单指定文件，导出签名先与前端对齐。",
+      "synthetic": true
+    }
+  ],
   "bus": {
     "count": 0,
     "unreadLead": 0,

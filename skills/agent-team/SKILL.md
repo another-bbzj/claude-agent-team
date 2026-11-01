@@ -5,7 +5,7 @@ description: 用 Agent Team（部门制多代理）完成一个开发任务。�
 
 # Agent Team 协议
 
-参考：[roles.md](roles.md)（部门、模型档位、何时出场、临时角色）· [office.md](office.md)（`.team/` 办公目录：工单、收件箱、交接单、汇报模板）· [lean.md](lean.md)（token 规则）。看板是可选的本机可视化工具：确认已安装 `~/.claude/team-board/ensure.py` 后，派工前运行 `python ~/.claude/team-board/ensure.py --open`。启动成功才提供 `👉 **[Agent Team 指挥室](http://127.0.0.1:7788/)**` 链接；脚本缺失或启动失败时说明一次，继续用 `.team/` 工单、收件箱和交接单，不为此安装软件或修改全局配置。当前看板解析 Claude Code 转录；其他环境使用文件协作不代表已接入看板。
+参考：[roles.md](roles.md)（部门、模型档位、何时出场、临时角色）· [office.md](office.md)（`.team/` 办公目录：工单、收件箱、交接单、汇报模板）· [lean.md](lean.md)（token 规则）。看板是可选的本机可视化工具：确认已安装 `~/.claude/team-board/ensure.py` 后，派工前运行 `python ~/.claude/team-board/ensure.py --open`。启动成功才提供 `👉 **[Agent Team 指挥室](http://127.0.0.1:7788/)**` 链接；脚本缺失或启动失败时说明一次，继续用 `.team/` 工单、收件箱和交接单，不为此安装软件或修改全局配置。当前看板解析 Claude Code 转录与本机 Codex 交互会话；Codex 仅供只读监控，不提供聊天注入或成员配置编辑。成员通信只展示已记录且能关联到真实参与者的发送调用；其他环境使用文件协作不代表已接入看板。
 
 先检查宿主是否提供原生子代理工具和所需角色。支持时按用户允许的并行方式派工；工具或角色不可用时，由当前代理依次完成实现、测试、审查等角色步骤，并明确报告为串行角色流程，不虚构子代理。模型选择与成员上限服从用户约束，不因看板预算建议自动覆盖用户已指定的模型。
 

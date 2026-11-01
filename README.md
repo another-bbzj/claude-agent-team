@@ -106,7 +106,9 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
-看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。
+看板现在可同时发现 **Claude Code 和 Codex** 会话，在顶栏切换来源，查看实际模型、成员、工具活动和只读对话。见 [Codex 会话适配](docs/CODEX_SESSIONS.md)。原有 `tools/codex_metrics.py` 仍是独立的离线 exec 指标工具。
+
+外观设置支持导入图片、MP4/WebM 视频和 Wallpaper Engine 工程目录，见 [壁纸导入](docs/WALLPAPER_IMPORT.md)。
 
 ## 参与
 

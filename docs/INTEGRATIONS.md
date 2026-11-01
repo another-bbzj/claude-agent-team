@@ -1,6 +1,6 @@
 # Integration recipes
 
-These recipes use the existing Claude Code board and standard-library tools. They do not add a hosted service or interactive Codex session ingestion. See [the main guide](GUIDE.md) for board setup and [the Codex maintainer guide](CODEX.md) for using Codex to maintain this repository.
+These recipes use the local board and standard-library tools. Interactive Codex rollout ingestion is documented separately in [Codex sessions](CODEX_SESSIONS.md); the exec adapter below is a different offline format. See [the main guide](GUIDE.md) for board setup and [the Codex maintainer guide](CODEX.md) for using Codex to maintain this repository. No hosted service is added.
 
 ## Optional Claude Code hook channel
 
