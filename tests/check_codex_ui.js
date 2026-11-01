@@ -80,6 +80,7 @@ if (process.argv[2] && process.argv[3]) {
     const sessionId = attached.sessionId;
     const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId); if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
     await send('Page.enable', {}, sessionId); await send('Runtime.enable', {}, sessionId);
+    await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'no-preference'}]}, sessionId);
     const base = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'examples', 'board-demo.synthetic.json'), 'utf8'));
     const memberTemplate = structuredClone(base.members[0]);
     base.theaters = []; base.members = []; base.feed = []; base.comms = []; base.officialTeam = { available: false, tasks: [] }; base.live = { events: [], enabled: false };
@@ -128,6 +129,11 @@ if (process.argv[2] && process.argv[3]) {
     await pause(150);
     const reports = [];
     assert.equal(await evaluate(`document.querySelector('main .conversation-panel') === null && document.querySelector('#conversation-modal').hidden`), true);
+    await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]}, sessionId);
+    await evaluate(`document.querySelector('#look-btn').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:20,clientY:20,pointerType:'mouse'}));`);
+    assert.equal(await evaluate(`document.querySelector('#look-btn').classList.contains('rm-tap')`), true);
+    assert.equal(await evaluate(`document.querySelectorAll('#look-btn .rpl-host').length`), 0);
+    await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'no-preference'}]}, sessionId);
     await evaluate(`document.querySelector('#look-btn').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:20,clientY:20,pointerType:'mouse'}));`);
     assert.equal(await evaluate(`document.querySelectorAll('#look-btn .rpl-host').length`), 1);
     for (const [width, height, theme] of [[1280, 720, 'light'], [390, 650, 'light'], [390, 650, 'dark']]) {
