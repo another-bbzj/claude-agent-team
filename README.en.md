@@ -83,6 +83,7 @@ The overview still is the stage and departments. The read-only official task row
 | How the pieces connect | [Runtime](docs/GUIDE.en.md#arch) |
 | Panels, drawer, themes, backdrop | [Guide · interface](docs/GUIDE.en.md#ui) |
 | One team task, end to end | [First run](docs/GUIDE.en.md#first-run) |
+| Generate owned tickets, inboxes and dependency waves from JSON | [Offline workspace helper](docs/WORKSPACE.md) |
 | How agents message each other | [Message bus](docs/GUIDE.en.md#msg) |
 | Departments, models, pets | [Members](docs/GUIDE.en.md#members) · [Artwork](docs/GUIDE.en.md#pets) |
 | Third-party gateways and prices | [Providers](docs/GUIDE.en.md#providers) |
