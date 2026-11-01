@@ -2120,6 +2120,7 @@ def bus_log(project: str = '', limit: int = 200, session: str = '') -> dict:
 BACKDROPS = HERE / 'backdrops'   # 测试可改
 _bs_mod = None
 _wp_mod = None
+_wp_lock = threading.Lock()
 _wallpaper_import_mod = None
 IMPORTED_VIDEO_RE = re.compile(r'^imported-[a-f0-9]{24}\.(?:mp4|webm)$')
 
@@ -2176,10 +2177,13 @@ def _wp():
     """按文件路径加载本目录的 wallpapers.py（同 _fb()，不走 sys.modules 缓存）。"""
     global _wp_mod
     if _wp_mod is None:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location('wallpapers_' + str(abs(hash(str(HERE)))), HERE / 'wallpapers.py')
-        _wp_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_wp_mod)
+        with _wp_lock:
+            if _wp_mod is None:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location('wallpapers_' + str(abs(hash(str(HERE)))), HERE / 'wallpapers.py')
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                _wp_mod = module  # Publish only after concurrent callers can use every export.
     return _wp_mod
 
 
