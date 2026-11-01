@@ -95,6 +95,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 看运行时怎么接在一起 | [运行时结构](docs/GUIDE.md#arch) |
 | 看懂顶栏、舞台、通讯、抽屉、外观 | [界面](docs/GUIDE.md#ui) |
 | 走完一次团队任务 | [第一次使用](docs/GUIDE.md#first-run) |
+| 从 JSON 计划生成工单、收件箱与依赖波次 | [离线工作区生成器](docs/WORKSPACE.md) |
 | 看成员怎么互相发消息 | [消息总线](docs/GUIDE.md#msg) |
 | 加部门、换模型、换桌宠 | [成员](docs/GUIDE.md#members) · [形象](docs/GUIDE.md#pets) |
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
