@@ -20,6 +20,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 import hashlib
 import json
+import math
 import re
 import threading
 import time
@@ -37,6 +38,18 @@ for _s in (sys.stdout, sys.stderr):   # Windows 的 GBK / cp1252 控制台：打
 
 HERE = Path(__file__).resolve().parent
 PROJECTS = Path.home() / '.claude' / 'projects'
+CODEX_SESSIONS = Path(os.environ.get('CODEX_HOME') or (Path.home() / '.codex')) / 'sessions'
+
+
+def _codex_adapter():
+    cached = getattr(_codex_adapter, 'mod', None)
+    if cached is None:
+        path = HERE / 'codex_sessions.py'
+        spec = importlib.util.spec_from_file_location('codex_sessions_for_board', str(path))
+        cached = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cached)
+        _codex_adapter.mod = cached
+    return cached
 
 
 def _load_stall_alerts():
@@ -1280,6 +1293,58 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
 
 
 _lead_cache = {}
+_conversation_cache = {}
+
+
+def claude_conversation(path):
+    """Visible user/assistant text only; bounded tail, excluding tool/system data."""
+    try:
+        st = path.stat()
+        key = (st.st_mtime_ns, st.st_size)
+        cached = _conversation_cache.get(path)
+        if cached and cached[0] == key:
+            return list(cached[1])
+        with path.open('rb') as stream:
+            start = max(0, st.st_size - 1024 * 1024)
+            stream.seek(start)
+            if start:
+                stream.readline()
+            data = stream.read(1024 * 1024)
+    except OSError:
+        return []
+    rows, seen = [], set()
+    for line in data.splitlines(keepends=True):
+        if not line.endswith(b'\n'):
+            continue
+        try:
+            event = json.loads(line)
+        except (ValueError, UnicodeError):
+            continue
+        if not isinstance(event, dict) or event.get('type') not in ('user', 'assistant'):
+            continue
+        message = event.get('message') or {}
+        if not isinstance(message, dict):
+            continue
+        role = message.get('role') or event['type']
+        if role not in ('user', 'assistant'):
+            continue
+        content = message.get('content')
+        text = content if isinstance(content, str) else '\n'.join(
+            c.get('text', '') for c in content if isinstance(c, dict)
+            and c.get('type') == 'text' and isinstance(c.get('text'), str)) if isinstance(content, list) else ''
+        if not text.strip() or text.lstrip().startswith(('<task-notification', '<system-reminder')):
+            continue
+        ts = parse_iso(event.get('timestamp'))
+        identity = (role, ts, text)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rows.append({'ts': ts, 'role': role, 'text': text[:4000], 'agentId': '__lead'})
+    rows = rows[-100:]
+    if len(_conversation_cache) >= 32:
+        _conversation_cache.pop(next(iter(_conversation_cache)))
+    _conversation_cache[path] = (key, rows)
+    return list(rows)
 
 
 def _launch_cwd(cwds: list, project: str) -> str:
@@ -1390,9 +1455,7 @@ def parse_lead(path: Path, now: float):
 
 def discover_sessions():
     found = []
-    if not PROJECTS.is_dir():
-        return found
-    for proj in PROJECTS.iterdir():
+    for proj in (PROJECTS.iterdir() if PROJECTS.is_dir() else []):
         if not proj.is_dir():
             continue
         for sess in proj.iterdir():
@@ -1403,7 +1466,8 @@ def discover_sessions():
             if not files:
                 continue
             mt = max(f.stat().st_mtime for f in files)
-            found.append({'project': proj.name, 'session': sess.name, 'dir': sub, 'mtime': mt, 'count': len(files)})
+            found.append({'project': proj.name, 'session': sess.name, 'dir': sub, 'mtime': mt, 'count': len(files), 'source': 'claude'})
+    found.extend(_codex_adapter().discover_sessions(CODEX_SESSIONS))
     found.sort(key=lambda x: -x['mtime'])
     return found
 
@@ -1678,6 +1742,8 @@ def worktree_identity(cwd: str) -> dict:
 
 
 def _lead_path_for(session: dict) -> Path:
+    if session.get('source') == 'codex':
+        return session['path']
     return session['dir'].parent.parent / (session['session'] + '.jsonl')
 
 
@@ -1690,6 +1756,7 @@ def _theater_session(session: dict) -> dict:
         'primary': bool(session.get('primary')),
         'mtime': session.get('mtime') or 0,
         'count': session.get('count') or 0,
+        'source': session.get('source') or 'claude',
     }
 
 
@@ -1701,7 +1768,11 @@ def attach_worktree_theaters(sessions: list) -> list:
     """
     groups, order = {}, []
     for session in sessions:
-        hint = _lead_git_hint(_lead_path_for(session), session.get('project') or '')
+        if session.get('source') == 'codex':
+            meta = session.get('meta') or {}
+            hint = {'cwd': meta.get('cwd') or '', 'gitBranch': (meta.get('git') or {}).get('branch') or ''}
+        else:
+            hint = _lead_git_hint(_lead_path_for(session), session.get('project') or '')
         ident = worktree_identity(hint.get('cwd') or '')
         session['branch'] = (ident.get('branch') if ident else '') or hint.get('gitBranch') or ''
         session['worktree'] = (ident.get('worktree') or '') if ident else ''
@@ -1749,6 +1820,7 @@ def public_session_rows(sessions: list, theaters: list) -> list:
         'id': s['session'], 'project': s['project'], 'mtime': s['mtime'], 'count': s['count'],
         'branch': s.get('branch') or '', 'worktree': s.get('worktree') or '',
         'theaterId': s.get('theaterId') or '',
+        'source': s.get('source') or 'claude',
     } for s in listed]
 
 
@@ -2033,6 +2105,28 @@ def bus_log(project: str = '', limit: int = 200, session: str = '') -> dict:
 BACKDROPS = HERE / 'backdrops'   # 测试可改
 _bs_mod = None
 _wp_mod = None
+_wallpaper_import_mod = None
+IMPORTED_VIDEO_RE = re.compile(r'^imported-[a-f0-9]{24}\.(?:mp4|webm)$')
+
+
+def _wallpaper_importer():
+    global _wallpaper_import_mod
+    if _wallpaper_import_mod is None:
+        spec = importlib.util.spec_from_file_location('wallpaper_import_for_board', str(HERE / 'wallpaper_import.py'))
+        _wallpaper_import_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_wallpaper_import_mod)
+    return _wallpaper_import_mod
+
+
+def _backdrop_base(raw):
+    base = _bs().clean_config(raw)
+    name = str(raw.get('file') or '')
+    if raw.get('kind') == 'video' and IMPORTED_VIDEO_RE.fullmatch(name):
+        path = BACKDROPS / name
+        if path.is_file() and path.resolve().parent == BACKDROPS.resolve():
+            base['file'] = name
+            base['enabled'] = bool(raw.get('enabled'))
+    return base
 
 BACKDROP_DEFAULTS_V2 = {
     'kind': 'image', 'source': '', 'title': '', 'wallpaperId': '',
@@ -2112,9 +2206,8 @@ def _clean_backdrop_v2(raw: dict, base: dict) -> dict:
 
 
 def backdrop_state(presets: bool = True) -> dict:
-    bs = _bs()
     raw = _read_backdrop_raw(BACKDROPS)
-    base = bs.clean_config(raw)
+    base = _backdrop_base(raw)
     v2 = _clean_backdrop_v2(raw, base)
     url = ''
     if v2['kind'] == 'video' and v2['wallpaperId'] and _wp().resolve_media(v2['wallpaperId'], 'media'):
@@ -2138,41 +2231,38 @@ def write_backdrop(d: dict) -> dict:
     v1.4.1：{preset} 已移除（不再内置任何立绘预设），一律 400；旧配置里 source:'preset' 的图片本身不受影响，仍会正常显示。"""
     bs = _bs()
     raw = _read_backdrop_raw(BACKDROPS)
+    for field, choices in BACKDROP_ENUMS.items():
+        if field in d and d[field] not in choices:
+            raise ValueError(field + ' 取值不合法')
+    if 'side' in d and d['side'] not in ('left', 'right'):
+        raise ValueError('side 只能是 left / right')
+    for field in list(BACKDROP_RANGES) + ['opacity']:
+        if field in d:
+            try:
+                value = float(d[field])
+            except (ValueError, TypeError):
+                raise ValueError(field + ' 必须是数字') from None
+            if not math.isfinite(value):
+                raise ValueError(field + ' 必须是有限数字')
     extra = {}   # 本次响应里附带的临时信息（quality/note/warning），不落盘
 
     if d.get('clear'):
         f = str(raw.get('file') or '')
-        if bs.FILE_RE.match(f) and (BACKDROPS / f).is_file():
+        if (bs.FILE_RE.fullmatch(f) or IMPORTED_VIDEO_RE.fullmatch(f)) and (BACKDROPS / f).is_file():
             (BACKDROPS / f).unlink()
         raw.update({'file': '', 'enabled': False, 'credit': '', 'kind': 'image', 'source': '', 'wallpaperId': '', 'title': ''})
-        _write_backdrop_raw({**bs.clean_config(raw), **_clean_backdrop_v2(raw, bs.clean_config(raw))}, BACKDROPS)
+        _write_backdrop_raw({**_backdrop_base(raw), **_clean_backdrop_v2(raw, _backdrop_base(raw))}, BACKDROPS)
         return backdrop_state()
 
     if d.get('preset'):
         raise ValueError('内置立绘预设已移除，请用 Wallpaper Engine / 当前桌面 / 上传')
-    elif d.get('data'):
-        b64 = str(d['data'])
-        if b64.lstrip().startswith('data:') and ',' in b64[:200]:
-            b64 = b64.split(',', 1)[1]
-        if len(b64) > bs.MAX_BYTES * 4 // 3 + 16:
-            raise ValueError('图片超过 15 MB')
-        import base64
+    elif d.get('data') or str(d.get('path') or '').strip():
         try:
-            data = base64.b64decode(b64, validate=False)
-        except Exception:
-            raise ValueError('图片数据不是合法的 base64')
-        cfg = bs.save_image(data, 'custom', BACKDROPS, credit=str(d.get('credit') or d.get('name') or '本机图片'))
-        raw.update(cfg)
-        raw.update({'kind': 'image', 'source': 'upload', 'wallpaperId': '', 'title': str(d.get('name') or '')})
-    elif str(d.get('path') or '').strip():
-        p = Path(os.path.expanduser(str(d['path']).strip().strip('"\'')))
-        if not p.is_file():
-            raise ValueError('文件不存在：' + str(p))
-        if p.stat().st_size > bs.MAX_BYTES:
-            raise ValueError('图片超过 15 MB')
-        cfg = bs.save_image(p.read_bytes(), 'custom', BACKDROPS, credit=str(d.get('credit') or p.name))
-        raw.update(cfg)
-        raw.update({'kind': 'image', 'source': 'path', 'wallpaperId': '', 'title': p.name})
+            imported = _wallpaper_importer().import_wallpaper(d, BACKDROPS)
+        except OSError:
+            raise ValueError('无法读取本机壁纸，请检查路径和文件权限') from None
+        raw.update(imported['config'])
+        extra['note'] = imported.get('note') or ''
     elif str(d.get('wallpaper') or '').strip():
         wp = _wp()
         wid = str(d['wallpaper']).strip()
@@ -2237,7 +2327,7 @@ def write_backdrop(d: dict) -> dict:
                 raise ValueError(f'{k} 必须是数字')
     raw.update(v2keys)
 
-    base = bs.clean_config(raw)
+    base = _backdrop_base(raw)
     v2 = _clean_backdrop_v2(raw, base)
     has_source = bool(base['file'] or v2['wallpaperId'])
     if raw.get('enabled') and not has_source:
@@ -2878,59 +2968,89 @@ def build_snapshot(args):
     reload_team_cfg()
     now = time.time()
     sessions = discover_sessions()
+    selected_source = getattr(args, 'source', 'all') or 'all'
+    if selected_source not in ('all', 'claude', 'codex'):
+        raise ValueError('source must be all, claude or codex')
+    wanted = args.session or ''
+    if ':' in wanted and wanted.split(':', 1)[0] in ('claude', 'codex'):
+        selected_source, wanted = wanted.split(':', 1)
+    sessions = [s for s in sessions if selected_source == 'all' or s.get('source', 'claude') == selected_source]
     theaters = attach_worktree_theaters(sessions)
-    if args.session:
-        chosen = next((s for s in sessions if s['session'].startswith(args.session)), None)
-    elif args.project:   # 先精确匹配项目 key（msg.py who），再按子串（--project 命令行参数）
-        chosen = next((s for s in sessions if s['project'] == args.project), None)             or next((s for s in sessions if args.project in s['project']), None)
+    if wanted:
+        chosen = next((s for s in sessions if s['session'].startswith(wanted)), None)
+    elif args.project:
+        chosen = next((s for s in sessions if s['project'] == args.project), None) or next(
+            (s for s in sessions if args.project in s['project']), None)
     else:
         chosen = sessions[0] if sessions else None
-
-    members, session_info = [], None
+    provider = (chosen or {}).get('source', selected_source if selected_source != 'all' else 'claude')
+    conversation, source_warnings = [], []
+    members, session_info, lead_data = [], None, None
     if chosen:
-        sub = chosen['dir']
-        files = [(f, None) for f in sorted(sub.glob('agent-*.jsonl'))]
-        for wf in sorted(sub.glob('workflows/*')):
-            files += [(f, wf.name) for f in sorted(wf.glob('agent-*.jsonl'))]
-        for f, group in files:
-            meta_path = f.with_name(f.stem + '.meta.json')
-            meta = {}
-            if meta_path.exists():
-                try:
-                    meta = json.loads(meta_path.read_text(encoding='utf-8'))
-                except Exception:
-                    meta = {}
-            members.append(parse_agent(f, meta, now, args.stale, group))
-        members.sort(key=lambda m: (m['startedAt'] or 0))
-        seen = {}
-        for m in members:
-            seen[m['avatar']] = seen.get(m['avatar'], 0) + 1
-            m['name'] = m['baseName'] if seen[m['avatar']] == 1 else f"{m['baseName']}·{seen[m['avatar']]}"
-        session_info = {
-            'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime'],
-            'branch': chosen.get('branch') or '', 'worktree': chosen.get('worktree') or '',
-            'theaterId': chosen.get('theaterId') or '',
-        }
-        lead_path = sub.parent.parent / (chosen['session'] + '.jsonl')
-        lead_data = parse_lead(lead_path, now)
-        session_info['cwd'] = (lead_data or {}).get('cwd') or ''
-    else:
-        lead_data = None
+        if provider == 'codex':
+            parsed = _codex_adapter().parse_session(chosen, now, args.stale)
+            lead_data = parsed.get('lead')
+            members = parsed.get('members') or []
+            conversation = parsed.get('conversation') or []
+            source_warnings = parsed.get('warnings') or []
+            for m in members:
+                m['avatar'] = avatar_key(m.get('agentType', '') + ' ' + m.get('description', ''), m['id'], '')
+                m['baseName'] = m.get('baseName') or AVATAR_NAMES[m['avatar']]
+                m['name'] = m['baseName']
+                m['roleTitle'] = m.get('roleTitle') or AVATAR_ROLES[m['avatar']]
+                m['modelFamily'] = m.get('model') or ''
+                cost = estimate_cost(m.get('model') or '', m.get('usage') or {})
+                m.update(cost=round(cost, 4) if cost is not None else None, priced=cost is not None)
+            if lead_data:
+                cost = estimate_cost(lead_data.get('model') or '', lead_data.get('usage') or {})
+                lead_data['cost'] = round(cost, 4) if cost is not None else None
+            session_info = {'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime'],
+                            'cwd': (lead_data or {}).get('cwd') or '', 'branch': chosen.get('branch') or '',
+                            'worktree': chosen.get('worktree') or '', 'theaterId': chosen.get('theaterId') or ''}
+        else:
+            sub = chosen['dir']
+            files = [(f, None) for f in sorted(sub.glob('agent-*.jsonl'))]
+            for wf in sorted(sub.glob('workflows/*')):
+                files += [(f, wf.name) for f in sorted(wf.glob('agent-*.jsonl'))]
+            for f, group in files:
+                meta_path = f.with_name(f.stem + '.meta.json')
+                meta = {}
+                if meta_path.exists():
+                    try:
+                        meta = json.loads(meta_path.read_text(encoding='utf-8'))
+                    except Exception:
+                        meta = {}
+                members.append(parse_agent(f, meta, now, args.stale, group))
+            members.sort(key=lambda m: (m['startedAt'] or 0))
+            seen = {}
+            for m in members:
+                seen[m['avatar']] = seen.get(m['avatar'], 0) + 1
+                m['name'] = m['baseName'] if seen[m['avatar']] == 1 else f"{m['baseName']}·{seen[m['avatar']]}"
+            session_info = {
+                'id': chosen['session'], 'project': chosen['project'], 'lastActivity': chosen['mtime'],
+                'branch': chosen.get('branch') or '', 'worktree': chosen.get('worktree') or '',
+                'theaterId': chosen.get('theaterId') or '',
+            }
+            lead_path = sub.parent.parent / (chosen['session'] + '.jsonl')
+            lead_data = parse_lead(lead_path, now)
+            session_info['cwd'] = (lead_data or {}).get('cwd') or ''
+            conversation = claude_conversation(_lead_path_for(chosen))
+        session_info['source'] = provider
     members = [m for m in members if m]
-    official_view = _official_team_view(session_info['id'] if session_info else '')
+    official_view = _empty_official_team() if provider == 'codex' else _official_team_view(session_info['id'] if session_info else '')
     _merge_official_members(members, official_view)
 
     # 部门归属 + agent 定义（model/effort 来自 ~/.claude/agents/*.md）
     agent_defs = load_agent_defs()
     for m in members:
         cfg = TEAM_CFG['agents'].get(m['agentType'])
-        d = agent_defs.get(m['agentType'], {})
+        d = {} if provider == 'codex' else agent_defs.get(m['agentType'], {})
         m['dept'] = cfg['dept'] if cfg else (dept_hint(m.get('description', '')) or TEAM_CFG['avatar_dept'].get(m['avatar'], 'dev'))
         m['pet'] = (TEAM_CFG.get('member_pets') or {}).get(m['id']) or (cfg or {}).get('pet', '')
         m['petScope'] = 'member' if (TEAM_CFG.get('member_pets') or {}).get(m['id']) else ('type' if (cfg or {}).get('pet') else '')
         m['hasDef'] = bool(cfg)
         m['definedModel'] = d.get('model', '')
-        m['effort'] = d.get('effort', '')
+        m['effort'] = m.get('effort', '') if provider == 'codex' else d.get('effort', '')
         m['custom'] = bool(d.get('custom'))
         if not m['model'] and m['definedModel'] and m['definedModel'] != 'inherit':
             m['model'] = m['definedModel']
@@ -2948,7 +3068,7 @@ def build_snapshot(args):
                 elif n['status'] in ('failed', 'error', 'killed', 'cancelled') and m['status'] != 'completed':
                     m['status'] = 'error'
                     m['errorReason'] = error_reason(n.get('summary', ''), n['status'])
-            elif m['status'] == 'completed' and m.get('lastActivityAt') and now - m['lastActivityAt'] < 8:
+            elif provider != 'codex' and m['status'] == 'completed' and m.get('lastActivityAt') and now - m['lastActivityAt'] < 8:
                 m['status'] = 'running'  # 刚写完总结、队长还没收到通知的几秒内，仍视作进行中
             d = lead_data['dispatches'].get(m.get('toolUseId'))
             if d:
@@ -3105,14 +3225,14 @@ def build_snapshot(args):
     feed.sort(key=lambda x: -(x['ts'] or 0))
     feed = _keep_test_rows(feed, 100)
 
-    lead = {'name': 'Claude', 'avatar': 'team-lead', 'phase': phase, 'running': running, 'done': done, 'total': len(members),
+    lead = {'name': 'Codex' if provider == 'codex' else 'Claude', 'source': provider, 'avatar': 'team-lead', 'phase': phase, 'running': running, 'done': done, 'total': len(members),
             'dept': 'hq', 'model': '', 'cost': 0.0, 'usage': {}, 'pet': TEAM_CFG.get('lead_pet', '')}
     if lead_data:
         lead.update({'active': lead_data['active'], 'current': lead_data['current'], 'toolCount': lead_data['toolCount'],
                      'outputTokens': lead_data['outputTokens'], 'timeline': lead_data['timeline'],
                      'lastTest': lead_data.get('lastTest'),
                      'lastUserPrompt': lead_data['lastUserPrompt'], 'lastActivityAt': lead_data['mtime'],
-                     'model': lead_data.get('model', ''), 'modelFamily': model_family(lead_data.get('model', '')),
+                     'model': lead_data.get('model', ''), 'modelFamily': lead_data.get('model', '') if provider == 'codex' else model_family(lead_data.get('model', '')),
                      'cost': lead_data.get('cost', 0.0), 'usage': lead_data.get('usage', {}),
                      'startedAt': lead_data.get('firstTs'), 'endedAt': lead_data.get('lastTs')})
         lu = lead.get('usage') or {}
@@ -3194,6 +3314,8 @@ def build_snapshot(args):
         'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
         'session': session_info,
+        'source': provider if session_info else selected_source,
+        'conversation': conversation, 'sourceWarnings': source_warnings,
         'sessions': public_session_rows(sessions, theaters),
         'theaters': theaters,
         'lead': lead,
@@ -3206,7 +3328,7 @@ def build_snapshot(args):
         'bus': bus_info,
         'officialTeam': _snapshot_official_team(official_view, members, now, lead),
         'backdrop': backdrop_state(presets=False),
-        'live': hook_live_view(session_info['id'] if session_info else '', now),
+        'live': hook_live_view(session_info['id'] if session_info and provider == 'claude' else '', now),
     }
     # 预算在独立模块里算。没设预算时只多一个 enabled=false 的字段，页面不画。
     _budget_mod.attach_budget(snapshot, _budget_mod.cli_from_args(args), TEAM_CFG.get('budget'))
@@ -3264,7 +3386,11 @@ class Handler(SimpleHTTPRequestHandler):
                 args.session = q['session'][0]
             elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
                 args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
-            custom = 'session' in q or 'project' in q or 'cwd' in q
+            if 'source' in q:
+                args.source = q['source'][0]
+                if args.source not in ('all', 'claude', 'codex'):
+                    return self._json({'error': 'source must be all, claude or codex'}, 400)
+            custom = 'session' in q or 'project' in q or 'cwd' in q or 'source' in q
             with Handler._lock:
                 t, data = Handler._cache
                 if data is None or time.time() - t > 1.0 or custom:
@@ -3273,7 +3399,7 @@ class Handler(SimpleHTTPRequestHandler):
                         Handler._cache = (time.time(), data)
                 session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
                 view = dict(data)
-                view['live'] = hook_live_view(session_id, time.time())
+                view['live'] = hook_live_view(session_id if view.get('source', 'claude') == 'claude' else '', time.time())
             body = json.dumps(view, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -3282,6 +3408,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if u.path.startswith('/backdrops/'):
+            from urllib.parse import unquote
+            name = unquote(u.path[len('/backdrops/'):])
+            if IMPORTED_VIDEO_RE.fullmatch(name):
+                path = BACKDROPS / name
+                if path.is_file() and path.resolve().parent == BACKDROPS.resolve():
+                    return self._wp_video(path)
+                return self._json({'error': 'not found'}, 404)
         if u.path == '/api/agents':
             reload_team_cfg()
             q = parse_qs(u.query)
@@ -3316,6 +3450,9 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path == '/':
             self.path = '/index.html'
         return super().do_GET()
+
+    def _wp_video(self, path):
+        return _wp().serve_file(self, path)
 
     def _handle_wallpapers_get(self, path: str):
         """GET /api/wallpapers、/api/wallpapers/desktop、/api/wallpapers/<id>/(preview|media)。
@@ -3352,6 +3489,13 @@ class Handler(SimpleHTTPRequestHandler):
     def do_HEAD(self):
         if self._reject_task_api():
             return
+        from urllib.parse import unquote
+        path = urlparse(self.path).path
+        if path.startswith('/backdrops/'):
+            name = unquote(path[len('/backdrops/'):])
+            target = BACKDROPS / name
+            if IMPORTED_VIDEO_RE.fullmatch(name) and target.is_file() and target.resolve().parent == BACKDROPS.resolve():
+                return self._wp_video(target)
         if self._is_bus_file():
             return self._json({'error': 'not found'}, 404)
         return super().do_HEAD()
@@ -3458,7 +3602,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({'error': '拒绝跨站请求'}, 403)   # 别的网页不能往本机看板 POST（防止借 bus 给代理注入消息）
         try:
             n = int(self.headers.get('Content-Length') or 0)
-            if n > PET_MAX_BYTES * 2:
+            limit = 72 * 1024 * 1024 if u.path == '/api/backdrop' else PET_MAX_BYTES * 2
+            if n > limit:
                 return self._json({'error': '请求体过大'}, 413)
             if n < 0:
                 raise ValueError('bad Content-Length')
@@ -3555,6 +3700,7 @@ class LoopbackHTTPServer(ThreadingHTTPServer):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--port', type=int, default=7788)
+    ap.add_argument('--source', choices=('all', 'claude', 'codex'), default='all', help='会话来源；默认同时发现 Claude Code 和 Codex')
     ap.add_argument('--session', default=None, help='会话 id 前缀；默认取最近活跃的会话')
     ap.add_argument('--project', default=None, help='项目 key 子串')
     ap.add_argument('--budget', type=float, default=None, help='本次会话估算成本上限（美元）。不设则不显示预算')

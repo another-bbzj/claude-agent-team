@@ -107,6 +107,7 @@ class BoardEnv:
         spec = importlib.util.spec_from_file_location('team_board_under_test', self.claude / 'team-board' / 'team_board.py')
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
+        mod.CODEX_SESSIONS = self.home / '.codex' / 'sessions'
         assert mod.PROJECTS == self.claude / 'projects', mod.PROJECTS
         return mod
 
