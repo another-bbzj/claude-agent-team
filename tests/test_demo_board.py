@@ -24,6 +24,17 @@ demo = load_demo()
 
 
 class FixtureTest(unittest.TestCase):
+    def test_demo_communications_connect_existing_participants_and_are_labeled(self):
+        source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
+        identities = {m['id'] for m in source['members']} | {'__lead'}
+        self.assertEqual({m['kind'] for m in source['comms']}, {'assign', 'peer', 'handoff', 'report'})
+        for message in source['comms']:
+            self.assertIn(message['from'], identities)
+            self.assertIn(message['to'], identities)
+            self.assertTrue(message['synthetic'])
+            self.assertIn('合成演示', message['text'])
+            self.assertLessEqual(message['ts'], source['generatedAt'])
+
     def test_aggregates_and_department_membership_match_four_synthetic_members(self):
         source = json.loads(demo.FIXTURE.read_text(encoding='utf-8'))
         members = source['members']
@@ -176,7 +187,7 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(head_body, b'')
         self.assertEqual(head_headers['Content-Length'], headers['Content-Length'])
-        for asset in ('/sprites/dada-code.webp', '/favicon.png', '/favicon.ico'):
+        for asset in ('/sprites/dada-code.webp', '/sprites/aurelia-engineer.png', '/sprites/lyra-designer.png', '/favicon.png', '/favicon.ico'):
             self.assertEqual(self.request('GET', asset)[0], 200)
         self.assertIn('官方 Team'.encode('utf-8'), body)
         self.assertIn(b'id="task-board"', body)
@@ -192,6 +203,9 @@ class DemoHttpTest(unittest.TestCase):
         self.assertIn('没有说明'.encode('utf-8'), body)
         self.assertIn('计时大约'.encode('utf-8'), body)
         served = json.loads(self.request('GET', '/snapshot.json')[2])
+        for pet in demo.ORIGINAL_PETS:
+            self.assertIn(pet, served['pets'])
+            self.assertEqual(len(served['petInfo'][pet]['frameRects']), 9)
         self.assertEqual(len(served['officialTeam']['tasks']), 5)
         pending = next(task for task in served['officialTeam']['tasks'] if task['id'] == '3')
         self.assertIn('完整说明', pending['description'])

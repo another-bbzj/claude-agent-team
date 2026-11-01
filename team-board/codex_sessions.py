@@ -95,7 +95,7 @@ def _record_link(state, item):
 
 def _new_state():
     return {'meta': {}, 'model': '', 'usage': {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0},
-            'timeline': deque(maxlen=80), 'conversation': deque(maxlen=120), 'pending': OrderedDict(),
+            'timeline': deque(maxlen=80), 'conversation': deque(maxlen=120), 'communications': deque(maxlen=80), 'pending': OrderedDict(),
             'seen': OrderedDict(), 'message_copies': OrderedDict(), 'links': {}, 'warnings': [],
             'tool_count': 0, 'thinking_count': 0, 'first': 0.0, 'last': 0.0, 'last_user': '',
             'last_text': '', 'ended': None, 'error': False, 'offset': 0, 'skip_fragment': False,
@@ -190,6 +190,14 @@ def _tool(state, item, ts, completed=False):
            'error': item.get('status') in ('failed', 'error') or item.get('exit_code', 0) not in (None, 0)}
     state['timeline'].append(row)
     state['tool_count'] += 1
+    # Only recorded send calls are communication evidence; ordinary assistant
+    # text and tool outputs are never guessed to be messages to another agent.
+    if name.split('.')[-1] in ('send_input', 'send_message', 'followup_task', 'send_message_to_thread'):
+        recipient = arguments.get('target') or arguments.get('id') or arguments.get('thread_id')
+        message = arguments.get('message') or arguments.get('text') or arguments.get('prompt')
+        if isinstance(recipient, str) and isinstance(message, str) and message.strip():
+            state['communications'].append({'ts': ts, 'to': _short(recipient, 256),
+                                            'text': _short(message, 6000), 'callId': item_id})
     if item_id:
         state['pending'][item_id] = {'row': row, 'name': name, 'args': {k: _short(arguments.get(k), 600)
                                             for k in ('agent_type', 'task_name', 'message', 'description', 'model')}}
@@ -534,6 +542,7 @@ def parse_session(chosen, now, stale):
     """Parse one root and verified descendants; all returned data is independent."""
     with _lock:
         warnings, conversation, members = list(chosen.get('meta', {}).get('warnings', [])), [], []
+        actors = []
         try:
             state = _read_state(chosen['path'])
         except OSError:
@@ -541,6 +550,7 @@ def parse_session(chosen, now, stale):
             _warn(state, 'Selected rollout could not be read.')
         warnings.extend(state['warnings'])
         lead = _lead(state, chosen, now, stale)
+        actors.append((chosen, state, '__lead'))
         conversation.extend(state['conversation'])
         queue = list(chosen.get('children', []))
         known = {descriptor['session'] for descriptor in queue}
@@ -572,6 +582,7 @@ def parse_session(chosen, now, stale):
                 warnings.append('A linked subagent rollout could not be read.')
                 continue
             members.append(_member(child_state, descriptor, now, stale))
+            actors.append((descriptor, child_state, sid))
             conversation.extend({**row, 'agentId': sid} for row in child_state['conversation'])
             warnings.extend(child_state['warnings'])
             queue.extend(descriptor.get('children', []))
@@ -580,6 +591,37 @@ def parse_session(chosen, now, stale):
             if len(seen) >= 128:
                 warnings.append('Subagent limit reached; some activity was not parsed.')
                 break
-        return copy.deepcopy({'lead': lead, 'members': members,
+        aliases, identities = {}, {}
+        for descriptor, actor_state, identity in actors:
+            metadata = dict(descriptor.get('meta', {}), **actor_state['meta'])
+            identities[identity] = next((m for m in members if m['id'] == identity),
+                                        {'name': '队长', 'avatar': 'team-lead'})
+            refs = [descriptor['session'], metadata.get('agent_path'), metadata.get('agent_nickname')]
+            if identity == '__lead':
+                refs.extend(['__lead', 'lead', 'main', '/root'])
+            for ref in refs:
+                if isinstance(ref, str) and ref:
+                    aliases.setdefault(ref, set()).add(identity)
+                    if '/' in ref:
+                        aliases.setdefault(ref.rsplit('/', 1)[-1], set()).add(identity)
+        comms = []
+        for _descriptor, actor_state, sender in actors:
+            for message in actor_state['communications']:
+                candidates = aliases.get(message['to'], set())
+                if len(candidates) != 1:
+                    continue  # Unknown or ambiguous recipients must not become fake edges.
+                recipient = next(iter(candidates))
+                if recipient == sender:
+                    continue
+                origin, target = identities[sender], identities[recipient]
+                pending = actor_state['pending'].get(message['callId'])
+                failed = bool(pending and pending['row']['error'])
+                comms.append({'ts': message['ts'], 'kind': 'direct' if sender == '__lead' else 'peer',
+                              'from': sender, 'fromName': origin.get('name') or origin.get('baseName'),
+                              'fromAvatar': origin['avatar'], 'to': recipient,
+                              'toName': target.get('name') or target.get('baseName'), 'toAvatar': target['avatar'],
+                              'text': ('发送失败：' if failed else '发送调用：') + message['text'],
+                              'source': 'codex', 'delivery': 'failed' if failed else 'unconfirmed'})
+        return copy.deepcopy({'lead': lead, 'members': members, 'comms': sorted(comms, key=lambda row: row['ts'])[-80:],
                               'conversation': sorted(conversation, key=lambda row: row['ts'])[-120:],
                               'warnings': list(dict.fromkeys(warnings))})

@@ -95,17 +95,18 @@ AVATAR_ROLES = {
 }
 
 
-TEAM_CFG = json.loads((HERE / 'team.json').read_text(encoding='utf-8'))
+TEAM_CONFIG_PATH = Path(os.environ.get('TEAM_BOARD_CONFIG') or HERE / 'team.json').expanduser()
+TEAM_CFG = json.loads(TEAM_CONFIG_PATH.read_text(encoding='utf-8'))
 BUILTIN_AGENTS = set(TEAM_CFG['agents'].keys())   # 随工具发布的成员；之后登记的都算自定义
-_team_cfg_mtime = (HERE / 'team.json').stat().st_mtime
+_team_cfg_mtime = TEAM_CONFIG_PATH.stat().st_mtime
 
 
 def reload_team_cfg():
     global _team_cfg_mtime
     try:
-        mt = (HERE / 'team.json').stat().st_mtime
+        mt = TEAM_CONFIG_PATH.stat().st_mtime
         if mt != _team_cfg_mtime:
-            cfg = json.loads((HERE / 'team.json').read_text(encoding='utf-8'))
+            cfg = json.loads(TEAM_CONFIG_PATH.read_text(encoding='utf-8'))
             if not isinstance(cfg, dict):
                 return
             TEAM_CFG.clear(); TEAM_CFG.update(cfg)
@@ -116,8 +117,8 @@ def reload_team_cfg():
 
 def save_team_cfg():
     global _team_cfg_mtime
-    (HERE / 'team.json').write_text(json.dumps(TEAM_CFG, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    _team_cfg_mtime = (HERE / 'team.json').stat().st_mtime
+    TEAM_CONFIG_PATH.write_text(json.dumps(TEAM_CFG, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    _team_cfg_mtime = TEAM_CONFIG_PATH.stat().st_mtime
 
 
 # ---- 用户自定义成员：写 ~/.claude/agents/<name>.md（Claude Code 原生格式）并把部门/形象登记到 team.json ----
@@ -193,7 +194,8 @@ def read_agent(name: str):
 # 看板用 sprites/ 下的雪碧图：8 列 × ≥9 行，每帧宽高比 192:208（Codex / petdex 的桌宠格式：1536×1872 或 1536×2288，
 # 也接受等比缩放过的），.webp 或 .png。每只可有同名 .json 边车记录名字、简介与出处（导入时自动写）。
 SHIPPED_PETS = {'huhu-plan', 'dada-code', 'bubu-fix', 'huihui-build',                       # cc-haha（MIT）
-                'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'}     # make_pets.py（MIT）
+                'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank',     # make_pets.py（MIT）
+                'aurelia-engineer', 'lyra-designer'}                                  # 原创战术角色（MIT）
 PET_ID_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}$')
 PET_EXTS = ('webp', 'png')
 PET_MAX_BYTES = 12 * 1024 * 1024
@@ -267,6 +269,19 @@ def pet_info() -> dict:
                         entry['fitRows'] = [float(x) for x in meta['fitRows']][:16]
                     if isinstance(meta.get('fit'), (int, float)):
                         entry['fit'] = float(meta['fit'])
+                    # Optional authored frame rectangles: render uneven source sheets
+                    # without resampling or rewriting the original artwork.
+                    frames = meta.get('frameRects')
+                    if (isinstance(frames, list) and len(frames) == 9
+                            and all(isinstance(row, list) and len(row) == 8 for row in frames)
+                            and all(isinstance(rect, list) and len(rect) == 4
+                                    and all(type(n) is int for n in rect)
+                                    and rect[0] >= 0 and rect[1] >= 0
+                                    and rect[2] > 0 and rect[3] > 0
+                                    and rect[0] + rect[2] <= w
+                                    and rect[1] + rect[3] <= h
+                                    for row in frames for rect in row)):
+                        entry['frameRects'] = frames
                 except Exception:
                     pass
             out[f.stem] = entry
@@ -2984,7 +2999,7 @@ def build_snapshot(args):
     else:
         chosen = sessions[0] if sessions else None
     provider = (chosen or {}).get('source', selected_source if selected_source != 'all' else 'claude')
-    conversation, source_warnings = [], []
+    conversation, source_warnings, codex_comms = [], [], []
     members, session_info, lead_data = [], None, None
     if chosen:
         if provider == 'codex':
@@ -2992,6 +3007,7 @@ def build_snapshot(args):
             lead_data = parsed.get('lead')
             members = parsed.get('members') or []
             conversation = parsed.get('conversation') or []
+            codex_comms = parsed.get('comms') or []
             source_warnings = parsed.get('warnings') or []
             for m in members:
                 m['avatar'] = avatar_key(m.get('agentType', '') + ' ' + m.get('description', ''), m['id'], '')
@@ -3057,7 +3073,7 @@ def build_snapshot(args):
             m['modelFamily'] = model_family(m['model'])
 
     # 用 meta.toolUseId 把队长的 Agent 调用和成员对上，得到派工时间与指令
-    comms = []
+    comms = list(codex_comms)
     if lead_data:
         for m in members:
             n = lead_data['notifications'].get(m['id'])

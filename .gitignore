@@ -5,7 +5,7 @@ server.log
 .coverage
 .coverage.*
 htmlcov/
-# sprites/ 只提交仓库自带的 13 只（MIT）；本机导入的 Codex / petdex / 自制形象与它们的 .json 边车都不入库
+# sprites/ 只提交仓库自带形象（MIT）；本机导入的 Codex / petdex / 自制形象不入库
 team-board/sprites/*
 !team-board/sprites/huhu-plan.webp
 !team-board/sprites/dada-code.webp
@@ -20,6 +20,10 @@ team-board/sprites/*
 !team-board/sprites/bolt.webp
 !team-board/sprites/puff.webp
 !team-board/sprites/tank.webp
+!team-board/sprites/aurelia-engineer.png
+!team-board/sprites/aurelia-engineer.json
+!team-board/sprites/lyra-designer.png
+!team-board/sprites/lyra-designer.json
 # petdex 清单缓存
 team-board/.petdex-manifest.json
 

@@ -154,6 +154,34 @@ class CodexSessionTest(unittest.TestCase):
         self.assertIn('Subagent parent was not verified', result['warnings'][0])
         self.assertEqual(result['members'], [])
 
+    def test_recorded_communications_only_link_verified_recipients(self):
+        self.write('child.jsonl', [meta('child-demo', parent_thread_id='demo-root',
+                                      agent_path='/root/worker', agent_nickname='Worker'),
+            event('response_item', {'type': 'function_call', 'name': 'collaboration.send_message',
+                  'call_id': 'report', 'arguments': '{"target":"/root","message":"Tests passed"}'}, 3),
+            event('response_item', {'type': 'function_call', 'name': 'send_input',
+                  'call_id': 'unrelated', 'arguments': '{"id":"unverified","message":"Must not be shown"}'}, 4)])
+        path = self.write('root.jsonl', [meta(),
+            event('response_item', {'type': 'function_call', 'name': 'send_input', 'call_id': 'send',
+                  'arguments': '{"id":"child-demo","message":"Check interface"}'}, 1),
+            event('response_item', {'type': 'function_call_output', 'call_id': 'send',
+                  'is_error': True, 'output': 'failed'}, 2)])
+        result = self.parse(path)
+        self.assertEqual(len(result['comms']), 2)
+        sent, report = result['comms']
+        self.assertEqual((sent['from'], sent['to'], sent['delivery']), ('__lead', 'child-demo', 'failed'))
+        self.assertEqual((report['from'], report['to'], report['delivery']), ('child-demo', '__lead', 'unconfirmed'))
+        self.assertIn('Tests passed', report['text'])
+        self.assertNotIn('Must not be shown', str(result['comms']))
+        self.assertEqual(self.parse(path)['comms'], result['comms'], 'unchanged logs must not duplicate messages')
+
+    def test_ambiguous_agent_names_do_not_create_communication_edges(self):
+        for sid in ('child-a', 'child-b'):
+            self.write(sid + '.jsonl', [meta(sid, parent_thread_id='demo-root', agent_nickname='Same')])
+        path = self.write('root.jsonl', [meta(), event('response_item', {'type': 'function_call',
+            'name': 'send_message', 'call_id': 'ambiguous', 'arguments': '{"target":"Same","message":"Hello"}'})])
+        self.assertEqual(self.parse(path)['comms'], [])
+
     def test_cyclic_metadata_is_not_hidden(self):
         self.write('one.jsonl', [meta('one', parent_thread_id='two')])
         self.write('two.jsonl', [meta('two', parent_thread_id='one')])

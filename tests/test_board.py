@@ -54,7 +54,7 @@ class BoardEnv:
     """临时 HOME：~/.claude/projects 里放一个会话（队长 + 两名成员），~/.claude/agents 放成员定义。"""
 
     def __init__(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='teamboard-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='teamboard-')).resolve()
         self.home = self.tmp / 'home'
         self.claude = self.home / '.claude'
         shutil.copytree(ROOT / 'team-board', self.claude / 'team-board', ignore=shutil.ignore_patterns('bus', 'backdrops'))   # 本机消息 / 立绘不带进测试
@@ -389,6 +389,18 @@ class PetApiTest(unittest.TestCase):
         import base64
         return base64.b64encode(data).decode()
 
+    def test_authored_frame_rectangles_are_bounded(self):
+        tb = self.tb
+        (tb.SPRITES / 'authored.png').write_bytes(png_sheet(1028, 1530))
+        frames = [[[0, 0, 128, 140] for _ in range(8)] for _ in range(9)]
+        meta = tb.SPRITES / 'authored.json'
+        meta.write_text(json.dumps({'frameRects': frames}), encoding='utf-8')
+        self.assertEqual(tb.pet_info()['authored']['frameRects'], frames)
+        for bad in ([[-1, 0, 128, 140]], [[0, 0, 1029, 140]], [[0, 0, 128, 1531]], [[True, 0, 128, 140]]):
+            frames[0][0] = bad[0]
+            meta.write_text(json.dumps({'frameRects': frames}), encoding='utf-8')
+            self.assertNotIn('frameRects', tb.pet_info()['authored'])
+
     def test_import_variants(self):
         tb = self.tb
         r = tb.write_pet({'id': 'My Cat', 'filename': 'my-cat-spritesheet.webp', 'data': self.b64(webp_sheet(1536, 1872))})
@@ -682,7 +694,10 @@ class AutoDiscoverAndEnsureTest(unittest.TestCase):
         return None
 
     def test_folder_pets_are_discovered(self):
-        sprites = self.env.claude / 'team-board' / 'sprites'
+        # A developer may already have these pets imported locally.
+        sprites = self.env.tmp / 'isolated-sprites'
+        sprites.mkdir()
+        self.tb.SPRITES = sprites
         header = b'RIFF' + (30).to_bytes(4, 'little') + b'WEBPVP8X' + (10).to_bytes(4, 'little') + bytes([0x10, 0, 0, 0]) + (1535).to_bytes(3, 'little') + (1871).to_bytes(3, 'little') + bytes(8)
         # a) 大写 / 下划线文件名的裸雪碧图
         (sprites / 'My_Cat-spritesheet.webp').write_bytes(header)

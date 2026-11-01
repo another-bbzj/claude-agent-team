@@ -86,6 +86,19 @@ class CodexBoardTest(unittest.TestCase):
         self.assertEqual(result['session']['id'], ROOT_ID)
         self.assertEqual(result['lead']['name'], 'Codex')
 
+    def test_codex_snapshot_contains_recorded_participant_messages(self):
+        for sender, target, text in ((ROOT_ID, CHILD_ID, 'Review interface'), (CHILD_ID, ROOT_ID, 'Interface checked')):
+            path = self.sessions / ('rollout-' + sender + '.jsonl')
+            with path.open('a', encoding='utf-8') as stream:
+                stream.write(jl(row('response_item', {'type': 'function_call', 'name': 'send_input',
+                    'call_id': 'send-' + sender, 'arguments': json.dumps({'id': target, 'message': text})})))
+        self.args.source = 'codex'
+        result = self.board.build_snapshot(self.args)
+        messages = [m for m in result['comms'] if m.get('source') == 'codex']
+        self.assertEqual(len(messages), 2)
+        self.assertEqual({(m['from'], m['to']) for m in messages}, {('__lead', CHILD_ID), (CHILD_ID, '__lead')})
+        self.assertTrue(all(m['delivery'] == 'unconfirmed' for m in messages))
+
     def test_codex_only_home_and_empty_filter(self):
         self.board.PROJECTS = self.fixture.tmp / 'no-claude-home'
         self.args.source = 'codex'

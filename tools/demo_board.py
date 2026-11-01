@@ -24,6 +24,9 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/favicon.ico': ('favicon.ico', 'image/x-icon')}
 STATIC.update({'/sprites/' + pet + '.webp': ('sprites/' + pet + '.webp', 'image/webp')
                for pet in SHIPPED_PETS})
+ORIGINAL_PETS = ('aurelia-engineer', 'lyra-designer')
+STATIC.update({'/sprites/' + pet + '.png': ('sprites/' + pet + '.png', 'image/png')
+               for pet in ORIGINAL_PETS})
 TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts', 'stateSince'}
 _STALL = None
 
@@ -177,6 +180,14 @@ class DemoServer(ThreadingHTTPServer):
 
     def __init__(self, port=7790, budget_alert=False):
         self.snapshot = json.loads(FIXTURE.read_text(encoding='utf-8'))
+        self.snapshot.setdefault('petInfo', {})
+        self.snapshot.setdefault('pets', [])
+        for pet in ORIGINAL_PETS:
+            info = json.loads((BOARD / 'sprites' / (pet + '.json')).read_text(encoding='utf-8'))
+            width, height = (1028, 1530) if pet == 'aurelia-engineer' else (1136, 1385)
+            self.snapshot['petInfo'][pet] = dict(info, file=pet + '.png', w=width, h=height, shipped=True)
+            if pet not in self.snapshot['pets']:
+                self.snapshot['pets'].append(pet)
         self.budget_alert = bool(budget_alert)
         super().__init__(('127.0.0.1', port), DemoHandler)
 

@@ -26,7 +26,7 @@ class WallpaperImportTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='wallpaper-import-')
         self.addCleanup(self.tmp.cleanup)
-        self.base = Path(self.tmp.name)
+        self.base = Path(self.tmp.name).resolve()
         self.root = self.base / 'backdrops'
         self.root.mkdir()
         self.old_image = self.root / 'custom.png'

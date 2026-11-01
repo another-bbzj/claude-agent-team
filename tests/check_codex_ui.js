@@ -81,9 +81,19 @@ if (process.argv[2] && process.argv[3]) {
     const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId); if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
     await send('Page.enable', {}, sessionId); await send('Runtime.enable', {}, sessionId);
     const base = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'examples', 'board-demo.synthetic.json'), 'utf8'));
+    const memberTemplate = structuredClone(base.members[0]);
     base.theaters = []; base.members = []; base.feed = []; base.comms = []; base.officialTeam = { available: false, tasks: [] }; base.live = { events: [], enabled: false };
     base.lead = { ...base.lead, name: 'Codex', phase: 'idle', model: 'gpt-6.1-sol', modelFamily: 'gpt', running: 0, done: 0, total: 0, current: null, timeline: [], active: false, lastUserPrompt: 'Synthetic conversation' };
     base.source = 'codex'; base.session = { id: 'synthetic-codex', source: 'codex', project: 'synthetic-project', lastActivity: Date.now() / 1000 };
+    base.petInfo = base.petInfo || {};
+    base.pets = base.pets || [];
+    for (const id of ['aurelia-engineer', 'lyra-designer']) {
+      const meta = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'team-board', 'sprites', id + '.json'), 'utf8'));
+      const dimensions = id === 'aurelia-engineer' ? [1028, 1530] : [1136, 1385];
+      base.petInfo[id] = {...meta,file:id+'.png',w:dimensions[0],h:dimensions[1]};
+      base.pets.push(id);
+    }
+    base.lead.pet = 'aurelia-engineer';
     base.sessions = [{ id: 'synthetic-codex', source: 'codex', project: 'synthetic-project', count: 0, mtime: Date.now() / 1000 }];
     base.conversation = [{ role: 'user', text: 'Show a plain-text <img src=x onerror=alert(1)>', ts: 1 }, { role: 'assistant', text: 'Synthetic Codex response: ' + 'long-name/'.repeat(80), ts: 2, agentId: '__lead' }];
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const snapshot = ${JSON.stringify(base)}; const original = window.fetch.bind(window); window.__uiRequests = []; window.__imports = []; window.fetch = async (input, options) => { const url = new URL(String(input), location.href); if (url.pathname === '/snapshot.json') { window.__uiRequests.push(url.search); const copy = structuredClone(snapshot); if (url.searchParams.get('source') === 'claude') { copy.source = 'claude'; copy.session.source = 'claude'; copy.session.id = 'synthetic-claude'; copy.lead.name = 'Claude'; copy.conversation = [{role:'assistant',text:'Claude source response',ts:3}]; copy.sessions = []; } return new Response(JSON.stringify(copy), { headers: { 'content-type': 'application/json' } }); } if (url.pathname === '/api/wallpapers') return new Response(JSON.stringify({items:[],found:false,desktop:{available:false}}), {headers:{'content-type':'application/json'}}); if (url.pathname === '/api/backdrop' && (!options || options.method !== 'POST')) return new Response(JSON.stringify(snapshot.backdrop || {enabled:false,url:''}), {headers:{'content-type':'application/json'}}); if (url.pathname === '/api/backdrop' && options && options.method === 'POST') { window.__imports.push(JSON.parse(options.body)); return new Response(JSON.stringify({...snapshot.backdrop,enabled:false,url:'',note:'Synthetic project preview imported'}), {headers:{'content-type':'application/json'}}); } return original(input, options); }; })();` }, sessionId);
@@ -93,7 +103,22 @@ if (process.argv[2] && process.argv[3]) {
     const wide = await evaluate(`({name:document.querySelector('.person.lead .name').textContent,model:document.querySelector('.person.lead .chip').textContent,source:document.querySelector('#conversation-source').textContent,rows:document.querySelectorAll('.conversation-message').length,unsafe:document.querySelector('#conversation-list img')!==null})`);
     assert(wide.name.includes('Codex')); assert(wide.model.includes('gpt-6.1-sol')); assert.equal(wide.rows, 2); assert.equal(wide.unsafe, false);
     assert.equal(await evaluate(`document.querySelector('#comms-send').disabled`), true);
+    await pause(400);
+    assert.equal(await evaluate(`(() => {const c=document.querySelector('.person.lead .sprite canvas');return !!c && c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)})()`), true);
     assert((await evaluate(`document.querySelector('#composer-note').textContent`)).includes('只读'));
+    const compact = await evaluate(`(() => {
+      const saved=structuredClone(prev);
+      prev.members=Array.from({length:7},(_,i)=>({...${JSON.stringify(memberTemplate)},id:'compact-'+i,name:'Member '+i,agentType:'codex-agent',pet:i===0?'drip':'',model:'gpt-6.1-sol',source:'codex'}));
+      prev.departments=prev.departments.map(d=>({...d,members:d.id==='dev'?prev.members.map(m=>m.id):[]}));
+      layout(prev);
+      const rows={};for(const p of positions.values())rows[p.top]=(rows[p.top]||0)+1;
+      const result={rows:Object.values(rows),pets:prev.members.map(m=>petOf(m)),collapsed:stallCollapsed(),heights:prev.members.map(m=>personEls.get(m.id).offsetHeight)};
+      layout(saved);prev=saved;return result;
+    })()`);
+    assert.deepEqual(compact.rows,[4,3]);
+    assert(compact.pets.every(p=>['aurelia-engineer','lyra-designer'].includes(p)));
+    assert.equal(compact.collapsed,true);
+    assert(compact.heights.every(h=>h<=256), JSON.stringify(compact));
     await evaluate(`document.querySelector('#source-filter').value='claude';document.querySelector('#source-filter').dispatchEvent(new Event('change',{bubbles:true}));`);
     await pause(150);
     assert.equal(await evaluate(`document.querySelector('#conversation-source').textContent`), 'Claude Code');
@@ -102,15 +127,21 @@ if (process.argv[2] && process.argv[3]) {
     await evaluate(`document.querySelector('#source-filter').value='codex';document.querySelector('#source-filter').dispatchEvent(new Event('change',{bubbles:true}));`);
     await pause(150);
     const reports = [];
+    assert.equal(await evaluate(`document.querySelector('main .conversation-panel') === null && document.querySelector('#conversation-modal').hidden`), true);
+    await evaluate(`document.querySelector('#look-btn').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:20,clientY:20,pointerType:'mouse'}));`);
+    assert.equal(await evaluate(`document.querySelectorAll('#look-btn .rpl-host').length`), 1);
     for (const [width, height, theme] of [[1280, 720, 'light'], [390, 650, 'light'], [390, 650, 'dark']]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
-      await evaluate(`(() => { document.documentElement.dataset.theme=${JSON.stringify(theme)};const panel=document.querySelector('.conversation-panel');window.scrollTo(0,window.scrollY+panel.getBoundingClientRect().top-document.querySelector('header').getBoundingClientRect().height-12); })();`);
+      await evaluate(`document.documentElement.dataset.theme=${JSON.stringify(theme)};document.querySelector('#session-pill').click();`);
       await pause(400);
       if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); fs.writeFileSync(path.join(shotDir, 'codex-conversation-' + width + '-' + theme + '.png'), Buffer.from(shot.data, 'base64')); }
+      await evaluate(`document.querySelector('#conversation-close').click();`);
+      await pause(250);
+      assert.equal(await evaluate(`document.querySelector('#conversation-modal').hidden`), true);
       await evaluate(`document.querySelector('#look-btn').click();`);
-      await pause(150);
+      await pause(500);
       const bounds = await evaluate(`(() => { const modal=document.querySelector('#look-modal .modal-card'), button=document.querySelector('#lk-done'), r=button.getBoundingClientRect(); return {width:innerWidth,height:innerHeight,pageOverflow:document.documentElement.scrollWidth>innerWidth+1,cardScroll:modal.scrollHeight>modal.clientHeight+1,clip:getComputedStyle(modal).clipPath,bottom:r.bottom,top:r.top,left:r.left,right:r.right};})()`);
-      assert.equal(bounds.pageOverflow, false, JSON.stringify(bounds)); assert.equal(bounds.cardScroll, false, JSON.stringify(bounds)); assert.equal(bounds.clip, 'none'); assert(bounds.top >= 0 && bounds.bottom <= height && bounds.left >= 0 && bounds.right <= width, JSON.stringify(bounds));
+      assert.equal(bounds.pageOverflow, false, JSON.stringify(bounds)); assert.equal(bounds.cardScroll, false, JSON.stringify(bounds)); assert(bounds.clip.startsWith('polygon('), bounds.clip); assert(bounds.top >= 0 && bounds.bottom <= height && bounds.left >= 0 && bounds.right <= width, JSON.stringify(bounds));
       if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); fs.writeFileSync(path.join(shotDir, 'codex-appearance-' + width + '-' + theme + '.png'), Buffer.from(shot.data, 'base64')); }
       reports.push(bounds);
       await evaluate(`document.querySelector('#lk-path').value='/synthetic/wallpaper-project';document.querySelector('#lk-path-go').click();`);
