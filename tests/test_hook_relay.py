@@ -325,8 +325,12 @@ class HookEndpointTest(unittest.TestCase):
         self.assertNotIn(SECRET, json.dumps(body))
         snap = self.snapshot()
         self.assertEqual(snap['session']['id'], 'sess-0001')
-        self.assertFalse(snap['live']['merged'])
+        self.assertTrue(snap['live']['merged'])
         self.assertEqual(snap['live']['correlate'], 'tool_use_id')
+        hooked = [row for row in snap['feed'] if row.get('toolId') == 'toolu_ok']
+        self.assertEqual(len(hooked), 1)
+        self.assertEqual(hooked[0]['source'], 'hook')
+        self.assertNotIn(SECRET, json.dumps(snap['feed']))
         self.assertTrue(snap['live']['fresh'])
         self.assertEqual(len(snap['live']['events']), 1)
         event = snap['live']['events'][0]
@@ -409,7 +413,9 @@ class HookEndpointTest(unittest.TestCase):
         self.assertEqual(event['tool_use_id'], 'toolu_synthetic_1')
         self.assertEqual(event['agent_id'], 'agent-a1')
         self.assertNotIn(SECRET, json.dumps(snap['live']))
-        self.assertFalse(snap['live']['merged'])
+        self.assertTrue(snap['live']['merged'])
+        hooked = [row for row in snap['feed'] if row.get('toolId') == 'toolu_synthetic_1']
+        self.assertEqual(len(hooked), 1)
 
 
 class HookUiContractTest(unittest.TestCase):

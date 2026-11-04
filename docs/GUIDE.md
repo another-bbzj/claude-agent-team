@@ -337,7 +337,7 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 | 接口 | 用途 |
 |---|---|
 | `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务、`live` 实时钩子） |
-| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘，不和转录合并。见 [HOOKS.md](HOOKS.md) |
+| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘。动作流按 `session_id + tool_use_id` 并成一条（没有 id 时用工具名、5 秒窗口和入参指纹）。见 [HOOKS.md](HOOKS.md) |
 | `/api/tasks` | 不存在的写入口。任意方法都返回 405，并带 `Allow: GET`。非法 JSON 也是 405，不改 `~/.claude/tasks/` |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
 | `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
