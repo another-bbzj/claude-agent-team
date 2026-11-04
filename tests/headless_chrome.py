@@ -395,7 +395,9 @@ def _terminate_process(process):
 
 def _kill_processes_using(directory):
     """Stop Chrome children still writing a user-data directory. /proc is Linux-only."""
-    if not hasattr(signal, 'SIGKILL'):
+    # Python 3.8's Path() follows os.name. A Windows launch test patches that to
+    # 'nt' on Linux, and WindowsPath then raises. Real Windows has no /proc.
+    if os.name == 'nt' or not hasattr(signal, 'SIGKILL'):
         return
     proc = Path('/proc')
     if not proc.is_dir():
