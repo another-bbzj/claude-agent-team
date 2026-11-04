@@ -686,7 +686,7 @@ agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式�
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）
-tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
+tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · retro_report.py 团队复盘 Markdown · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
@@ -701,6 +701,8 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 ```
 
 `battle_card.py` 用同一份快照画一张 SVG 战报卡。聚合数字与 `export_snapshot.py` 一致。`--session` 和 `--project` 也一样，只在 `--port` 下二选一。名字、部门、用时和已完成任务只在快照里有这些字段时出现。快照里已有停滞提醒、作战区或实时事件条数时会写上人数或条数。用法和隐私边界见 [集成指南](INTEGRATIONS.md)。
+
+`python tools/retro_report.py --demo` 用 `examples/board-demo.synthetic.json` 写一份 Markdown 复盘。时间线、估算成本、token、停滞、阻塞和测试结果只在快照里有对应字段时出现；价格是 null 标「未知」，`unpriced` 大于 0 时成本标「部分」。没有的总数、停滞时长和缓存节省不补。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 
