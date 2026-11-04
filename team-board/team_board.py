@@ -7,7 +7,7 @@ Agent Team Board — 本地实时看板服务
 子代理 transcript (agent-*.jsonl + agent-*.meta.json)，推导每个子代理的状态与当前动作，
 通过 /snapshot.json 提供给前端页面轮询。
 可选实时通道：hook_relay.py 把 Claude Code 钩子收成短事件，POST /api/hooks/event。
-事件只留在内存里，不和转录合并。见 docs/HOOKS.md。
+事件仍只留在内存里。公开快照的动作流会按 activity_key 和转录并成一条，见 docs/HOOKS.md。
 
 用法:  python team_board.py [--port 7788] [--session <sessionId前缀>] [--project <projectKey子串>] [--stale 600] [--stall-alert 600]
 """
@@ -64,6 +64,15 @@ def _load_stall_alerts():
 _stall_alerts = _load_stall_alerts()
 
 
+def _load_cache_advice():
+    """缓存诊断是纯函数。和停滞提醒一样，按本目录加载，测试换看板副本时不会串路径。"""
+    path = HERE / 'cache_advice.py'
+    spec = importlib.util.spec_from_file_location('cache_advice_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_test_results():
     """本目录的 test_results.py。装到用户目录后的副本也读自己旁边的文件。"""
     path = HERE / 'test_results.py'
@@ -73,6 +82,7 @@ def _load_test_results():
     return module
 
 
+_cache_advice = _load_cache_advice()
 _test_results = _load_test_results()
 
 AVATAR_RULES = [
@@ -894,6 +904,61 @@ def tool_label(name: str, inp) -> str:
     return name
 
 
+# 同一条工具调用只留一条。钩子先到、转录后到时并成这一条；估算成本仍只来自转录 usage。
+#
+# 首选（tool_use_id 非空，稳定，不看时钟）:
+#   ('id', session_id, tool_use_id)
+#   PreToolUse 与 PostToolUse 共用这个 id。转录可以晚几秒落盘。
+#   工具名不在键里。两边都有工具名且不一致时不对上，只留转录行，避免坏 id 并错。
+#
+# 回退（没有 tool_use_id）:
+#   ('win', session_id, tool_name, bucket, input_fingerprint)
+#   bucket = floor(ts / HOOK_DEDUPE_WINDOW_SEC)，窗口 5 秒。相邻桶只要 |ts 差| 不超过窗口仍算重叠。
+#   input_fingerprint 是工具入参的稳定短哈希：json.dumps(sort_keys) 后 sha256 的前 16 位十六进制。
+#   入参为空则指纹为空串。hook_relay 不转发 tool_input，真实钩子的指纹一直是空串。
+#   空指纹只在同一会话、同一工具名、时间落在窗口内、且恰好一条转录候选时并上。
+#   候选不止一条就不猜，钩子不再另加一行，避免并错或记成两次。
+#
+# 规范记录保留更早的时间戳，用转录补 label / test / error，用 PostToolUse 把 done 标上。
+# 已经出现在转录里的 id，toolCount 不加第二次；转录还没写到时先记一次，写到后回到转录的次数。
+HOOK_DEDUPE_WINDOW_SEC = 5
+
+
+def tool_input_fingerprint(inp):
+    """工具入参的去重指纹。不保存原文。空入参返回空串。"""
+    if not isinstance(inp, dict) or not inp:
+        return ''
+    try:
+        blob = json.dumps(inp, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    except (TypeError, ValueError):
+        return ''
+    if len(blob) > 8192:
+        blob = blob[:8192]
+    return hashlib.sha256(blob.encode('utf-8', 'replace')).hexdigest()[:16]
+
+
+def activity_key(session_id, tool_name, tool_use_id='', ts=None, fingerprint=''):
+    """上面注释里的去重键。有 tool_use_id 时忽略工具名、时间和指纹。"""
+    session_id = session_id or ''
+    tool_use_id = tool_use_id or ''
+    if tool_use_id:
+        return ('id', session_id, tool_use_id)
+    bucket = None
+    if isinstance(ts, (int, float)) and ts == ts and ts not in (float('inf'), float('-inf')):
+        bucket = int(math.floor(float(ts) / HOOK_DEDUPE_WINDOW_SEC))
+    return ('win', session_id, tool_name or '', bucket, fingerprint or '')
+
+
+def _stamp_tool(item, inp, tid, tool_ids):
+    """时间线条目记下 tool_use id 和入参指纹。指纹留到合并时用，公开快照会去掉。"""
+    if isinstance(tid, str) and tid:
+        item['toolId'] = tid
+        tool_ids.append(tid)
+    fp = tool_input_fingerprint(inp if isinstance(inp, dict) else None)
+    if fp:
+        item['_inputFp'] = fp
+
+
 def parse_iso(ts):
     if not isinstance(ts, str):
         return None
@@ -1163,12 +1228,14 @@ def _parse_agent_file(jsonl: Path):
     agent_id = jsonl.stem.replace('agent-', '')
     prompt, first_ts, last_ts = '', None, None
     timeline, tool_count, out_tokens, thinking_count = [], 0, 0, 0
-    pending = {}
+    tool_ids, pending = [], {}
     last_text, last_stop, last_kind = '', None, None
     model, ledger = '', UsageLedger()
     messages, writes, reads = [], [], []
+    trace = _cache_advice.Trace(agent_id, agent_id, True)
 
     for e in entries:
+        trace.see(e)
         ts = parse_iso(e.get('timestamp'))
         if ts:
             first_ts = first_ts or ts
@@ -1215,6 +1282,7 @@ def _parse_agent_file(jsonl: Path):
                         item = {'ts': ts, 'kind': 'tool', 'name': name,
                                 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
+                        _stamp_tool(item, inp, c.get('id'), tool_ids)
                         pending[c.get('id')] = item
                         timeline.append(item)
                         _note_test_command(item, name, inp, c.get('id'))
@@ -1244,9 +1312,10 @@ def _parse_agent_file(jsonl: Path):
 
     _scrub_test_privates(timeline)
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
-            'tool_count': tool_count, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
+            'tool_count': tool_count, 'toolIds': tool_ids, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
-            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads}
+            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads,
+            'cacheTurns': trace.turns()}
 
 
 def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
@@ -1298,11 +1367,13 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'lastActivityAt': mtime,
         'endedAt': last_ts if status == 'completed' else None,
         'toolCount': tool_count,
+        'toolIds': list(P.get('toolIds') or []),
         'thinkingCount': thinking_count,
         'outputTokens': out_tokens,
         'current': current,
         'lastText': short(last_text, 400),
         'timeline': _clip_timeline(timeline, 80),
+        'cacheTurns': [dict(item) for item in (P.get('cacheTurns') or []) if isinstance(item, dict)],
         'lastTest': last_test,
     }
 
@@ -1378,14 +1449,16 @@ def parse_lead(path: Path, now: float):
     if cached and cached[0] == key:
         data = cached[1]
     else:
-        timeline, pending, dispatches, messages, tool_count, out_tokens = [], {}, {}, [], 0, 0
+        timeline, pending, dispatches, messages, tool_count, tool_ids, out_tokens = [], {}, {}, [], 0, [], 0
         last_user_prompt, last_ts, first_ts = '', None, None
         cwds = {}   # 队长转录里出现过的 cwd → 最后出现的序号（队长会 cd 走；键顺序 = 首次出现顺序）
         notifications = {}
         lead_model, lead_ledger = '', UsageLedger()
+        lead_trace = _cache_advice.Trace('__lead', '队长', False)
         for i, e in enumerate(read_jsonl(path)):
             if e.get('isSidechain'):
                 continue
+            lead_trace.see(e)
             ts = parse_iso(e.get('timestamp'))
             if ts:
                 last_ts = ts
@@ -1434,6 +1507,7 @@ def parse_lead(path: Path, now: float):
                         tool_count += 1
                         item = {'ts': ts, 'kind': 'tool', 'name': name, 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
+                        _stamp_tool(item, inp, tid, tool_ids)
                         pending[tid] = item
                         timeline.append(item)
                         _note_test_command(item, name, inp, tid)
@@ -1456,12 +1530,13 @@ def parse_lead(path: Path, now: float):
         _scrub_test_privates(timeline)
         last_test = _latest_test(timeline, '__lead')
         data = {'timeline': _clip_timeline(timeline, 60), 'lastTest': last_test,
-                'toolCount': tool_count, 'outputTokens': out_tokens,
+                'toolCount': tool_count, 'toolIds': tool_ids, 'outputTokens': out_tokens,
                 'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
                 'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime,
-                'cwd': _launch_cwd(list(cwds), path.parent.name), 'cwds': sorted(cwds, key=lambda c: -cwds[c])}
+                'cwd': _launch_cwd(list(cwds), path.parent.name), 'cwds': sorted(cwds, key=lambda c: -cwds[c]),
+                'cacheTurns': lead_trace.turns()}
         _lead_cache[path] = (key, data)
     current = next((it for it in reversed(data['timeline']) if it['kind'] == 'tool'), None)
     active = now - data['mtime'] < 20
@@ -2867,7 +2942,7 @@ _budget_mod = _load_budget()
 
 
 class HookEventLog(object):
-    """内存里的钩子事件。不落盘，满了就丢掉最旧的。不和转录合并。"""
+    """内存里的钩子事件。不落盘，满了就丢掉最旧的。和转录合并发生在读快照时。"""
 
     def __init__(self, limit=200, show=40, fresh_seconds=20):
         self.limit = limit
@@ -2904,7 +2979,7 @@ class HookEventLog(object):
         return {
             'v': 1,
             'source': 'claude-hook',
-            # merged 保持 false：和转录去重是下一步。correlate 只声明将来用哪个键，现在不对账。
+            # 原始环保持 merged false。公开快照由 merge_hook_events 对上转录后改成 true。
             'merged': False,
             'correlate': 'tool_use_id',
             'available': True,
@@ -2983,7 +3058,391 @@ def hook_live_view(session_id, now):
     return HOOK_LOG.view(session_id or '', now)
 
 
-def build_snapshot(args):
+def _public_activity_row(row):
+    """去掉入参指纹。没有并上钩子的行也不带内部的 tool / source 字段。"""
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    out.pop('_inputFp', None)
+    if out.get('source') not in ('hook', 'merged'):
+        out.pop('tool', None)
+        out.pop('source', None)
+        out.pop('hookEvent', None)
+        out.pop('notificationType', None)
+    return out
+
+
+def _hook_member(ev, members):
+    agent_id = ev.get('agent_id') if isinstance(ev.get('agent_id'), str) else ''
+    wanted = set()
+    if agent_id:
+        wanted.add(agent_id)
+        if agent_id.startswith('agent-'):
+            wanted.add(agent_id[len('agent-'):])
+        else:
+            wanted.add('agent-' + agent_id)
+    for member in members:
+        if isinstance(member, dict) and member.get('id') in wanted:
+            return member
+    agent_type = ev.get('agent_type') if isinstance(ev.get('agent_type'), str) else ''
+    if not agent_type:
+        return None
+    hits = [member for member in members if isinstance(member, dict) and member.get('agentType') == agent_type]
+    if len(hits) == 1:
+        return hits[0]
+    return None
+
+
+def _events_tool_name(evs):
+    for ev in evs:
+        name = ev.get('tool_name')
+        if isinstance(name, str) and name:
+            return name
+    return ''
+
+
+def _events_min_ts(evs):
+    nums = [ev.get('ts') for ev in evs if isinstance(ev.get('ts'), (int, float))]
+    if not nums:
+        return None
+    return min(nums)
+
+
+def _events_hook_name(evs):
+    name = ''
+    for ev in evs:
+        if isinstance(ev.get('event'), str) and ev['event']:
+            name = ev['event']
+    return name
+
+
+def _hook_activity_row(evs, members):
+    member = None
+    for ev in evs:
+        found = _hook_member(ev, members)
+        if found is not None:
+            member = found
+            break
+    if member is None:
+        member_id, name, avatar = '__lead', '队长', 'team-lead'
+    else:
+        member_id = member.get('id') or '__lead'
+        name = member.get('name') or '成员'
+        avatar = member.get('avatar') or 'server-engineer'
+    tool = _events_tool_name(evs)
+    event_name = _events_hook_name(evs)
+    done = any(ev.get('event') == 'PostToolUse' for ev in evs) or event_name in ('Stop', 'SubagentStop', 'Notification')
+    row = {
+        'ts': _events_min_ts(evs),
+        'memberId': member_id,
+        'name': name,
+        'avatar': avatar,
+        'label': tool or event_name or 'hook',
+        'error': False,
+        'done': done,
+        'source': 'hook',
+        'hookEvent': event_name,
+    }
+    if tool:
+        row['tool'] = tool
+    for ev in evs:
+        tid = ev.get('tool_use_id')
+        if isinstance(tid, str) and tid:
+            row['toolId'] = tid
+            break
+    for ev in evs:
+        note = ev.get('notification_type')
+        if isinstance(note, str) and note:
+            row['notificationType'] = note
+            break
+    return row
+
+
+def _merge_activity_row(row, evs):
+    """保留更早的时间，用转录的 label / test / error，用 PostToolUse 补 done。"""
+    base = dict(row)
+    hook_ts = _events_min_ts(evs)
+    row_ts = base.get('ts')
+    if isinstance(hook_ts, (int, float)) and (not isinstance(row_ts, (int, float)) or hook_ts < row_ts):
+        base['ts'] = hook_ts
+    if any(ev.get('event') == 'PostToolUse' for ev in evs):
+        base['done'] = True
+    base['source'] = 'merged'
+    tool = _events_tool_name(evs)
+    if tool and not base.get('tool'):
+        base['tool'] = tool
+    if not base.get('toolId'):
+        for ev in evs:
+            tid = ev.get('tool_use_id')
+            if isinstance(tid, str) and tid:
+                base['toolId'] = tid
+                break
+    return base
+
+
+def _names_conflict(row, evs):
+    hook_names = set()
+    for ev in evs:
+        name = ev.get('tool_name')
+        if isinstance(name, str) and name:
+            hook_names.add(name)
+    row_tool = row.get('tool') if isinstance(row, dict) else ''
+    return bool(hook_names and isinstance(row_tool, str) and row_tool and row_tool not in hook_names)
+
+
+def _fallback_hits(evs, feed, used):
+    name = _events_tool_name(evs)
+    ts = _events_min_ts(evs)
+    if not name or not isinstance(ts, (int, float)):
+        return []
+    hook_fp = ''
+    for ev in evs:
+        fp = ev.get('input_fp')
+        if isinstance(fp, str) and fp:
+            hook_fp = fp
+            break
+    hits = []
+    for index, row in enumerate(feed):
+        if index in used or not isinstance(row, dict):
+            continue
+        if (row.get('tool') or '') != name:
+            continue
+        row_ts = row.get('ts')
+        if not isinstance(row_ts, (int, float)):
+            continue
+        if abs(float(row_ts) - float(ts)) > HOOK_DEDUPE_WINDOW_SEC:
+            continue
+        row_fp = row.get('_inputFp') or ''
+        if hook_fp and row_fp and hook_fp != row_fp:
+            continue
+        hits.append(index)
+    return hits
+
+
+def _copy_timeline(items):
+    copied = []
+    for item in items or []:
+        if isinstance(item, dict):
+            item_copy = dict(item)
+            item_copy.pop('_inputFp', None)
+            copied.append(item_copy)
+        else:
+            copied.append(item)
+    return copied
+
+
+def _copy_current(person):
+    current = person.get('current')
+    if not isinstance(current, dict):
+        return
+    copied = dict(current)
+    copied.pop('_inputFp', None)
+    person['current'] = copied
+
+
+def _known_tool_ids(snapshot, feed):
+    known = set()
+    index = snapshot.get('_activityIndex') if isinstance(snapshot.get('_activityIndex'), dict) else {}
+    for tid in index.get('lead') or []:
+        if isinstance(tid, str) and tid:
+            known.add(tid)
+    member_ids = index.get('members') if isinstance(index.get('members'), dict) else {}
+    for ids in member_ids.values():
+        for tid in ids or []:
+            if isinstance(tid, str) and tid:
+                known.add(tid)
+    for row in feed:
+        if isinstance(row, dict) and isinstance(row.get('toolId'), str) and row['toolId']:
+            known.add(row['toolId'])
+    return known
+
+
+def _group_hook_events(events, session_id):
+    """工具事件按 activity_key 收成一组。Stop / 通知各自一条，不并进工具次数。"""
+    groups = []
+    index = {}
+    for ev in events:
+        if ev.get('event') in ('PreToolUse', 'PostToolUse'):
+            tid = ev.get('tool_use_id') if isinstance(ev.get('tool_use_id'), str) else ''
+            fp = ev.get('input_fp') if isinstance(ev.get('input_fp'), str) else ''
+            key = activity_key(session_id, ev.get('tool_name') or '', tid, ev.get('ts'), fp)
+            if key in index:
+                index[key]['events'].append(ev)
+                continue
+            group = {'key': key, 'events': [ev], 'tool': True}
+            index[key] = group
+            groups.append(group)
+        else:
+            groups.append({'key': ('event', ev.get('seq'), ev.get('event'), ev.get('ts')), 'events': [ev], 'tool': False})
+    return groups
+
+
+def _apply_hook_current(person, row):
+    current = person.get('current') if isinstance(person.get('current'), dict) else None
+    row_ts = row.get('ts') if isinstance(row.get('ts'), (int, float)) else 0
+    if current and isinstance(current.get('ts'), (int, float)) and current['ts'] > row_ts:
+        return
+    person['current'] = {
+        'ts': row.get('ts'),
+        'kind': 'tool',
+        'name': row.get('tool') or '',
+        'label': row.get('label') or row.get('tool') or '',
+        'done': bool(row.get('done')),
+        'error': False,
+        'toolId': row.get('toolId') or '',
+        'live': True,
+    }
+
+
+def merge_hook_events(snapshot, live=None):
+    """把原始快照和钩子日志并成公开快照。不改传入的对象，方便 HTTP 缓存反复合并。
+
+    传入的 snapshot 应是 merge=False 的原文：feed 上可以有 tool / _inputFp，
+    _activityIndex 里是裁剪前的全部 tool_use id。成本字段原样拷贝，钩子不加价。
+    """
+    if not isinstance(snapshot, dict):
+        return snapshot
+    if isinstance(live, dict):
+        live_in = live
+    elif isinstance(snapshot.get('live'), dict):
+        live_in = snapshot['live']
+    else:
+        live_in = empty_live_view()
+    source = snapshot.get('source') or ''
+    session = snapshot.get('session') if isinstance(snapshot.get('session'), dict) else {}
+    if not source and isinstance(session, dict):
+        source = session.get('source') or ''
+    join = source == 'claude' and live_in.get('available') is True
+    session_id = session.get('id') or '' if isinstance(session, dict) else ''
+
+    out = dict(snapshot)
+    out.pop('_activityIndex', None)
+    members = []
+    for member in snapshot.get('members') or []:
+        if not isinstance(member, dict):
+            members.append(member)
+            continue
+        copied = dict(member)
+        copied.pop('toolIds', None)
+        copied.pop('inputFps', None)
+        if member.get('timeline') is not None:
+            copied['timeline'] = _copy_timeline(member.get('timeline'))
+        _copy_current(copied)
+        members.append(copied)
+    out['members'] = members
+    lead_in = snapshot.get('lead') if isinstance(snapshot.get('lead'), dict) else {}
+    lead = dict(lead_in)
+    lead.pop('toolIds', None)
+    if lead_in.get('timeline') is not None:
+        lead['timeline'] = _copy_timeline(lead_in.get('timeline'))
+    _copy_current(lead)
+    out['lead'] = lead
+
+    raw_feed = [dict(row) if isinstance(row, dict) else row for row in (snapshot.get('feed') or [])]
+    if not join:
+        out['feed'] = [_public_activity_row(row) for row in raw_feed]
+        live_out = dict(live_in)
+        live_out['merged'] = False
+        out['live'] = live_out
+        return out
+
+    known = _known_tool_ids(snapshot, raw_feed)
+    by_id = {}
+    for index, row in enumerate(raw_feed):
+        if not isinstance(row, dict):
+            continue
+        tid = row.get('toolId')
+        if isinstance(tid, str) and tid and tid not in by_id:
+            by_id[tid] = index
+    events = []
+    for ev in live_in.get('events') or []:
+        if not isinstance(ev, dict):
+            continue
+        ev_session = ev.get('session_id') or ''
+        if session_id and ev_session and ev_session != session_id:
+            continue
+        events.append(ev)
+
+    used = set()
+    produced = []
+    extras = {}
+    for group in _group_hook_events(events, session_id):
+        evs = group['events']
+        if not group['tool']:
+            produced.append(_hook_activity_row(evs, members))
+            continue
+        key = group['key']
+        if key[0] == 'id':
+            tid = key[2]
+            row_i = by_id.get(tid)
+            if row_i is not None and not _names_conflict(raw_feed[row_i], evs):
+                used.add(row_i)
+                produced.append(_merge_activity_row(raw_feed[row_i], evs))
+                continue
+            if tid in known or row_i is not None:
+                continue
+        else:
+            # 没有 id：只在唯一一条重叠的转录上合并。已经并过，或多条候选，都不再加一行。
+            overlaps = _fallback_hits(evs, raw_feed, set())
+            fresh = [index for index in overlaps if index not in used]
+            if len(overlaps) == 1 and len(fresh) == 1:
+                used.add(fresh[0])
+                produced.append(_merge_activity_row(raw_feed[fresh[0]], evs))
+                continue
+            if overlaps:
+                continue
+        row = _hook_activity_row(evs, members)
+        produced.append(row)
+        if row.get('tool'):
+            owner = row.get('memberId') or '__lead'
+            extras[owner] = extras.get(owner, 0) + 1
+
+    feed_out = list(produced)
+    for index, row in enumerate(raw_feed):
+        if index not in used:
+            feed_out.append(row)
+    feed_out.sort(key=lambda row: -((row.get('ts') if isinstance(row, dict) else 0) or 0))
+    feed_out = _keep_test_rows(feed_out, 100)
+    out['feed'] = [_public_activity_row(row) for row in feed_out]
+
+    for member in members:
+        if isinstance(member, dict) and extras.get(member.get('id')):
+            member['toolCount'] = (member.get('toolCount') or 0) + extras[member['id']]
+    if extras.get('__lead'):
+        lead['toolCount'] = (lead.get('toolCount') or 0) + extras['__lead']
+
+    seen_current = set()
+    member_by_id = {member.get('id'): member for member in members if isinstance(member, dict)}
+    for row in out['feed']:
+        if not isinstance(row, dict) or row.get('source') != 'hook' or not row.get('tool'):
+            continue
+        owner = row.get('memberId')
+        if owner in seen_current:
+            continue
+        seen_current.add(owner)
+        person = lead if owner == '__lead' else member_by_id.get(owner)
+        if isinstance(person, dict):
+            _apply_hook_current(person, row)
+
+    departments = []
+    for dept in snapshot.get('departments') or []:
+        if not isinstance(dept, dict):
+            departments.append(dept)
+            continue
+        copied = dict(dept)
+        ids = copied.get('members') or []
+        copied['tools'] = sum((member_by_id[mid].get('toolCount') or 0) for mid in ids if mid in member_by_id)
+        departments.append(copied)
+    out['departments'] = departments
+
+    live_out = dict(live_in)
+    live_out['merged'] = True
+    live_out['correlate'] = 'tool_use_id'
+    out['live'] = live_out
+    return out
+
+
+def build_snapshot(args, merge=True):
     reload_team_cfg()
     now = time.time()
     sessions = discover_sessions()
@@ -3228,10 +3687,14 @@ def build_snapshot(args):
     def _feed_row(it, member_id, name, avatar):
         row = {'ts': it['ts'], 'memberId': member_id, 'name': name, 'avatar': avatar,
                'label': it['label'], 'error': it.get('error', False), 'done': it.get('done', False)}
+        if it.get('name'):
+            row['tool'] = it['name']
+        if it.get('toolId'):
+            row['toolId'] = it['toolId']
+        if it.get('_inputFp'):
+            row['_inputFp'] = it['_inputFp']
         if isinstance(it.get('test'), dict):
             row['test'] = it['test']
-            if it.get('toolId'):
-                row['toolId'] = it['toolId']
         return row
 
     for m in members:
@@ -3324,6 +3787,10 @@ def build_snapshot(args):
               'modelMix': model_mix,
               'tokens': members_usage['out'],
               'usage': members_usage, 'leadUsage': lead_usage, 'allUsage': all_usage}
+    activity_index = {'lead': list((lead_data or {}).get('toolIds') or []), 'members': {}}
+    for m in members:
+        activity_index['members'][m['id']] = list(m.pop('toolIds', []) or [])
+
     roster = [{'name': k, **{kk: vv for kk, vv in v.items() if kk != 'file'}, 'builtin': k in BUILTIN_AGENTS,
                **({'dept': TEAM_CFG['agents'][k]['dept'], 'avatar': TEAM_CFG['agents'][k]['avatar'],
                    'display': TEAM_CFG['agents'][k]['name'], 'role': TEAM_CFG['agents'][k]['role'],
@@ -3344,16 +3811,42 @@ def build_snapshot(args):
         'totals': totals,
         'roster': roster,
         'feed': feed,
+        '_activityIndex': activity_index,
         'comms': comms[:80],
         'bus': bus_info,
         'officialTeam': _snapshot_official_team(official_view, members, now, lead),
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info and provider == 'claude' else '', now),
     }
+    cache_turns = []
+    for member in members:
+        for raw in member.pop('cacheTurns', None) or []:
+            if not isinstance(raw, dict):
+                continue
+            item = dict(raw)
+            item['actor'] = member.get('id') or item.get('actor') or ''
+            item['name'] = member.get('name') or item.get('name') or item['actor']
+            item['subagent'] = True
+            cache_turns.append(item)
+    if lead_data:
+        for raw in lead_data.get('cacheTurns') or []:
+            if not isinstance(raw, dict):
+                continue
+            item = dict(raw)
+            item['actor'] = '__lead'
+            item['name'] = '队长'
+            item['subagent'] = False
+            cache_turns.append(item)
     # 预算在独立模块里算。没设预算时只多一个 enabled=false 的字段，页面不画。
     _budget_mod.attach_budget(snapshot, _budget_mod.cli_from_args(args), TEAM_CFG.get('budget'))
+    _cache_advice.attach_cache_advice(
+        snapshot, TEAM_CFG.get('pricing_usd_per_mtok'), TEAM_CFG.get('cacheAdvice'), cache_turns)
     threshold = getattr(args, 'stall_alert', _stall_alerts.DEFAULT_STALL_ALERT_SEC)
-    return _stall_alerts.attach_stall_alerts(snapshot, now, threshold)
+    snapshot = _stall_alerts.attach_stall_alerts(snapshot, now, threshold)
+    # merge=False 留给 HTTP 缓存：缓存里是转录原文，每次响应再用当时的钩子合并，避免 1 秒缓存挡住钩子。
+    if merge:
+        return merge_hook_events(snapshot, snapshot.get('live'))
+    return snapshot
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -3414,12 +3907,12 @@ class Handler(SimpleHTTPRequestHandler):
             with Handler._lock:
                 t, data = Handler._cache
                 if data is None or time.time() - t > 1.0 or custom:
-                    data = build_snapshot(args)
+                    data = build_snapshot(args, False)
                     if not custom:
                         Handler._cache = (time.time(), data)
                 session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
-                view = dict(data)
-                view['live'] = hook_live_view(session_id if view.get('source', 'claude') == 'claude' else '', time.time())
+                live = hook_live_view(session_id if data.get('source', 'claude') == 'claude' else '', time.time())
+                view = merge_hook_events(data, live)
             body = json.dumps(view, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')

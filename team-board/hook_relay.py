@@ -7,7 +7,8 @@
 字段以 Claude Code hooks 参考为准（https://code.claude.com/docs/en/hooks）：
 只留会话 id、事件名、工具名、tool_use_id、成员 / subagent 标识、通知类型、
 stop_hook_active 和时间。不转发 tool_input、tool_response、提示词或本机路径。
-和转录去重是后续步骤；这里的 tool_use_id 只是留给那一步的关联键。
+看板用 session_id + tool_use_id 把这里的事件和转录并成一条（见 team_board.activity_key）。
+本脚本仍不计算指纹、不读转录；看板没开时照旧马上退出。
 """
 import json
 import os

@@ -5,6 +5,7 @@ This repository provides a local team board for Claude Code and Codex rollout tr
 ## Source map
 
 - `team-board/team_board.py`: transcript parsing, snapshots, local HTTP API, message bus, in-memory hook events.
+- `team-board/cache_advice.py`: pure cache-hit diagnosis. Thresholds come from `team.json` `cacheAdvice`. No suggestion when the transcript signal is thin.
 - `team-board/test_results.py`: Bash test commands and their pass, fail, skip and exit status. Unknown when the output is truncated or unrecognized.
 - `team-board/hook_relay.py`: optional Claude Code hook relay. It posts a short loopback event and exits 0 when the board is down.
 - `team-board/index.html`: browser UI and embedded JavaScript.
@@ -17,6 +18,7 @@ This repository provides a local team board for Claude Code and Codex rollout tr
 - `tools/demo_board.py`: isolated read-only board using synthetic data and shipped assets only.
 - `tools/battle_card.py`: self-contained SVG battle card from an offline snapshot or the loopback board.
 - `tools/export_replay.py`: one offline HTML file with an embedded desensitized snapshot. It does not start the board.
+- `tools/retro_report.py`: Markdown retrospective from an offline snapshot, `--demo`, or the loopback board. It copies present fields only.
 
 ## Change and test
 

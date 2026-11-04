@@ -4,7 +4,7 @@ These recipes use the local board and standard-library tools. Interactive Codex 
 
 ## Optional Claude Code hook channel
 
-`python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` lists those events for the selected session and sets `merged` to false: they are not deduplicated against transcript rows. `correlate` is `tool_use_id`, reserved for a later join. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
+`python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` still lists the raw events for the selected session. `live.merged` is true when that list has been joined into `feed`: one tool call is one row. The preferred key is `session_id + tool_use_id` (`live.correlate` stays `tool_use_id`). With no id, the key is tool name, a 5 second window, and a short hash of the tool input. Estimated cost still comes only from the transcript. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
 
 ## Codex exec event metrics
 
@@ -201,6 +201,35 @@ python tools/export_replay.py --port 7788 --session sess-0001 -o replay.html
 Absolute home paths, e-mail addresses, API-key-like strings, session ids, prompts, and tool arguments are removed before the file is written. Message text and tool labels that remain are clipped. Read the file before sharing a replay of a real session. The synthetic demo is the happy path; it is not a usage benchmark.
 
 Exit code 0 means the HTML was written. Exit code 1 is a read or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks. The output path must not be the input file.
+
+## Team retrospective
+
+Write a Markdown retrospective from the synthetic demo snapshot, an offline file, or a board that is already running:
+
+```sh
+python tools/retro_report.py --demo
+python tools/retro_report.py --input examples/board-demo.synthetic.json --output retro.md
+python tools/retro_report.py --port 7788 --output retro.md
+python tools/retro_report.py --port 7788 --session sess-0001 --output retro.md
+python tools/retro_report.py --port 7788 --project C--demo --output retro.md
+```
+
+`--demo` reads `examples/board-demo.synthetic.json`. Otherwise choose exactly one of `--input` or `--port`. `--session` and `--project` are the same mutually exclusive selectors as [aggregate export](#export-aggregate-metrics): they require `--port` and cannot filter an offline file. The port mode is one read-only GET through `export_snapshot.read_snapshot`. There is no arbitrary remote URL and no upload. The output path must not be the input file.
+
+The report copies fields that are already on the snapshot:
+
+| On the snapshot | In the report |
+| --- | --- |
+| `startedAt`, `endedAt`, `lastActivityAt`, session `mtime` or `lastActivity` | A timeline row. Duration is filled only when both start and end are present. A missing end is not replaced with the current time. |
+| `totals`, department `cost` / `tokens`, member `cost` / `totalTokens` | Those numbers, under 快照总量, 按部门 and 按成员. Rows are not added together. |
+| `cost: null` | 未知. It is not drawn as zero. |
+| `unpriced` greater than zero on that same object | The numeric cost is marked 部分. |
+| Member `status` of `stalled` or `error`, `stallAlerts` idle seconds, `officialTeam.tasks[].blocked` true, timeline `error: true`, `lastTest.status` of `fail` | A blockers section. `blocked: false` is not treated as blocked. |
+| `lastTest.status` of `unknown`, `budget.status` of `warn` or `over`, `budget.ratio`, `cacheHit` below 0.2 with a positive token count on the same object, `missing: true` | One suggestion that cites those fields. The 0.2 line is the report's own reference, not a snapshot field, and it is not turned into a savings estimate. |
+
+Sections with nothing to show are omitted. Session ids, local paths, e-mail addresses, prompts, tool arguments and message bodies are left out. Cost is the board's estimate, not a provider invoice.
+
+Exit code 0 means the Markdown was written. Exit code 1 is a read or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks.
 
 ## File-based handoffs from other tools
 

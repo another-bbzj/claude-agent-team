@@ -267,7 +267,8 @@ class ReplayPrivacyTest(unittest.TestCase):
 
 class ReplayHtmlTest(unittest.TestCase):
     def test_demo_page_is_offline_and_embeds_the_document(self):
-        html = replay.render_html(replay.build_replay(_load('examples/board-demo.synthetic.json')))
+        snapshot = _load('examples/board-demo.synthetic.json')
+        html = replay.render_html(replay.build_replay(snapshot))
         doc = _payload(html)
         self.assertEqual(doc['kind'], 'claude-agent-team-replay')
         self.assertIn('<!doctype html>', html)
@@ -286,7 +287,7 @@ class ReplayHtmlTest(unittest.TestCase):
         self.assertNotIn('<link ', html)
         self.assertNotIn('innerHTML', html)
         self.assertIn('演示后端', html)
-        self.assertIn('0.105', html)
+        self.assertIn(json.dumps(snapshot['totals']['cost']), html)
         self.assertIsNone(SECRET.search(html))
 
     def test_inline_script_parses_when_node_is_present(self):

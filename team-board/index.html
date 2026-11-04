@@ -358,6 +358,12 @@
   .budget-suggest { margin: 8px 0 0; padding-left: 1.15em; font-size: 12.5px; line-height: 1.5; }
   .budget-suggest li { margin: 3px 0; }
   .budget-foot { margin: 8px 0 0; color: var(--text-3); font-size: 11px; }
+  #cache-advice[hidden] { display: none !important; }
+  .cache-advice { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .cache-advice h3 { margin: 0 0 4px; font-size: 12px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text); }
+  .cache-advice ol { margin: 4px 0 0; padding-left: 1.15em; font-size: 12px; line-height: 1.5; color: var(--text-2); }
+  .cache-advice li { margin: 4px 0; }
+  .cache-advice .foot { margin: 6px 0 0; color: var(--text-3); font-size: 11px; }
   @media (max-width: 700px) {
     .budget-main, .budget-row { grid-template-columns: 1fr; }
     .budget-fig { white-space: normal; }
@@ -1042,6 +1048,7 @@
       <h2><span class="no">03</span>成员成本排行<span class="en">Cost</span><span class="count" id="bars-count"></span></h2>
       <div class="bars" id="bars"></div>
       <div class="bar-legend"><span><i style="background:var(--brand)"></i>opus / fable</span><span><i style="background:var(--info)"></i>sonnet</span><span><i style="background:var(--ok)"></i>haiku</span><span style="margin-left:auto">按公开价估算</span></div>
+      <div id="cache-advice" class="cache-advice" hidden></div>
     </section>
   </div>
 
@@ -1528,16 +1535,23 @@ function liveWho(ev, snap) {
   if (match) return match;
   return { id: '__lead', name: ev && ev.agent_id ? String(ev.agent_type || ev.agent_id) : '队长', avatar: 'team-lead', agentType: '' };
 }
-function applyLiveAct(el, ev, snap, fallback) {
-  if (ev && eventIsFresh(ev, snap)) {
+function applyLiveAct(el, ev, snap, fallback, current) {
+  const act = el.querySelector('.act');
+  const merged = !!(snap && snap.live && snap.live.merged);
+  const hookId = ev && ev.tool_use_id;
+  const currentId = current && current.toolId;
+  const transcriptCaughtUp = merged && hookId && currentId && hookId === currentId && !current.live;
+  if (ev && eventIsFresh(ev, snap) && !transcriptCaughtUp) {
     el.classList.add('hook-live');
-    el.querySelector('.act').textContent = liveActText(ev);
-    el.querySelector('.act').title = '来自 Claude Code 钩子，尚未与转录合并';
+    act.textContent = liveActText(ev);
+    act.title = merged
+      ? '钩子已送到。同一 tool_use_id 只留一条，转录到达后不重复计次，也不再计一次成本。'
+      : '来自 Claude Code 钩子，尚未与转录合并';
     return;
   }
   el.classList.remove('hook-live');
-  el.querySelector('.act').textContent = fallback;
-  el.querySelector('.act').title = fallback || '';
+  act.textContent = fallback;
+  act.title = fallback || '';
 }
 function renderHookBadge(snap) {
   const el = $('#hook-live');
@@ -1550,7 +1564,9 @@ function renderHookBadge(snap) {
   el.title = on
     ? (snap && snap.demo
       ? '合成实时事件，用来看指示。不是本机 Claude Code 钩子，也不和转录动作合并。'
-      : '钩子通道刚送到这个会话的动作。动作流里的「实时」行不和转录去重。')
+      : (snap.live && snap.live.merged
+        ? '钩子通道刚送到这个会话的动作。同一 tool_use_id 只留一条，转录稍后到达不会再记一次。'
+        : '钩子通道刚送到这个会话的动作。动作流里的「实时」行不和转录去重。'))
     : '这个会话还没有新的钩子事件。需要时运行 python install.py --hooks。看板不在线时钩子会立刻退出，不改变 Claude Code。';
 }
 function stateText(m) {
@@ -1700,7 +1716,7 @@ function layout(snap) {
   lead.style.left = (leadX - 95) + 'px'; lead.style.top = LEAD_TOP + 'px';
   const leadBusy = L.active && L.current && !L.current.done;
   lead.querySelector('.state').textContent = leadBusy ? `正在${TOOL_ZH[L.current.name] || '使用'} ${shortTool(L.current.name)}` : L.phase === 'coordinating' ? `协调中 · ${L.running} 人在干活` : L.phase === 'finished' ? '全员交付，收尾中' : L.phase === 'waiting' ? '等待停滞成员' : (L.active ? '思考中…' : '待命');
-  applyLiveAct(lead, latestUnassignedHook(snap), snap, L.current ? L.current.label : (snap.session ? snap.session.project.replace(/^C--Users-[^-]+-?/, '') || snap.session.project : ''));
+  applyLiveAct(lead, latestUnassignedHook(snap), snap, L.current ? L.current.label : (snap.session ? snap.session.project.replace(/^C--Users-[^-]+-?/, '') || snap.session.project : ''), L.current);
   lead.querySelector('.bar').style.display = 'none';
   lead.querySelector('.meta').textContent = `${L.toolCount ?? 0} 次工具${L.total ? ` · ${L.done}/${L.total} 已交付` : ''}`;
   lead.querySelector('.extra').innerHTML = leadBusy ? '<span class="ring"></span>' : '';
@@ -1740,7 +1756,7 @@ function layout(snap) {
         pel.querySelector('.name').title = linkPinTitle(pel.dataset.link);
         pel.style.left = (cx - 95) + 'px'; pel.style.top = top + 'px';
         pel.querySelector('.state').textContent = stateText(m);
-        applyLiveAct(pel, latestMemberHook(m, snap), snap, m.current ? m.current.label : (m.description || ''));
+        applyLiveAct(pel, latestMemberHook(m, snap), snap, m.current ? m.current.label : (m.description || ''), m.current);
         pel.querySelector('.meta').textContent = `${m.toolCount} 次工具 · ${fmtTok(m.totalTokens ?? m.outputTokens)} tok · 缓存 ${Math.round((m.cacheHit || 0) * 100)}%${m.status === 'completed' ? '' : ' · ' + fmtDur(m.startedAt)}`;
         pel.querySelector('.meta').title = `输出 ${fmtTok(m.outputTokens)} · 上下文 ${fmtTok((m.totalTokens || 0) - (m.outputTokens || 0))}（其中缓存命中 ${Math.round((m.cacheHit || 0) * 100)}%）`;
       });
@@ -2677,8 +2693,12 @@ $('#comms-filter').addEventListener('click', (e) => {
   commsSig = ''; if (prev) { renderComms(prev); const box = $('#comms'); box.scrollTop = box.scrollHeight; }
 });
 
+function feedLiveLabel(f) {
+  return liveActText({ event: f.hookEvent, tool_name: f.tool, notification_type: f.notificationType });
+}
 function renderFeed(snap) {
-  const hooks = hookEvents(snap).slice().reverse().map(ev => {
+  const merged = !!(snap && snap.live && snap.live.merged);
+  const hooks = merged ? '' : hookEvents(snap).slice().reverse().map(ev => {
     const who = liveWho(ev, snap);
     const label = liveActText(ev);
     const key = `hook|${ev.seq || ''}|${ev.ts}|${ev.event || ''}|${ev.tool_use_id || ''}`;
@@ -2687,17 +2707,19 @@ function renderFeed(snap) {
     return `<div class="row hook ${fresh ? 'fresh' : ''} ${who.id === '__lead' ? 'lead' : ''}"><span class="t">${fmtClock(ev.ts)}</span>${miniPet(who, 22)}<span class="n">${esc(who.name || who.agentType || '')}</span><span class="l">${esc(label)}</span></div>`;
   }).join('');
   const rows = (snap.feed || []).map(f => {
-    const key = `${f.memberId}|${f.ts}|${f.label}`;
+    const hookish = f.source === 'hook';
+    const key = `${f.source || ''}|${f.memberId}|${f.ts}|${f.toolId || ''}|${f.label}`;
     const fresh = !seenFeed.has(key) && !firstLoad;
     const fid = f.test ? testFeedId(f.memberId, f.test) : '';
     const open = fid && feedOpen.has(fid);
     const tone = f.test && (f.test.status === 'pass' || f.test.status === 'fail' || f.test.status === 'unknown') ? ' test-' + f.test.status : '';
     const detail = f.test ? `<div class="test-detail">${esc(testDetailText(f.test))}</div>` : '';
-    return `<div class="row${fresh ? ' fresh' : ''}${f.memberId === '__lead' ? ' lead' : ''}${tone}${fid ? ' has-test' : ''}${open ? ' open' : ''}"${fid ? ` data-feed="${esc(fid)}"` : ''}><span class="t">${fmtClock(f.ts)}</span>${miniPet(memberFor(f.memberId, f.avatar), 22)}<span class="n">${esc(f.name)}</span><span class="l ${f.error ? 'err' : ''}">${!f.done ? '<span class="spin"></span>' : ''}${zhTool(f.label)}</span>${detail}</div>`;
+    const labelHtml = hookish ? esc(feedLiveLabel(f)) : zhTool(f.label);
+    return `<div class="row${hookish ? ' hook' : ''}${fresh ? ' fresh' : ''}${f.memberId === '__lead' ? ' lead' : ''}${tone}${fid ? ' has-test' : ''}${open ? ' open' : ''}"${fid ? ` data-feed="${esc(fid)}"` : ''}><span class="t">${fmtClock(f.ts)}</span>${miniPet(memberFor(f.memberId, f.avatar), 22)}<span class="n">${esc(f.name)}</span><span class="l ${f.error ? 'err' : ''}">${!f.done ? '<span class="spin"></span>' : ''}${labelHtml}</span>${detail}</div>`;
   }).join('');
   $('#feed').innerHTML = hooks + rows;
-  for (const f of snap.feed || []) seenFeed.add(`${f.memberId}|${f.ts}|${f.label}`);
-  const nHook = hookEvents(snap).length;
+  for (const f of snap.feed || []) seenFeed.add(`${f.source || ''}|${f.memberId}|${f.ts}|${f.toolId || ''}|${f.label}`);
+  const nHook = merged ? 0 : hookEvents(snap).length;
   const nFeed = (snap.feed || []).length;
   $('#feed-count').textContent = nFeed ? `${nFeed} 条${nHook ? ` · 实时 ${nHook}` : ''}` : (nHook ? `实时 ${nHook}` : '');
 }
@@ -2782,6 +2804,30 @@ function renderBudget(snap) {
 }
 /* budget-guard:end */
 
+/* cache-advice:start — 与 team-board/cache_advice.py 的 status / suggestions 对齐。没有建议就不占位。 */
+function renderCacheAdvice(snap) {
+  const el = $('#cache-advice');
+  if (!el) return;
+  const block = snap && snap.cacheAdvice;
+  const sig = block ? JSON.stringify(block) : '';
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  const tips = block && block.suggestions;
+  if (block && block.status === 'invalid') {
+    el.hidden = false;
+    el.innerHTML = `<h3>缓存诊断</h3><p class="foot">${esc(block.error || '配置无效，暂不给建议。')}</p>`;
+    return;
+  }
+  if (!tips || !tips.length) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `<h3>缓存诊断 <span style="font-weight:400;color:var(--text-3)">${tips.length} 条</span></h3><ol>${tips.map(item => `<li>${esc(item.action || '')}</li>`).join('')}</ol><p class="foot">${esc(block.note || '')}</p>`;
+}
+/* cache-advice:end */
+
 function renderStats(snap) {
   renderBudget(snap);
   const L = snap.lead || {};
@@ -2802,6 +2848,7 @@ function renderStats(snap) {
   const leadRow = { id: '__lead', name: '队长', agentType: '', avatar: 'team-lead', cost: L.cost || 0, modelFamily: L.modelFamily || '', totalTokens: L.totalTokens || 0, cacheHit: L.cacheHit || 0, description: '主会话（含你与队长的全部对话）' };
   const ms = [leadRow, ...snap.members].sort((a, b) => (b.cost || 0) - (a.cost || 0)).slice(0, 13), max = Math.max(...ms.map(m => m.cost || 0), 0.0001);
   $('#bars').innerHTML = ms.map(m => `<div class="bar-row" title="${esc(m.description)} · ${fmtTok(m.totalTokens)} tok · 缓存 ${Math.round((m.cacheHit || 0) * 100)}%">${miniPet(m, 22)}<span class="nm">${esc(m.name)}</span><span class="track"><i class="${esc(m.modelFamily || '')}" style="width:${Math.max(2, 100 * (m.cost || 0) / max)}%"></i></span><span class="v">${fmtCostOr(m) || '$0'}</span></div>`).join('') || '<div style="color:var(--text-3);font-size:12px">还没有成员出场。</div>';
+  renderCacheAdvice(snap);
   $('#bars-count').textContent = ms.length ? `前 ${ms.length} 位 · 含队长` : '';
   $('#dept-count').textContent += ` · 刷新 ${fmtClock(Date.now() / 1000)}`;
 }

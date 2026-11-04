@@ -53,6 +53,7 @@ class ParseDevtoolsPortTest(unittest.TestCase):
     def test_parse_devtools_port_reads_the_active_file_or_a_listening_line(self):
         cases = [
             ('36445\n/devtools/browser/abc\n', 36445),
+            ('36445\r\n/devtools/browser/abc\r\n', 36445),
             ('36445\n/devtools/browser/abc', 36445),
             ('  36445 \n /devtools/browser/abc \n', 36445),
             ('65535\n/devtools/browser/abc\n', 65535),
@@ -125,8 +126,8 @@ class _LaunchHarness(object):
         self.procs = []
         self.spawn_error = None
 
-    def mkdtemp(self, prefix='headless-chrome-'):
-        path = tempfile.mkdtemp(prefix=prefix)
+    def mkdtemp(self, prefix='headless-chrome-', dir=None):
+        path = tempfile.mkdtemp(prefix=prefix, dir=dir)
         self.created.append(path)
         return path
 
@@ -448,6 +449,108 @@ class RemoveChromeProfileTest(unittest.TestCase):
             headless_chrome.remove_chrome_profile(raced, timeout=1)
         self.assertEqual(calls['ignore'], 1)
         self.assertFalse(raced.exists())
+
+
+class WindowsUserDataDirTest(unittest.TestCase):
+    def test_get_short_path_name_is_empty_off_windows(self):
+        if os.name == 'nt':
+            self.skipTest('windows resolves 8.3 names')
+        self.assertEqual(headless_chrome._get_short_path_name('/tmp/headless-chrome'), '')
+
+    def test_windows_temp_candidates_lead_with_the_drive_temp(self):
+        with mock.patch.dict(os.environ, {
+            'SystemDrive': 'C:',
+            'RUNNER_TEMP': 'D:\\a\\_temp',
+            'TEMP': 'C:\\Users\\runneradmin\\AppData\\Local\\Temp',
+            'TMP': '',
+        }), mock.patch('headless_chrome.tempfile.gettempdir', return_value='C:\\Windows\\Temp'):
+            found = headless_chrome._windows_temp_candidates()
+        self.assertEqual(found[0], 'C:\\Temp')
+        self.assertEqual(found[1], 'D:\\a\\_temp')
+        self.assertIn('C:\\Users\\runneradmin\\AppData\\Local\\Temp', found)
+        self.assertIn('C:\\Windows\\Temp', found)
+        self.assertNotIn('', found)
+
+    def test_windows_short_path_keeps_a_real_directory_and_ignores_a_missing_one(self):
+        path = tempfile.mkdtemp(prefix='profile-')
+        self.addCleanup(shutil.rmtree, path, ignore_errors=True)
+        with mock.patch('headless_chrome._get_short_path_name', return_value=path):
+            self.assertEqual(headless_chrome._windows_short_path(path), path)
+        with mock.patch('headless_chrome._get_short_path_name', return_value=path + '-missing'):
+            self.assertEqual(headless_chrome._windows_short_path(path), path)
+
+    def test_windows_short_temp_base_prefers_the_8_3_name(self):
+        base = tempfile.mkdtemp(prefix='longtemp-')
+        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
+        long_name = os.path.join(base, 'Users', 'runneradmin', 'AppData', 'Local', 'Temp')
+        os.makedirs(long_name)
+        with mock.patch('headless_chrome._windows_temp_candidates', return_value=[long_name]), \
+                mock.patch('headless_chrome._get_short_path_name', return_value=base):
+            found = headless_chrome._windows_short_temp_base()
+        self.assertEqual(os.path.normcase(found), os.path.normcase(base))
+
+    def test_windows_short_temp_base_skips_an_unwritable_candidate(self):
+        usable = tempfile.mkdtemp(prefix='fallback-temp-')
+        self.addCleanup(shutil.rmtree, usable, ignore_errors=True)
+        blocked = os.path.join(usable, 'blocked')
+        with open(blocked, 'w', encoding='utf-8') as handle:
+            handle.write('x')
+        with mock.patch('headless_chrome._windows_temp_candidates', return_value=[blocked, usable]), \
+                mock.patch('headless_chrome._get_short_path_name', return_value=''):
+            found = headless_chrome._windows_short_temp_base()
+        self.assertEqual(os.path.normcase(os.path.abspath(found)), os.path.normcase(os.path.abspath(usable)))
+
+    def test_writable_dir_removes_its_probe_and_rejects_a_file(self):
+        base = tempfile.mkdtemp(prefix='probe-')
+        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
+        before = set(os.listdir(base))
+        self.assertTrue(headless_chrome._writable_dir(base))
+        self.assertEqual(set(os.listdir(base)), before)
+        path = os.path.join(base, 'file')
+        with open(path, 'w', encoding='utf-8') as handle:
+            handle.write('x')
+        self.assertFalse(headless_chrome._writable_dir(path))
+
+    def test_windows_launch_passes_a_short_user_data_dir_and_reads_the_active_port(self):
+        harness = _LaunchHarness()
+        base = tempfile.mkdtemp(prefix='win-temp-')
+        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
+        short_profile = os.path.join(base, 'HC~1')
+        os.makedirs(short_profile)
+        seen = []
+
+        def build_proc(cmd, stderr):
+            profile = _profile_from(cmd)
+            self.assertEqual(os.path.normcase(profile), os.path.normcase(short_profile))
+            with open(os.path.join(profile, 'DevToolsActivePort'), 'wb') as handle:
+                handle.write(b'43210\r\n/devtools/browser/abc\r\n')
+            return FakeProc()
+
+        def short_name(path):
+            seen.append(path)
+            if os.path.basename(path) == 'profile':
+                return short_profile
+            return ''
+
+        harness.build_proc = build_proc
+        env = {'SystemDrive': '', 'RUNNER_TEMP': '', 'TEMP': base, 'TMP': base}
+        params = harness.kwargs(ready=lambda port: port == 43210, timeout=5)
+        params.pop('_clock')
+        with mock.patch('headless_chrome.os.name', 'nt'), \
+                mock.patch.dict(os.environ, env), \
+                mock.patch('headless_chrome._get_short_path_name', side_effect=short_name):
+            with headless_chrome.launch_headless_chrome('/bin/chrome', **params) as chrome:
+                self.assertEqual(chrome.port, 43210)
+        cmd = harness.commands[0]
+        self.assertIn('--remote-debugging-port=0', cmd)
+        self.assertFalse(any(
+            arg.startswith('--remote-debugging-port=') and arg != '--remote-debugging-port=0'
+            for arg in cmd
+        ))
+        self.assertEqual(os.path.normcase(_profile_from(cmd)), os.path.normcase(short_profile))
+        self.assertTrue(os.path.basename(harness.created[0]).startswith('hc'))
+        self.assertTrue(any(os.path.basename(path) == 'profile' for path in seen))
+        self.assertFalse(os.path.exists(harness.created[0]))
 
 
 if __name__ == '__main__':

@@ -120,6 +120,8 @@ python team-board/team_board.py --budget 5 --budget-warn 0.8 --budget-member bac
 
 快照多一个 `budget` 对象，旧客户端忽略即可。`status` 是 `off`（没设）、`ok`、`warn`、`over` 或 `invalid`（配置写错，告警不启用）。黄和红时写出花得最多的人，并给出降档句子：依据 `skills/agent-team/roles.md`，写代码的 opus 下次派工把 `model` 设为 sonnet，调研或文档的 sonnet/opus 设为 haiku。已经在档位上的不建议降。有未定价模型时 `lowerBound` 为 true，文案是「成本为下限」，已计价金额不含这些模型，不会补一个估计数。
 
+**缓存诊断**在右侧成本排行下面，没有建议时不占地方。默认阈值在 `team.json` 的 `cacheAdvice`：命中率低于 `hitRatio`（0.5），上下文至少 `minContextTokens`（1000），TTL `ttlSeconds`（300，也就是 5 分钟）。规则在 `team-board/cache_advice.py`，只看转录里已经写下的 usage、时间戳、模型、系统提示和工具列表。同一段写入只归一条原因。估不出正的差价（模型不在价格表里，或写入价并不高于读取价）就不写这条。`cacheAdvice` 设为 `false` 整块关掉。安装或更新会保留你写过的整段。
+
 ---
 
 <a id="panels"></a>
@@ -335,7 +337,7 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 | 接口 | 用途 |
 |---|---|
 | `GET /snapshot.json` | 看板数据（成员、部门、通信、动作、totals、`officialTeam` 只读任务、`live` 实时钩子） |
-| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘，不和转录合并。见 [HOOKS.md](HOOKS.md) |
+| `POST /api/hooks/event` | 只收本机、带匹配 Origin、不超过 4KB 的精简钩子事件。不落盘。动作流按 `session_id + tool_use_id` 并成一条（没有 id 时用工具名、5 秒窗口和入参指纹）。见 [HOOKS.md](HOOKS.md) |
 | `/api/tasks` | 不存在的写入口。任意方法都返回 405，并带 `Allow: GET`。非法 JSON 也是 405，不改 `~/.claude/tasks/` |
 | `GET /api/agents` | 成员定义列表 + 部门 / 模型 / 强度 / 形象选项 |
 | `POST /api/agents` | 新建或更新成员（JSON：name, display, role, dept, model, effort, pet, color, description, skills, body）；`.md` 里表单不管理的字段原样保留 |
@@ -572,7 +574,7 @@ token 口径与独立工具 [ccusage](https://github.com/ryoppippi/ccusage) 对�
 python -m unittest discover -s tests -v
 ```
 
-只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **350** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总、预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
+只用标准库。按 `tests/test_*.py` 里以 `test_` 开头的函数计，目前是 **391** 个（源码统计，不是外部基准）。较早的首页写过 86，那是当时的数量。覆盖：合成的 Claude Code 转录全流程解析（成员状态 / 模型 / token 去重 / 定价 / 派工 / 回报 / 留言 / 交接 / 转达 / 部门出场与收尾建议 / 小团队 / 临时成员归部门）、成员与部门增删改（编辑不丢字段）、形象导入（webp / png / zip / 缩放 / 坏尺寸 / 删除保护）、消息总线 msg.py（收件箱写入 / 查收 / 解析）、背景板 v2（Wallpaper Engine 库扫描 / 预览提取 / Range 206 分块流 / 场景原图提取 / 视频编码识别 / 桌面壁纸 / v2 字段与兼容）、第三方 API 转录、HTTP 接口、导入与更新脚本、`install.py` 安装 / 更新不丢用户改动 / 卸载，实时钩子的安装、精简中继和本机接收端，以及后来加上的只读演示、聚合导出、Codex exec JSONL 离线汇总、预算护栏（未设、接近、超支、未定价下限、分成员上限、非法配置）、缓存诊断（命中率门槛、TTL、重建、系统提示与工具列表、换模型、子代理冷启动、信号不足时不写）和 SVG 战报卡。GitHub Actions 在 Windows / macOS / Linux × Python 3.8 / 3.12 / 3.13 上自动跑；macOS 和当前 Ubuntu 默认镜像不跑 3.8（3.8 在 Ubuntu 24.04 上跑），见 `.github/workflows/test.yml`。改了 `index.html` 里的脚本时，用 [AGENTS.md](../AGENTS.md) 里的 Node 语法检查。
 
 <a id="faq"></a>
 
@@ -669,6 +671,7 @@ python -m unittest discover -s tests -v
 team-board/        看板及后端服务
   team_board.py              HTTP 服务（标准库）· 转录解析 · 消息总线 / 背景板 API
   budget.py                  会话预算：接近 / 超出、成员与部门上限、降档建议
+  cache_advice.py            缓存命中诊断：阈值、TTL、重建、换模型、子代理冷启动
   msg.py                     零依赖 CLI：send / inbox / who / log（成员通信）
   backdrop_store.py          背景板图片与配置的本地存储
   wallpapers.py              扫描 Steam 库 Wallpaper Engine 壁纸、当前桌面快照
@@ -686,7 +689,7 @@ agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式�
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）
-tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · export_replay.py 单文件离线回放 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
+tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · export_replay.py 单文件离线回放 · retro_report.py 团队复盘 Markdown · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
@@ -709,6 +712,8 @@ python tools/export_replay.py --demo -o replay.html
 ```
 
 `--demo` 读 `examples/board-demo.synthetic.json`。嵌进去的数据已经去掉本机路径、邮箱、密钥、会话标识和提示词。聚合数字只在快照能通过 `export_metrics` 时出现。
+
+`python tools/retro_report.py --demo` 用 `examples/board-demo.synthetic.json` 写一份 Markdown 复盘。时间线、估算成本、token、停滞、阻塞和测试结果只在快照里有对应字段时出现；价格是 null 标「未知」，`unpriced` 大于 0 时成本标「部分」。没有的总数、停滞时长和缓存节省不补。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 
