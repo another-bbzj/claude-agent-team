@@ -48,6 +48,8 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 
 `auto` follows the system theme. Drop `--static` for a slow dash. Names, departments, elapsed time and completed tasks appear only when the snapshot has those fields. Unpriced models are marked 部分. `--session` or `--project` selects a live board session the same way `export_snapshot.py` does. A stall-alert count, theater count, or retained live-hook count is drawn only when that field is already on the snapshot. Paths, session ids, e-mail addresses, prompts and tool arguments are left out. The board button「导出战报卡」downloads the same SVG in the browser and does not upload it.
 
+`python tools/retro_report.py --demo` writes a Markdown retrospective from the synthetic demo snapshot. It keeps only timestamps, estimated cost and blockers that are already present, and marks a missing price 部分 or 未知.
+
 **Install into your Claude Code setup:**
 
 ```sh

@@ -358,6 +358,7 @@ As of this guide’s revision, `tests/test_*.py` defines **350** functions whose
 | `tools/demo_board.py` | Read-only synthetic board |
 | `tools/export_snapshot.py` | Allowlisted aggregate export |
 | `tools/battle_card.py` | SVG battle card from a snapshot or the loopback board |
+| `tools/retro_report.py` | Markdown retrospective from a snapshot, `--demo`, or the loopback board |
 | `tools/codex_metrics.py` | Offline Codex exec JSONL summary |
 | `tools/make_dist_hashes.py` | Writes `dist-hashes.json` |
 | `tests/` | Standard-library tests and synthetic fixtures |
@@ -436,6 +437,8 @@ python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
 ```
 
 `battle_card.py` draws one SVG from that snapshot. Aggregate figures match `export_snapshot.py`. `--session` and `--project` select a loopback board the same way, and cannot be combined with `--input`. Names, departments, elapsed time and completed tasks are drawn only when those fields are present. A stall-alert count, theater count, or retained live-hook count is drawn only when the snapshot already has that field. See [INTEGRATIONS.md](INTEGRATIONS.md).
+
+`python tools/retro_report.py --demo` writes a Markdown retrospective from `examples/board-demo.synthetic.json`. Timeline, cost, token, stall, blocker and test lines appear only when the snapshot has those fields. A null price is 未知. A positive `unpriced` count marks that cost 部分. Missing totals, idle ages and cache savings are left out.
 
 The export keeps an allowlist of numeric fields. It does not include prompts, message bodies, session ids or local paths. Raw `/snapshot.json` can still contain private text; do not publish it. The Codex exec adapter reads only the JSONL you pass. It does not launch Codex or call an API, and its output drops message text, command bodies and session ids. See [CODEX_METRICS.md](CODEX_METRICS.md).
 

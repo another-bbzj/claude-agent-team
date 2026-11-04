@@ -186,6 +186,35 @@ The board button「导出战报卡」builds the same SVG in the browser from the
 
 Exit code 0 means the SVG was written. Exit code 1 is a read, validation or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks. The output path must not be the input file.
 
+## Team retrospective
+
+Write a Markdown retrospective from the synthetic demo snapshot, an offline file, or a board that is already running:
+
+```sh
+python tools/retro_report.py --demo
+python tools/retro_report.py --input examples/board-demo.synthetic.json --output retro.md
+python tools/retro_report.py --port 7788 --output retro.md
+python tools/retro_report.py --port 7788 --session sess-0001 --output retro.md
+python tools/retro_report.py --port 7788 --project C--demo --output retro.md
+```
+
+`--demo` reads `examples/board-demo.synthetic.json`. Otherwise choose exactly one of `--input` or `--port`. `--session` and `--project` are the same mutually exclusive selectors as [aggregate export](#export-aggregate-metrics): they require `--port` and cannot filter an offline file. The port mode is one read-only GET through `export_snapshot.read_snapshot`. There is no arbitrary remote URL and no upload. The output path must not be the input file.
+
+The report copies fields that are already on the snapshot:
+
+| On the snapshot | In the report |
+| --- | --- |
+| `startedAt`, `endedAt`, `lastActivityAt`, session `mtime` or `lastActivity` | A timeline row. Duration is filled only when both start and end are present. A missing end is not replaced with the current time. |
+| `totals`, department `cost` / `tokens`, member `cost` / `totalTokens` | Those numbers, under 快照总量, 按部门 and 按成员. Rows are not added together. |
+| `cost: null` | 未知. It is not drawn as zero. |
+| `unpriced` greater than zero on that same object | The numeric cost is marked 部分. |
+| Member `status` of `stalled` or `error`, `stallAlerts` idle seconds, `officialTeam.tasks[].blocked` true, timeline `error: true`, `lastTest.status` of `fail` | A blockers section. `blocked: false` is not treated as blocked. |
+| `lastTest.status` of `unknown`, `budget.status` of `warn` or `over`, `budget.ratio`, `cacheHit` below 0.2 with a positive token count on the same object, `missing: true` | One suggestion that cites those fields. The 0.2 line is the report's own reference, not a snapshot field, and it is not turned into a savings estimate. |
+
+Sections with nothing to show are omitted. Session ids, local paths, e-mail addresses, prompts, tool arguments and message bodies are left out. Cost is the board's estimate, not a provider invoice.
+
+Exit code 0 means the Markdown was written. Exit code 1 is a read or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks.
+
 ## File-based handoffs from other tools
 
 The existing `team-board/msg.py` can send a handoff to a project inbox without a running board:
