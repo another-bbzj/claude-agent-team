@@ -51,6 +51,8 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 
 深浅色跟随系统。去掉 `--static` 会多一条很慢的细线。名字、部门、用时和已完成任务只在快照里真有这些字段时出现；有未定价模型时，成本标「部分」。本机看板可以用 `--session` 或 `--project` 选会话，规则与 `export_snapshot.py` 相同。快照里已有停滞提醒、作战区或实时事件条数时会写上，没有就不画。不写本机路径、会话 id、邮箱、提示词或工具参数。看板上的「导出战报卡」在浏览器里下载同一张图，不上传。
 
+离线复盘：`python tools/retro_report.py --demo` 把这份合成快照写成 Markdown，只保留已有的时间线、估算成本和阻塞；缺的段落不写，未定价标成部分或未知。
+
 **装进自己的 Claude Code：**
 
 ```bash
