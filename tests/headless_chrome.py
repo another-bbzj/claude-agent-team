@@ -6,9 +6,13 @@ refused for the whole wait. stderr was discarded, which left only
 "chrome debug port not ready".
 
 Chrome is started with ``--remote-debugging-port=0`` and a fresh profile.
-The real port is read from ``<user-data-dir>/DevToolsActivePort`` or from a
-``DevTools listening on ws://...`` line on stderr. Startup is retried once.
-A failure includes the stderr tail.
+On Windows that profile is a short temporary ``--user-data-dir``. Edge
+otherwise keeps the default directory (a long user-temp path, or a path it
+cannot tell apart from the default when LocalAppData is unavailable) and
+refuses remote debugging. The real port is read from ``DevToolsActivePort``
+in the directory that was passed, or from a ``DevTools listening on
+ws://...`` line on stderr. Startup is retried once. A failure includes the
+stderr tail.
 """
 import http.client
 import os
@@ -165,8 +169,10 @@ def launch_headless_chrome(
     """Start headless Chrome and return it once DevTools answers.
 
     Each attempt gets a new profile and ``--remote-debugging-port=0``.
-    The default is one retry. The raised error includes each attempt's
-    stderr tail.
+    On Windows the profile lives in a short temporary directory and
+    ``--user-data-dir`` receives that directory's 8.3 path when the volume
+    has one. The default is one retry. The raised error includes each
+    attempt's stderr tail.
     """
     if not binary:
         raise ChromeLaunchError('chrome binary is missing')
@@ -229,6 +235,106 @@ def _tail(path, limit=STDERR_TAIL_CHARS):
     return text
 
 
+def _get_short_path_name(path):
+    """Return the Windows 8.3 path, or '' when this platform has none."""
+    if os.name != 'nt' or not path:
+        return ''
+    try:
+        import ctypes
+        from ctypes import wintypes
+        get_short = ctypes.windll.kernel32.GetShortPathNameW
+        get_short.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        get_short.restype = wintypes.DWORD
+        buf = ctypes.create_unicode_buffer(32768)
+        needed = get_short(str(path), buf, len(buf))
+    except (AttributeError, OSError, ValueError):
+        return ''
+    if not needed or needed >= len(buf):
+        return ''
+    return buf.value or ''
+
+
+def _windows_temp_candidates():
+    """Short locations first. A long user-temp path is only a fallback.
+
+    ``<SystemDrive>\\Temp`` does not depend on LocalAppData. ``RUNNER_TEMP``
+    is the short directory GitHub Actions already gives the job.
+    """
+    found = []
+    drive = os.environ.get('SystemDrive') or ''
+    if len(drive) == 2 and drive[1] == ':':
+        found.append(drive + '\\Temp')
+    runner = os.environ.get('RUNNER_TEMP') or ''
+    if runner and runner not in found:
+        found.append(runner)
+    for key in ('TEMP', 'TMP'):
+        value = os.environ.get(key) or ''
+        if value and value not in found:
+            found.append(value)
+    try:
+        current = tempfile.gettempdir()
+    except OSError:
+        current = ''
+    if current and current not in found:
+        found.append(current)
+    return found
+
+
+def _writable_dir(path):
+    """True when a temporary child can be created and removed in ``path``."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        if not os.path.isdir(path):
+            return False
+        probe = tempfile.mkdtemp(prefix='hcp', dir=path)
+    except OSError:
+        return False
+    try:
+        os.rmdir(probe)
+    except OSError:
+        shutil.rmtree(probe, ignore_errors=True)
+    return True
+
+
+def _windows_short_temp_base():
+    """A writable temp directory whose path Edge will accept on Windows.
+
+    ``<SystemDrive>\\Temp`` stays short even when 8.3 names are disabled, and
+    it does not sit under LocalAppData. When the volume still has 8.3 names,
+    prefer that spelling of the same directory.
+    """
+    for base in _windows_temp_candidates():
+        if not base or not _writable_dir(base):
+            continue
+        short = _get_short_path_name(base)
+        shortened = short and os.path.normcase(short) != os.path.normcase(base)
+        if shortened and _writable_dir(short):
+            return short
+        return base
+    return tempfile.gettempdir()
+
+
+def _windows_short_path(path):
+    """8.3 spelling of an existing directory, or ``path`` when it has none."""
+    short = _get_short_path_name(path)
+    if short and os.path.isdir(short):
+        return short
+    return path
+
+
+def _make_root(mkdtemp):
+    if os.name != 'nt':
+        return mkdtemp(prefix='headless-chrome-')
+    return mkdtemp(prefix='hc', dir=_windows_short_temp_base())
+
+
+def _user_data_dir_for(profile):
+    """Path passed to ``--user-data-dir``. On Windows this is a short temp path."""
+    if os.name != 'nt':
+        return profile
+    return _windows_short_path(profile)
+
+
 def _chrome_command(binary, profile):
     return [
         binary,
@@ -252,7 +358,9 @@ def _spawn_kwargs():
         'stdout': subprocess.DEVNULL,
     }
     if os.name == 'nt':
-        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        flags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        if flags:
+            kwargs['creationflags'] = flags
     else:
         kwargs['start_new_session'] = True
     return kwargs
@@ -308,9 +416,11 @@ def _kill_processes_using(directory):
             pass
 
 
-def _failure_note(attempt, exc, stderr_path):
+def _failure_note(attempt, exc, stderr_path, user_data_dir=''):
     tail = _tail(stderr_path).strip()
     note = 'attempt %d: %s' % (attempt, exc)
+    if user_data_dir:
+        note = '%s\nuser-data-dir=%s' % (note, user_data_dir)
     if tail:
         note = '%s\n%s' % (note, tail)
     return note
@@ -341,24 +451,29 @@ def _wait_for_port(profile, stderr_path, process, timeout, clock, sleep, ready):
 
 
 def _start_attempt(binary, attempt, timeout, popen, sleep, clock, ready, mkdtemp, terminate):
-    root = mkdtemp(prefix='headless-chrome-')
+    root = _make_root(mkdtemp)
     profile = os.path.join(root, 'profile')
     stderr_path = os.path.join(root, 'stderr.txt')
+    user_data_dir = profile
     process = None
     try:
         os.makedirs(profile)
+        # Edge writes DevToolsActivePort into the directory it actually
+        # received. On Windows that is the short path, which names this same
+        # profile directory.
+        user_data_dir = _user_data_dir_for(profile)
         with open(stderr_path, 'wb') as stderr_handle:
             try:
                 process = popen(
-                    _chrome_command(binary, profile),
+                    _chrome_command(binary, user_data_dir),
                     stderr=stderr_handle,
                     **_spawn_kwargs(),
                 )
             except OSError as exc:
                 raise ChromeLaunchError('failed to spawn: %s' % exc)
-        port = _wait_for_port(profile, stderr_path, process, timeout, clock, sleep, ready)
+        port = _wait_for_port(user_data_dir, stderr_path, process, timeout, clock, sleep, ready)
     except ChromeLaunchError as exc:
-        note = _failure_note(attempt, exc, stderr_path)
+        note = _failure_note(attempt, exc, stderr_path, user_data_dir)
         _discard(root, process, terminate)
         return note
     except Exception:

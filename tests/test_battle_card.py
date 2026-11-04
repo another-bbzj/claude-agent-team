@@ -35,17 +35,27 @@ def _js_svg(snapshot, theme='auto', static=True):
     start = html.index('/* BATTLE_CARD_BEGIN')
     end = html.index('/* BATTLE_CARD_END */') + len('/* BATTLE_CARD_END */')
     script = html[start:end] + '\nmodule.exports = { battleCardSvg };\n'
-    handle = tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8')
-    handle.write(script)
-    handle.close()
+    # Windows CreateProcess rejects a command line longer than 32767 characters
+    # (WinError 206). The demo snapshot crosses that once list2cmdline quotes it,
+    # so the snapshot travels in a file and argv only carries short paths.
+    directory = Path(tempfile.mkdtemp(prefix='battle-card-js-'))
     try:
+        script_path = directory / 'card.js'
+        data_path = directory / 'input.json'
+        script_path.write_text(script, encoding='utf-8')
+        data_path.write_text(json.dumps(
+            {'snapshot': snapshot, 'options': {'theme': theme, 'static': static}},
+            ensure_ascii=False,
+        ), encoding='utf-8')
         proc = subprocess.run(
             [node, '-e',
-             'const m=require(process.argv[1]); process.stdout.write(m.battleCardSvg(JSON.parse(process.argv[2]), JSON.parse(process.argv[3])));',
-             handle.name, json.dumps(snapshot), json.dumps({'theme': theme, 'static': static})],
+             'const fs=require("fs"); const m=require(process.argv[1]);'
+             ' const input=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));'
+             ' process.stdout.write(m.battleCardSvg(input.snapshot, input.options));',
+             str(script_path), str(data_path)],
             capture_output=True, check=False)
     finally:
-        Path(handle.name).unlink()
+        shutil.rmtree(str(directory), ignore_errors=True)
     if proc.returncode != 0:
         raise AssertionError(proc.stderr.decode('utf-8', 'replace'))
     return proc.stdout.decode('utf-8')
@@ -240,6 +250,25 @@ class BattleCardRenderTest(unittest.TestCase):
         expected = battle.build_card(self.snapshot, theme='auto', static=True)
         sample = (ROOT / 'docs' / 'img' / 'battle-card.svg').read_text(encoding='utf-8')
         self.assertEqual(sample, expected)
+
+    def test_js_svg_keeps_the_snapshot_off_the_windows_command_line(self):
+        recorded = []
+        real_run = subprocess.run
+
+        def spy(cmd, **kwargs):
+            recorded.append(list(cmd))
+            return real_run(cmd, **kwargs)
+
+        with mock.patch('subprocess.run', spy):
+            svg = _js_svg(self.demo, 'light', True)
+        self.assertIn('<svg ', svg)
+        self.assertEqual(len(recorded), 1)
+        cmd = recorded[0]
+        # CreateProcess limit is 32767 characters. Stay under it after quoting.
+        self.assertLess(len(subprocess.list2cmdline(cmd)), 32767)
+        blob = '\n'.join(cmd)
+        self.assertNotIn('Draft synthetic notes', blob)
+        self.assertNotIn('合成写手', blob)
 
     def test_browser_svg_matches_python(self):
         partial = json.loads(json.dumps(self.snapshot))
