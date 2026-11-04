@@ -186,6 +186,22 @@ The board button「导出战报卡」builds the same SVG in the browser from the
 
 Exit code 0 means the SVG was written. Exit code 1 is a read, validation or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks. The output path must not be the input file.
 
+## Offline replay
+
+Write one self-contained HTML file from a snapshot. Open that file in a browser. It does not start the board, load a CDN, or call an API. The embedded document is a desensitized copy: member cards, tool-timeline labels, and key messages that were already on the snapshot. Aggregate totals are included only when `export_metrics` accepts the snapshot. Missing sections are omitted.
+
+```sh
+python tools/export_replay.py --demo -o /tmp/replay.html
+python tools/export_replay.py --input examples/board-demo.synthetic.json -o replay.html
+python tools/export_replay.py --port 7788 --session sess-0001 -o replay.html
+```
+
+`--demo` reads [`examples/board-demo.synthetic.json`](../examples/board-demo.synthetic.json). `--session` and `--project` are the same selectors as [aggregate export](#export-aggregate-metrics): they require `--port` and cannot filter an offline file. The page replays the sanitized timeline with a play control. It does not upload the file.
+
+Absolute home paths, e-mail addresses, API-key-like strings, session ids, prompts, and tool arguments are removed before the file is written. Message text and tool labels that remain are clipped. Read the file before sharing a replay of a real session. The synthetic demo is the happy path; it is not a usage benchmark.
+
+Exit code 0 means the HTML was written. Exit code 1 is a read or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks. The output path must not be the input file.
+
 ## Team retrospective
 
 Write a Markdown retrospective from the synthetic demo snapshot, an offline file, or a board that is already running:

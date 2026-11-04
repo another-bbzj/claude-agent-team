@@ -358,6 +358,7 @@ As of this guide’s revision, `tests/test_*.py` defines **391** functions whose
 | `tools/demo_board.py` | Read-only synthetic board |
 | `tools/export_snapshot.py` | Allowlisted aggregate export |
 | `tools/battle_card.py` | SVG battle card from a snapshot or the loopback board |
+| `tools/export_replay.py` | One offline HTML replay with an embedded desensitized snapshot |
 | `tools/retro_report.py` | Markdown retrospective from a snapshot, `--demo`, or the loopback board |
 | `tools/codex_metrics.py` | Offline Codex exec JSONL summary |
 | `tools/make_dist_hashes.py` | Writes `dist-hashes.json` |

@@ -48,6 +48,14 @@ python tools/battle_card.py --input examples/snapshot.synthetic.json --static
 
 `auto` follows the system theme. Drop `--static` for a slow dash. Names, departments, elapsed time and completed tasks appear only when the snapshot has those fields. Unpriced models are marked 部分. `--session` or `--project` selects a live board session the same way `export_snapshot.py` does. A stall-alert count, theater count, or retained live-hook count is drawn only when that field is already on the snapshot. Paths, session ids, e-mail addresses, prompts and tool arguments are left out. The board button「导出战报卡」downloads the same SVG in the browser and does not upload it.
 
+The same snapshot can also become one offline HTML replay. Open the file directly. It does not start the board or load a remote script. The embedded copy keeps member cards, tool labels and key messages after redaction. Aggregate totals appear only when the snapshot already has a totals block `export_metrics` accepts.
+
+```sh
+python tools/export_replay.py --demo -o replay.html
+```
+
+The demo reads `examples/board-demo.synthetic.json`. Read a real-session file before sharing it. See [INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
 `python tools/retro_report.py --demo` writes a Markdown retrospective from the synthetic demo snapshot. It keeps only timestamps, estimated cost and blockers that are already present, and marks a missing price 部分 or 未知.
 
 **Install into your Claude Code setup:**

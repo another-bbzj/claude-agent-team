@@ -8,6 +8,7 @@
 
 ### 新增
 
+- `tools/export_replay.py` 把一份快照收成单个 HTML 回放文件。浏览器直接打开，不启动看板，也不加载外部脚本。文件里嵌的是脱敏后的成员、动作和关键消息；本机路径、邮箱、密钥、会话标识和提示词会去掉。聚合数字只走 `export_metrics`，快照里没有的不计。`--demo` 使用 `examples/board-demo.synthetic.json`。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。
 - 装了实时钩子之后，同一次工具调用在动作流里只留一条。钩子先到就先显示，转录稍后写盘时并进这一条，时间留在更早的那次，不另加一张卡，也不把估算成本再算一遍。对账键优先是 `session_id + tool_use_id`；没有 id 时用工具名、5 秒窗口和入参指纹。没装钩子时仍只读转录。说明见 [docs/HOOKS.md](docs/HOOKS.md)。
 - `tools/retro_report.py` 把离线快照、`--demo` 或本机看板写成一份 Markdown 复盘。时间线只用已有的开始、最后活动和结束时间；用时只在开始和结束都在时出现。成本和 token 按成员、部门抄快照原字段，不把行加总。价格是 null 标「未知」，同一对象的 `unpriced` 大于 0 时，数字成本标「部分」。停滞、出错、阻塞任务和已解析的测试失败会写出来；没有这些字段的段落整段不出现。缓存建议只在 `cacheHit` 低于报告自己的 0.2 参考线、且同一处 token 数大于 0 时出现，不估算能省多少钱。不写会话 id、本机路径、邮箱、提示词或工具参数。
 - 成本排行下面多一块「缓存诊断」。成员或队长的 prompt cache 命中率低于 `team.json` 里 `cacheAdvice.hitRatio`（默认 0.5），并且转录里有足够的请求记录时，才写出原因：缓存写入远多于读取且前缀被反复重建、相邻请求间隔超过 TTL（默认 300 秒）、系统提示指纹或工具列表在会话中途变化、模型来回切换、多个子代理各自只有一轮冷启动。每条带上 token 数，并用价格表估算可省的差价，句子里标明是估算、不是账单。时间戳、系统提示或工具列表在转录里没有时，对应那条不写。`cacheAdvice` 设为 `false` 就关掉。更新安装会保留你改过的整段。只读演示用合成请求至少展示两条。
@@ -15,7 +16,7 @@
 - `tools/battle_card.py` 把离线快照或本机看板画成一张 SVG 战报卡，可放进 README。只画快照里已有的成员、部门、用时、token、缓存命中、估算成本和已完成任务；未定价标「部分」，缺的字段不补。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。快照里已有 `stallAlerts`、`theaters` 或 `live.retained` 时，卡片写出停滞提醒人数、作战区个数或实时事件条数，没有就不画。`budget.enabled` 且 `budget.ratio` 是非负有限数时，另画一条预算使用率，可以超过 100%，名字和建议不写上。不写本机路径、会话 id、邮箱、提示词或工具参数。看板顶栏「导出战报卡」在浏览器里下载同一张图，不上传。样例是 `docs/img/battle-card.svg`。
 - 可为一次会话设置估算成本预算（`team.json` 的 `budget`，或 `team_board.py` 的 `--budget` / `--budget-warn` / `--budget-member` / `--budget-dept`）。默认 80% 变黄，达到上限变红；写出花得最多的人，并按角色档位给出降档句子。未定价模型标成「成本为下限」，不补金额。不设预算时这块不出现。更新安装会保留你写过的整段 `budget`。设了会话上限时，Prometheus 文本多一个 `claude_agent_team_budget_utilization_ratio{scope="session"}`（已计价花费除以上限，可以大于 1）；没设上限时不出现。JSON 导出仍是 schemaVersion 1。
 - 同一 git 仓库在不同 worktree 里的多路会话收成一个作战区，每路显示自己的分支。任务条下方可以点分支切换。说明在 `docs/WORKTREES.md`。
-- 可选实时钩子：`python install.py --hooks` 在不覆盖已有 hooks 的前提下合并 `PreToolUse`、`PostToolUse`、`SubagentStop`、`Notification`、`Stop`。`hook_relay.py` 只把会话 id、事件名、工具名、`tool_use_id`、成员标识和时间 POST 到 `127.0.0.1`。看板没开时脚本退出码 0、没有输出。事件只留在内存里，并和转录动作流去重（规则见本段第一条）。说明见 [docs/HOOKS.md](docs/HOOKS.md)。不加 `--hooks` 时安装行为不变；`--uninstall` 会把这些钩子和 SessionStart 一起卸掉。
+- 可选实时钩子：`python install.py --hooks` 在不覆盖已有 hooks 的前提下合并 `PreToolUse`、`PostToolUse`、`SubagentStop`、`Notification`、`Stop`。`hook_relay.py` 只把会话 id、事件名、工具名、`tool_use_id`、成员标识和时间 POST 到 `127.0.0.1`。看板没开时脚本退出码 0、没有输出。事件只留在内存里，并和转录动作流去重（规则见本段第二条）。说明见 [docs/HOOKS.md](docs/HOOKS.md)。不加 `--hooks` 时安装行为不变；`--uninstall` 会把这些钩子和 SessionStart 一起卸掉。
 - 成员空闲、停滞或出错超过阈值（默认 10 分钟）时，顶栏、标签标题和图标出现可关闭的提醒。安静模式默认关闭；桌面通知只在你点「桌面通知」之后才向浏览器要权限。进行中和已完成的成员不提醒，没有活动时间的也不提醒。只读演示里的「演示文档」停了 15 分钟，打开就能看到这一条。Esc 先关详情和成员抽屉、再取消钉住的任务高亮，最后才收起这条提醒。
 - 悬停、聚焦或打开官方任务详情时，看板用弧线连出当前筛选后仍在三列里的依赖。被滤掉的对端不画线。前置任务还没完成时用强调色，已经完成的更淡；空闲时不画。点弧线或端点打开那张卡的只读详情，不改变钉住。
 
