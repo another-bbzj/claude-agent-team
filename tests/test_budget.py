@@ -394,7 +394,7 @@ class DemoBudgetTest(unittest.TestCase):
         docs = next(item for item in alert['budget']['suggestions'] if item['agentType'] == 'docs-writer')
         self.assertEqual(docs['recommended'], 'haiku')
         self.assertIn('设为 haiku', docs['action'])
-        self.assertEqual(alert['budget']['topSpender']['name'], '演示文档')
+        self.assertEqual(alert['budget']['topSpender']['name'], '演示前端')
 
     def test_demo_http_budget_query_is_opt_in(self):
         spec = importlib.util.spec_from_file_location('demo_budget_http', ROOT / 'tools' / 'demo_board.py')

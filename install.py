@@ -8,7 +8,7 @@
     python ~/.claude/team-board/update.py   # 之后检查 / 一键更新（看板顶栏也有按钮）
 
 重复运行 = 更新，不丢你的东西：
-  · team.json 合并：你自建的部门 / 成员 / 形象 / 价格 / 预算 / 换过的形象都保留，只补新默认项
+  · team.json 合并：你自建的部门 / 成员 / 形象 / 价格 / 预算 / 缓存诊断阈值 / 换过的形象都保留，只补新默认项
   · 你改过的成员 .md / 技能文件不覆盖（新版本另存为 *.new 供比较）；没改过的直接更新
   · sprites/ 里导入的形象一律保留
 
@@ -106,7 +106,7 @@ def copy_tree(src: Path, dst: Path, manifest: dict, new_manifest: dict, key: str
 
 
 def merge_team_json(src: Path, dst: Path, manifest: dict, new_manifest: dict):
-    """team.json：新默认值打底，用户的部门 / 成员 / 形象 / 价格 / 预算改动盖上去。"""
+    """team.json：新默认值打底，用户的部门 / 成员 / 形象 / 价格 / 预算 / 缓存诊断改动盖上去。"""
     new = json.loads(src.read_text(encoding='utf-8'))
     if not dst.exists():
         shutil.copy2(src, dst)
@@ -139,6 +139,9 @@ def merge_team_json(src: Path, dst: Path, manifest: dict, new_manifest: dict):
     # 预算不是随仓库下发的默认项。用户写过的整段原样保留；没写过的不会凭空多出一块。
     if 'budget' in old:
         out['budget'] = old['budget']
+    # 缓存诊断随仓库有默认阈值。用户改过整段就保留，没写过的用新默认。
+    if 'cacheAdvice' in old:
+        out['cacheAdvice'] = old['cacheAdvice']
     dst.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     new_manifest['team-board/team.json'] = sha(dst)
 
