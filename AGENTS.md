@@ -1,6 +1,6 @@
 # Contributor instructions
 
-This repository provides a local team board for Claude Code transcripts. The separate `tools/codex_metrics.py` summarizes explicitly supplied Codex exec JSONL logs offline. Full interactive Codex session ingestion into the board remains planned.
+This repository provides a local team board for Claude Code and Codex rollout transcripts. `team-board/codex_sessions.py` reads interactive Codex logs; the separate `tools/codex_metrics.py` summarizes explicitly supplied Codex exec JSONL logs offline. Read-only transcript ingestion does not provide chat injection or a Codex configuration editor.
 
 ## Source map
 

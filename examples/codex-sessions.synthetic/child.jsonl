@@ -1,0 +1,6 @@
+{"timestamp":"2026-01-01T00:00:04Z","type":"session_meta","payload":{"id":"codex-demo-child","cwd":"demo-project","source":{"subagent":{"thread_spawn":{"parent_thread_id":"codex-demo-root","depth":1,"agent_nickname":"Demo builder","agent_role":"backend-dev","agent_path":"/demo/builder"}}}}}
+{"timestamp":"2026-01-01T00:00:05Z","type":"turn_context","payload":{"model":"gpt-demo-build"}}
+{"timestamp":"2026-01-01T00:00:06Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"CommandExecution","id":"command-demo","command":["python","--version"],"status":"completed","exit_code":0,"aggregated_output":"Synthetic tool result."}}}
+{"timestamp":"2026-01-01T00:00:07Z","type":"token_usage_record","payload":{"thread_token_usage":{"input_tokens":40,"cached_input_tokens":10,"output_tokens":5}}}
+{"timestamp":"2026-01-01T00:00:08Z","type":"event_msg","payload":{"type":"agent_message","message":"The synthetic build check passed."}}
+{"timestamp":"2026-01-01T00:00:09Z","type":"event_msg","payload":{"type":"task_complete"}}

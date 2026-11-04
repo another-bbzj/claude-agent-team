@@ -83,6 +83,7 @@ The overview still is the stage and departments. The read-only official task row
 | How the pieces connect | [Runtime](docs/GUIDE.en.md#arch) |
 | Panels, drawer, themes, backdrop | [Guide · interface](docs/GUIDE.en.md#ui) |
 | One team task, end to end | [First run](docs/GUIDE.en.md#first-run) |
+| Generate owned tickets, inboxes and dependency waves from JSON | [Offline workspace helper](docs/WORKSPACE.md) |
 | How agents message each other | [Message bus](docs/GUIDE.en.md#msg) |
 | Departments, models, pets | [Members](docs/GUIDE.en.md#members) · [Artwork](docs/GUIDE.en.md#pets) |
 | Third-party gateways and prices | [Providers](docs/GUIDE.en.md#providers) |
@@ -92,7 +93,7 @@ The overview still is the stage and departments. The read-only official task row
 | Optional live hooks | [Hooks](docs/HOOKS.md) |
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
-The live board parses **Claude Code** sessions. [tools/codex_metrics.py](docs/CODEX_METRICS.md) summarizes an explicit `codex exec --json` log offline. It does not ingest interactive Codex sessions; that remains [planned](docs/ROADMAP.md). Using Codex to maintain this repository, and importing pets from a local Codex install, are separate.
+The board discovers **Claude Code and Codex** sessions. Switch provider in the header to see measured models, members, tools and read-only conversation. See [Codex sessions](docs/CODEX_SESSIONS.md) and [wallpaper import](docs/WALLPAPER_IMPORT.md). The existing [exec metrics tool](docs/CODEX_METRICS.md) remains a separate offline adapter.
 
 ## Release notes and questions
 

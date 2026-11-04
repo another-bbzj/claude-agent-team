@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 PNG_1PX = b'\x89PNG\r\n\x1a\n' + (13).to_bytes(4, 'big') + b'IHDR' + (2).to_bytes(4, 'big') + (2).to_bytes(4, 'big') + bytes(5) + bytes(4)
@@ -236,6 +237,48 @@ class HttpTest(unittest.TestCase):
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read())
+
+    def test_first_load_never_publishes_an_incomplete_wallpaper_module(self):
+        saved, started, release = self.tb._wp_mod, threading.Event(), threading.Event()
+        factory = importlib.util.spec_from_file_location
+        results, errors = [], []
+
+        def slow_spec(*args, **kwargs):
+            spec = factory(*args, **kwargs)
+            execute = spec.loader.exec_module
+
+            def slow_execute(module):
+                started.set()
+                if not release.wait(5):
+                    raise TimeoutError('test did not release the import')
+                execute(module)
+
+            spec.loader.exec_module = slow_execute
+            return spec
+
+        def load():
+            try:
+                results.append(self.tb._wp())
+            except Exception as error:
+                errors.append(error)
+
+        self.tb._wp_mod = None
+        worker = threading.Thread(target=load)
+        try:
+            with mock.patch.object(importlib.util, 'spec_from_file_location', side_effect=slow_spec):
+                worker.start()
+                self.assertTrue(started.wait(3))
+                observed = self.tb._wp_mod
+                release.set()
+                worker.join(timeout=5)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(errors, [])
+            self.assertIsNone(observed, 'concurrent requests could see a half-imported module')
+            self.assertTrue(callable(results[0].list_wallpapers))
+        finally:
+            release.set()
+            worker.join(timeout=5)
+            self.tb._wp_mod = saved
 
     def test_list_wallpapers_around_expected_count(self):
         st, out = self.get_json('/api/wallpapers')

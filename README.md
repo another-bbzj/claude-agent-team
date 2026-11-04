@@ -15,6 +15,7 @@
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-green)
+[![XERJ Corpus Hub](https://img.shields.io/badge/XERJ_Corpus_Hub-indexed-7C3AED)](https://hub.xerj.org/contributors/another-bbzj)
 
 [30 秒开始](#start) · [为什么](#why) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
 
@@ -94,6 +95,7 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 看运行时怎么接在一起 | [运行时结构](docs/GUIDE.md#arch) |
 | 看懂顶栏、舞台、通讯、抽屉、外观 | [界面](docs/GUIDE.md#ui) |
 | 走完一次团队任务 | [第一次使用](docs/GUIDE.md#first-run) |
+| 从 JSON 计划生成工单、收件箱与依赖波次 | [离线工作区生成器](docs/WORKSPACE.md) |
 | 看成员怎么互相发消息 | [消息总线](docs/GUIDE.md#msg) |
 | 加部门、换模型、换桌宠 | [成员](docs/GUIDE.md#members) · [形象](docs/GUIDE.md#pets) |
 | 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
@@ -104,7 +106,9 @@ Claude Code 自己会派子代理。派出去之后，谁在调用什么工具�
 | 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
 | 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
 
-看板当前解析的是 **Claude Code** 会话。`tools/codex_metrics.py` 只离线汇总你指定的 `codex exec --json` 日志，不把 Codex 交互会话画进看板。交互会话的适配还在 [路线图](docs/ROADMAP.md) 里。
+看板现在可同时发现 **Claude Code 和 Codex** 会话，在顶栏切换来源，查看实际模型、成员、工具活动和只读对话。见 [Codex 会话适配](docs/CODEX_SESSIONS.md)。原有 `tools/codex_metrics.py` 仍是独立的离线 exec 指标工具。
+
+外观设置支持导入图片、MP4/WebM 视频和 Wallpaper Engine 工程目录，见 [壁纸导入](docs/WALLPAPER_IMPORT.md)。
 
 ## 参与
 

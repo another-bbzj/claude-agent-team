@@ -794,6 +794,26 @@
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 
+  /* 会话来源与只读对话：长模型名、消息和路径都在自己的列内换行。 */
+  #source-filter { flex: 0 1 132px; min-width: 110px; }
+  #session-select { min-width: 0; max-width: min(430px, 100%); }
+  .conversation-panel { min-width: 0; }
+  #hook-live[data-state="wait"] { display: none; }
+  .conversation-note { color: var(--text-3); font-size: 12px; margin: 0 0 12px; }
+  .conversation-list { height: min(42vh, 360px); min-height: 180px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; border: 1px solid var(--line); padding: 12px; }
+  .conversation-message { max-width: 92%; margin: 0 0 12px; padding: 10px 12px; background: var(--card); border-left: 2px solid var(--brand); }
+  .conversation-message.user { margin-left: auto; border-left-color: var(--gold); }
+  .conversation-message .who { display: flex; gap: 8px; color: var(--text-2); font-size: 11px; flex-wrap: wrap; }
+  .conversation-message .text { color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: 13px; line-height: 1.7; margin-top: 5px; }
+  .person .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  #look-modal .modal-card { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); overflow: hidden; }
+  #look-modal .modal-head { flex: none; }
+  #look-modal .lk-body { min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  .lk-footer { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--line); flex: none; background: var(--bg-2); }
+  .lk-footer #lk-msg { flex: 1; overflow-wrap: anywhere; font-size: 12px; min-width: 0; }
+  #lk-path { min-width: 0; flex: 1 1 150px; }
+  @media (max-width: 520px) { #session-select { flex-basis: 100%; width: 100%; } .conversation-message { max-width: 100%; } .conversation-list { padding: 8px; } #look-modal .lk-preview { height: 110px; max-height: 110px; } #look-modal .modal-card { width: 100% !important; max-height: calc(100dvh - 24px); } #look-modal { padding: 12px; } }
+
   /* ---------- 响应式 ---------- */
   @media (max-width: 900px) {
     header { padding: 8px 12px; }
@@ -834,6 +854,106 @@
     .ring, .zz, .live, .hook-live .live-dot, .spin, .wire.active, .bar > i, .mail, .rel.hot, section.stage::after, .badge.busy, .pv-sprite, #stall-badge, .stall-panel { animation: none !important; }
     #bd-img, .stall-panel, #stall-badge { transition: none; }
   }
+  /* ---------- v1.5.0 交互质感：内层擦入 / 波纹 / 触碰闪烁 / 指针高光 / 展开 ---------- */
+  /* 1) 内层擦入：伪元素在盒子内部（z-index:-1，位于按钮自身背景之上、文字之下）从左侧擦入 */
+  .pill, .mini-btn, .send-btn, .theme button, .seg button, .chan .filters button { position: relative; z-index: 0; }
+  .pill::after, .mini-btn::after, .send-btn::after, .theme button::after, .seg button::after, .chan .filters button::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: var(--gold); clip-path: inset(0 100% 0 0); transition: clip-path .22s var(--ease); }
+  .mini-btn::after { background: var(--c); }
+  .send-btn::after { background: color-mix(in srgb, var(--gold) 55%, #fff 45%); }
+  .theme button::after, .seg button::after, .chan .filters button::after { background: var(--plate); }
+  .pill.brand::after { background: var(--brand); } .pill.gold::after { background: var(--gold); } .pill.ok::after { background: var(--ok); }
+  .pill.warn::after { background: var(--warn); } .pill.err::after { background: var(--err); } .pill.info::after { background: var(--info); }
+  .pill.peer::after { background: var(--peer); } .pill.hand::after { background: var(--hand); } .pill.bus::after { background: var(--bus); }
+  @media (hover: hover) and (pointer: fine) {
+    .pill:hover::after, .mini-btn:hover::after, .send-btn:hover::after, .theme button:hover::after, .seg button:hover::after, .chan .filters button:hover::after { clip-path: inset(0 91% 0 0); }
+  }
+  .pill:active::after, .mini-btn:active::after, .send-btn:active::after, .theme button:active::after, .seg button:active::after, .chan .filters button:active::after,
+  .theme button.on::after, .seg button.on::after, .chan .filters button.on::after, .pill.on::after, .pill[aria-pressed="true"]::after { clip-path: inset(0 0 0 0); }
+  .pill:active, .pill.on, .pill[aria-pressed="true"], .mini-btn:active { color: var(--on-accent); }
+  .theme button:active, .theme button.on, .seg button:active, .seg button.on, .chan .filters button:active, .chan .filters button.on { color: var(--plate-text); }
+  .we-item.sel { transition: outline-color .18s; }
+
+  /* 2) 波纹：全局事件委托生成，用完即删；受父级 clip-path 天然裁切，不溢出斜切角 */
+  .rpl-host { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+  .rpl-fill, .rpl-ring { position: absolute; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); transform: translate(-50%, -50%) scale(0); opacity: .5; }
+  .rpl-fill { animation: rplFill .55s ease-out both; }
+  .rpl-ring { border: 1px solid; background: none; opacity: .8; animation: rplRing .68s ease-out .03s both; }
+  @keyframes rplFill { 0% { transform: translate(-50%, -50%) scale(0); opacity: .48; } 65% { opacity: .22; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+  @keyframes rplRing { 0% { transform: translate(-50%, -50%) scale(0); opacity: .75; } 100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0; } }
+  .rm-tap { background: var(--gold-soft) !important; }
+
+  /* 3) 触碰闪烁 + 边角括号 + 扫光 + 跟随指针高光：延迟注入的 .fx 容器，仅细指针设备生效 */
+  @media (hover: hover) and (pointer: fine) {
+    .fx-host { position: relative; }
+    .fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; opacity: 0; transition: opacity .12s; }
+    .fx-host:hover .fx, .fx-host:focus-visible .fx { opacity: 1; }
+    .fx-glow { position: absolute; inset: -30%; opacity: 0; transition: opacity .18s;
+      background: radial-gradient(120px 120px at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%); }
+    .fx-host:hover .fx-glow { opacity: 1; }
+    .fx-corner { position: absolute; width: 9px; height: 9px; border: 1.5px solid var(--gold); opacity: 0; transition: opacity .15s, transform .22s var(--ease); }
+    .fx-corner.tl { left: 2px; top: 2px; border-right: 0; border-bottom: 0; transform: translate(2px, 2px); }
+    .fx-corner.br { right: 2px; bottom: 2px; border-left: 0; border-top: 0; transform: translate(-2px, -2px); }
+    .fx-host:hover .fx-corner { opacity: .95; }
+    .fx-host:hover .fx-corner.tl { transform: translate(-1px, -1px); }
+    .fx-host:hover .fx-corner.br { transform: translate(1px, 1px); }
+    .fx-sweep { position: absolute; top: -20%; bottom: -20%; left: -60%; width: 34%; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--gold) 35%, transparent), transparent); transform: skewX(-18deg); opacity: 0; }
+    .fx-host.swept .fx-sweep { animation: fxSweep .5s ease-out; }
+    @keyframes fxSweep { 0% { left: -60%; opacity: .9; } 70% { opacity: .5; } 100% { left: 130%; opacity: 0; } }
+    .fx-host.flick { animation: fxFlicker .12s steps(1, end) 1; }
+    @keyframes fxFlicker { 0% { filter: brightness(1); } 25% { filter: brightness(1.35); } 50% { filter: brightness(.85); } 75% { filter: brightness(1.2); } 100% { filter: brightness(1); } }
+  }
+
+  /* 4) 弹窗 / 抽屉：从触发点展开；内容错峰淡入 */
+  .modal-card.pop-pt { animation: none; clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); }
+  .modal-card.pop-pt.pop-go { animation: cardExpand .34s var(--ease) both; }
+  .modal-card.pop-close { animation: cardCollapse .2s var(--ease) both; }
+  @keyframes cardExpand { from { clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); opacity: .5; } to { clip-path: circle(var(--er, 140%) at var(--ex, 50%) var(--ey, 50%)); opacity: 1; } }
+  @keyframes cardCollapse { from { clip-path: circle(var(--er, 140%) at var(--ex, 50%) var(--ey, 50%)); opacity: 1; } to { clip-path: circle(0px at var(--ex, 50%) var(--ey, 50%)); opacity: .35; } }
+  .modal-card.pop-go .modal-head { animation: fxFadeUp .3s var(--ease) .05s both; }
+  .modal-card.pop-go > form, .modal-card.pop-go > .dm-list, .modal-card.pop-go > .lk-body, .modal-card.pop-go > .pm-body { animation: fxFadeUp .3s var(--ease) .09s both; }
+  .modal-card.pop-go .am-foot, .modal-card.pop-go .pm-foot { animation: fxFadeUp .28s var(--ease) .14s both; }
+  @keyframes fxFadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .drawer.expand-go { animation: drawerExpand .38s var(--ease) both; }
+  /* 半径由 JS 按"离抽屉最远的那个角"实算成 px 传进来（--dr）。原来写死的 150% 不够：
+     触发点是舞台上的人物，往往在抽屉左边好几百 px，圆够不到抽屉右缘；又因为 animation 是 both，
+     收尾还把这个圆一直留在元素上，于是抽屉右侧被一道圆弧永久裁掉一块。 */
+  @keyframes drawerExpand { from { clip-path: circle(0px at var(--ex, 100%) var(--ey, 50%)); } to { clip-path: circle(var(--dr, 150%) at var(--ex, 100%) var(--ey, 50%)); } }
+  .drawer.expand-go .head { animation: fxFadeUp .28s var(--ease) .04s both; }
+  .drawer.expand-go .body { animation: fxFadeUp .3s var(--ease) .08s both; }
+
+  /* 5) 成员卡「锁定」反馈：JS 注入的四角括号 + 扫描线，播放一次后自动移除 */
+  .lock-fx { position: absolute; inset: -8px; pointer-events: none; z-index: 6; }
+  .lock-fx i { position: absolute; width: 10px; height: 10px; border: 1.5px solid var(--gold); opacity: 0; animation: lockTighten .3s var(--ease) both; }
+  .lock-fx i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; transform: translate(-6px, -6px); }
+  .lock-fx i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; transform: translate(6px, -6px); }
+  .lock-fx i:nth-child(3) { right: 0; bottom: 0; border-left: 0; border-top: 0; transform: translate(6px, 6px); }
+  .lock-fx i:nth-child(4) { left: 0; bottom: 0; border-right: 0; border-top: 0; transform: translate(-6px, 6px); }
+  .lock-fx .scan { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); animation: lockScan .32s linear both; }
+  @keyframes lockTighten { from { opacity: 0; transform: translate(0, 0) scale(1.3); } to { opacity: 1; transform: translate(var(--tx, 0), var(--ty, 0)) scale(1); } }
+  .lock-fx i:nth-child(1) { animation-name: lockTighten1; } .lock-fx i:nth-child(2) { animation-name: lockTighten2; }
+  .lock-fx i:nth-child(3) { animation-name: lockTighten3; } .lock-fx i:nth-child(4) { animation-name: lockTighten4; }
+  @keyframes lockTighten1 { from { opacity: 0; transform: translate(-14px, -14px); } to { opacity: 1; transform: translate(-6px, -6px); } }
+  @keyframes lockTighten2 { from { opacity: 0; transform: translate(14px, -14px); } to { opacity: 1; transform: translate(6px, -6px); } }
+  @keyframes lockTighten3 { from { opacity: 0; transform: translate(14px, 14px); } to { opacity: 1; transform: translate(6px, 6px); } }
+  @keyframes lockTighten4 { from { opacity: 0; transform: translate(-14px, 14px); } to { opacity: 1; transform: translate(-6px, 6px); } }
+  @keyframes lockScan { 0% { top: 0; opacity: 0; } 15% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+  @media (pointer: coarse) {
+    .fx, .fx-host .fx { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pill::after, .mini-btn::after, .send-btn::after, .theme button::after, .seg button::after, .chan .filters button::after { transition: none; }
+    .rpl-fill, .rpl-ring { display: none; }
+    .fx, .fx-sweep, .fx-corner, .fx-glow { display: none !important; }
+    .modal-card.pop-pt, .modal-card.pop-go, .modal-card.pop-close, .drawer.expand-go { animation: none !important; clip-path: none !important; }
+    .modal-card.pop-go .modal-head, .modal-card.pop-go > form, .modal-card.pop-go > .dm-list, .modal-card.pop-go > .lk-body, .modal-card.pop-go > .pm-body, .modal-card.pop-go .am-foot, .modal-card.pop-go .pm-foot,
+    .drawer.expand-go .head, .drawer.expand-go .body { animation: none !important; opacity: 1 !important; transform: none !important; }
+    .person.locking .avatar-wrap::after, .person.locking .avatar-wrap::before { animation: none !important; }
+  }
+
+
 </style>
 </head>
 <body>
@@ -870,13 +990,12 @@
     <div class="tt"><span class="en">Rhodes Island · Team Ops</span><h1><span class="live" id="live"></span>Agent Team 指挥室</h1></div>
   </div>
   <span class="pill brand" id="phase">组队中</span>
-  <button type="button" class="pill warn" id="stall-badge" hidden aria-controls="stall-panel" aria-expanded="false" title="空闲、停滞或出错超过阈值的成员。点开可逐条忽略。">停滞 0</button>
   <div class="stats" id="stats"></div>
   <span class="spacer"></span>
   <div class="hdr-tools">
-    <span class="pill mono" id="session-pill">—</span>
-    <select id="session-select" title="选择要观察的会话"></select>
-    <button class="pill" id="btn-battle-card" type="button" title="用当前快照在本机生成 SVG 战报卡并下载，不上传">导出战报卡</button>
+    <button type="button" class="pill mono" id="session-pill" title="查看会话对话与切换来源" aria-haspopup="dialog">—</button>
+
+    <select id="session-select" aria-label="观察会话" title="选择要观察的会话"></select>
     <button class="pill" id="look-btn" title="外观：背景板立绘、透明度、位置">⚙ 外观</button>
     <div class="quick-op" id="bdq" hidden>
       <button class="pill" id="bdq-btn" type="button" title="随手调整背景 / 面板透明度" aria-haspopup="true" aria-expanded="false">◐ 透明度</button>
@@ -949,6 +1068,8 @@
     </div>
   </section>
 
+
+
   <div class="lower">
     <section class="panel chan" id="chan">
       <h2><span class="no">04</span>通讯频道<span class="en">Comms</span><span class="count" id="comms-count"></span></h2>
@@ -957,6 +1078,7 @@
       <form class="composer" id="composer" autocomplete="off">
         <div class="to-row"><span class="en">To</span><select id="comms-to" title="收件人"></select><span class="hint"><kbd>Enter</kbd> 发送 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 换行 · <kbd>/</kbd> 聚焦</span></div>
         <div class="in-row"><textarea id="comms-input" rows="1" maxlength="4000" placeholder="给队长 / 成员 / 全员发消息…"></textarea><button type="submit" class="send-btn" id="comms-send">发送</button></div>
+        <p id="composer-note" class="conversation-note" aria-live="polite"></p>
       </form>
     </section>
     <section class="panel">
@@ -969,10 +1091,23 @@
     </section>
     <section class="panel" style="grid-column: 1 / -1; min-height: 0">
       <h2><span class="no">07</span>常驻部门成员<span class="en">Roster · ~/.claude/agents</span><button class="mini-btn" id="agent-new">＋ 新建成员</button><button class="mini-btn ghost" id="dept-manage">⚙ 部门管理</button><span class="count" id="roster-count"></span></h2>
+      <p id="roster-note" class="conversation-note">以下配置来自 ~/.claude/agents，只修改 Claude 成员配置。</p>
       <div class="roster" id="roster"></div>
     </section>
   </div>
 </main>
+
+
+<div class="modal" id="conversation-modal" role="dialog" aria-modal="true" aria-labelledby="conversation-heading" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><span>会话对话</span><select id="source-filter" aria-label="会话来源" title="筛选会话来源"><option value="all">全部来源</option><option value="claude">Claude Code</option><option value="codex">Codex</option></select><button class="pill" id="btn-battle-card" type="button" title="用当前快照在本机生成 SVG 战报卡并下载，不上传">导出战报卡</button><button type="button" class="pill warn" id="stall-badge" hidden aria-controls="stall-panel" aria-expanded="false" title="空闲、停滞或出错超过阈值的成员。点开可逐条忽略。">停滞 0</button><button type="button" class="close" id="conversation-close" aria-label="关闭">✕</button></div>
+  <section class="panel conversation-panel" aria-labelledby="conversation-heading">
+    <h2 id="conversation-heading"><span class="no">CHAT</span>会话对话<span class="en">Conversation</span><span class="pill" id="conversation-source">Claude Code</span><span class="count" id="conversation-count"></span></h2>
+    <p class="conversation-note">当前所选会话最近的用户与助手消息；工具活动在下方动作流中。这里只读，不会向代理发送消息。</p>
+    <div id="conversation-list" class="conversation-list" role="region" tabindex="0" aria-label="当前会话对话"></div>
+  </section>
+  </div>
+</div>
 
 <div class="modal" id="agent-modal" hidden>
   <div class="modal-card">
@@ -1048,8 +1183,8 @@
           <div class="lk-note" style="border:0;padding:0">适合 WE 的 3D 场景壁纸：在 WE 里把它设为桌面后再点这里，拿到的是当前桌面的高清截图。</div>
         </div>
         <div class="lk-src-pane" id="lk-pane-upload" hidden>
-          <div class="lk-row"><span class="cn">上传</span><button type="button" class="mini-btn" id="lk-pick">选择图片…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg,image/gif" hidden><small style="color:var(--text-3)">png / webp / jpg / gif · ≤ 15 MB · 也可拖进来</small></div>
-          <div class="lk-row"><span class="cn">本机路径</span><input class="field" id="lk-path" placeholder="C:\Users\你\Pictures\bg.png"><button type="button" class="mini-btn" id="lk-path-go">导入</button></div>
+          <div class="lk-row"><span class="cn">上传</span><button type="button" class="mini-btn" id="lk-pick">选择图片 / 视频…</button><input type="file" id="lk-file" accept="image/png,image/webp,image/jpeg,image/gif,video/mp4,video/webm,.mp4,.webm" hidden><small style="color:var(--text-3)">图片 ≤ 15 MB · MP4 / WebM ≤ 50 MB · 也可拖入</small></div>
+          <div class="lk-row"><span class="cn">本机路径</span><input class="field" id="lk-path" aria-label="本机媒体文件或 Wallpaper Engine 工程目录" placeholder="本机图片、MP4 / WebM 或 Wallpaper Engine 工程目录"><button type="button" class="mini-btn" id="lk-path-go">导入</button></div>
         </div>
         <div class="lk-hr"></div>
         <div class="lk-row"><span class="cn">适配</span><span class="seg" id="lk-fit"><button type="button" data-fit="contain" class="on">完整显示</button><button type="button" data-fit="cover">铺满裁切</button><button type="button" data-fit="custom">自由摆放</button></span></div>
@@ -1071,10 +1206,10 @@
         <div class="lk-row"><span class="cn">面板</span><input type="range" id="lk-panel" min="0.2" max="1" step="0.05" value="1"><span class="v" id="lk-panel-v">100%</span><small style="color:var(--text-3)">面板透明度，越低毛玻璃感越强</small></div>
         <div class="lk-row" id="lk-video-row" hidden><span class="cn">视频</span><button type="button" class="mini-btn" id="lk-video-pause">⏸ 暂停动态壁纸</button></div>
         <div class="lk-row"><button type="button" class="mini-btn danger" id="lk-clear">关闭并删除图片</button></div>
-        <div id="lk-msg"></div>
-        <div class="lk-note">图片 / 壁纸只下载或复制到你本机的 <code>team-board/backdrops/</code>（不进仓库）。Wallpaper Engine 内容版权归各创作者所有，仅本机预览用。窄屏下背景板会自动变淡。</div>
+        <div class="lk-note">图片 / 视频只下载或复制到你本机的 <code>team-board/backdrops/</code>（不进仓库）。Wallpaper Engine 的 3D 场景 / web 工程只使用静态预览，不会执行工程代码。内容版权归各创作者所有，仅本机预览用。窄屏下背景板会自动变淡。</div>
       </div>
     </div>
+    <div class="lk-footer"><div id="lk-msg" role="status" aria-live="polite"></div><button type="button" class="mini-btn gold" id="lk-done">完成</button></div>
   </div>
 </div>
 <div id="toasts" aria-live="polite"></div>
@@ -1124,9 +1259,9 @@ const ANIM = {
   waving: [3, [140, 140, 140, 280]], jumping: [4, [140, 140, 140, 140, 280]], failed: [5, [140,140,140,140,140,140,140,240]],
   waiting: [6, [150, 150, 150, 150, 150, 260]], running: [7, [120, 120, 120, 120, 120, 220]], review: [8, [150, 150, 150, 150, 150, 280]],
 };
-/* 每个岗位一个独立形象：9 只 Codex 宠物（本机提取）+ 4 只 cc-haha 机器人，共 13 个，不重复 */
+/* 岗位默认形象；用户导入和手动分配的角色优先。 */
 const PET_BY_TYPE = {
-  '__lead': 'pip', 'team-architect': 'huhu-plan', 'backend-dev': 'dada-code', 'frontend-dev': 'puff',
+  '__lead': 'pip', 'team-architect': 'huhu-plan', 'backend-dev': 'aurelia-engineer', 'frontend-dev': 'lyra-designer',
   'researcher': 'drip', 'qa-tester': 'bubu-fix', 'code-reviewer': 'kit', 'docs-writer': 'mush', 'release-ops': 'huihui-build',
 };
 /* 未用常驻角色派出的成员（general-purpose 等）按形象类别回退，同类第 2、3 人换色以示区分 */
@@ -1134,10 +1269,18 @@ const PET_BY_AVATAR = {
   'team-lead': 'codex', 'server-engineer': 'dada-code', 'ui-designer': 'seedy', 'qa-engineer': 'bubu-fix',
   'security-reviewer': 'bsod', 'data-analyst': 'dewey', 'docs-coordinator': 'stacky', 'release-engineer': 'huihui-build',
 };
-/* 独占分配：每位成员一只不重复的宠物。顺序：本岗位专属 → 同类别备选 → 任意未占用 → 13 只全占满才换色兜底 */
-const PREFERRED_PETS = ['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'];
+/* 手动角色优先；未分配的成员使用原创小队，人数增加时复用形象。 */
+const PREFERRED_PETS = ['aurelia-engineer', 'lyra-designer'];
+const RETIRED_PETS = new Set(['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank']);
+const visiblePets = pets => PREFERRED_PETS.filter(p => pets.includes(p)).concat(pets.filter(p => !RETIRED_PETS.has(p) && !PREFERRED_PETS.includes(p)));
 let PET_INFO = {};  // snapshot.petInfo：{id: {file, w, h, cw, ch, rows, displayName, credit, shipped}}
 const petUrl = (pet) => 'sprites/' + ((PET_INFO[pet] || {}).file || pet + '.webp');
+const petImages = new Map();
+function frameImage(pet) {
+  let img = petImages.get(pet);
+  if (!img) { img = new Image(); petImages.set(pet, img); img.onload = () => sprites.forEach(s => { if (s.pet === pet) s.draw(); }); img.src = petUrl(pet); }
+  return img.complete && img.naturalWidth ? img : null;
+}
 const petLabel = (pet) => { const i = PET_INFO[pet] || {}; return i.displayName && i.displayName.toLowerCase() !== pet ? `${pet} · ${i.displayName}` : pet; };
 let ALL_PETS = PREFERRED_PETS.slice();  // 运行时按服务器 sprites/ 目录实际存在的文件过滤（snapshot.pets）
 const PET_FAMILY = {
@@ -1149,23 +1292,27 @@ const PET_FAMILY = {
 const petAssign = new Map();   // memberId -> { pet, hue }
 function assignPets(members, wantLead = '') {
   const have = new Set(ALL_PETS);
-  const leadPet = have.has(wantLead) ? wantLead : (['pip', 'codex', 'huhu-plan'].find(x => have.has(x)) || ALL_PETS[0]);
-  petAssign.clear(); const taken = new Set([leadPet]); petAssign.set('__lead', { pet: leadPet, hue: 0 });
+  const leadPet = have.has(wantLead) ? wantLead : (PREFERRED_PETS.find(x => have.has(x)) || ALL_PETS[0]);
+  petAssign.clear(); petAssign.set('__lead', { pet: leadPet, hue: 0 });
   const ordered = members.slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
-  for (const m of ordered) if (m.pet && have.has(m.pet) && !taken.has(m.pet)) { taken.add(m.pet); petAssign.set(m.id, { pet: m.pet, hue: 0 }); }
-  for (const m of ordered) {
-    if (petAssign.has(m.id)) continue;
-    const wish = [m.pet, PET_BY_TYPE[m.agentType], ...(PET_FAMILY[m.avatar] || []), PET_BY_AVATAR[m.avatar], ...ALL_PETS].filter(x => x && have.has(x));
-    if (!wish.length) wish.push(ALL_PETS[0] || 'dada-code');
-    let pet = wish.find(x => !taken.has(x));
-    if (pet) { taken.add(pet); petAssign.set(m.id, { pet, hue: 0 }); continue; }
-    const base = wish[0]; const n = [...petAssign.values()].filter(v => v.pet === base).length;
-    petAssign.set(m.id, { pet: base, hue: (n * 97) % 360 });
+  const originals = PREFERRED_PETS.filter(x => have.has(x));
+  for (const [i, m] of ordered.entries()) {
+    const preferred = PET_BY_TYPE[m.agentType];
+    const pet = have.has(m.pet) ? m.pet : (originals.includes(preferred) ? preferred : originals[i % originals.length]) || ALL_PETS[0];
+    petAssign.set(m.id, { pet, hue: 0 });
   }
 }
 const petOf = (m) => { const have = new Set(ALL_PETS); return [m.pet, (petAssign.get(m.id) || {}).pet, PET_BY_TYPE[m.agentType], PET_BY_TYPE[m.id], PET_BY_AVATAR[m.avatar], ...(PET_FAMILY[m.avatar] || []), ...ALL_PETS].find(x => x && have.has(x)) || 'dada-code'; };
 const hueOf = (m) => (petAssign.get(m.id) || {}).hue || 0;
-const miniPet = (m, size = 28) => { const pet = petOf(m), hue = hueOf(m); return `<span class="mini" style="width:${size}px;height:${Math.round(size * 208 / 192)}px;background-image:url(${petUrl(pet)});background-size:${size * 8}px auto;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"></span>`; };
+const miniPet = (m, size = 28) => {
+  const pet = petOf(m), hue = hueOf(m), info = PET_INFO[pet] || {}, rect = info.frameRects?.[0]?.[0];
+  const height = Math.round(size * 208 / 192);
+  if (rect) {
+    const [x,y,w,h] = rect, scale = Math.min(size/w,height/h);
+    return `<span class="mini" style="width:${size}px;height:${height}px;background-image:none;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"><span style="display:block;width:${w*scale}px;height:${h*scale}px;margin:auto;background-image:url(${petUrl(pet)});background-size:${info.w*scale}px ${info.h*scale}px;background-position:-${x*scale}px -${y*scale}px;background-repeat:no-repeat"></span></span>`;
+  }
+  return `<span class="mini" style="width:${size}px;height:${height}px;background-image:url(${petUrl(pet)});background-size:${size * 8}px auto;${hue ? `filter:hue-rotate(${hue}deg)` : ''}"></span>`;
+};
 const frames = (name, mult = 1) => ANIM[name][1].map((d, i) => ({ row: ANIM[name][0], col: i, dur: d * mult }));
 const rep = (name, n, mult = 1) => Array.from({ length: n }, () => frames(name, mult)).flat();
 const SEQ = {
@@ -1254,14 +1401,34 @@ class Sprite {
     if (this.i >= this.seq.length) { this.i = 0; if (this.after) { this.seq = this.after(); this.after = null; } }
     this.next = now + this.seq[this.i].dur; this.draw();
   }
-  draw() { const f = this.seq[this.i]; const s = (this.el.clientWidth || 96) / ATLAS.cw; this.el.style.backgroundPosition = `-${f.col * ATLAS.cw * s}px -${f.row * ATLAS.ch * s}px`; const k = fitOf(this.pet, f.row); if (k !== this._k) { this._k = k; this.el.style.setProperty('--fit', k); } }
+  draw() {
+    const f = this.seq[this.i], info = PET_INFO[this.pet] || {}, rect = info.frameRects?.[f.row]?.[f.col];
+    if (rect) {
+      this.el.style.backgroundImage = 'none';
+      let canvas = this.el.querySelector('canvas');
+      if (!canvas) { canvas = document.createElement('canvas'); canvas.width = 192; canvas.height = 208; canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; this.el.appendChild(canvas); }
+      const ctx = canvas.getContext('2d'), img = frameImage(this.pet);
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, 192, 208);
+      if (img) { const [x,y,w,h] = rect, scale = Math.min(174 / w, 190 / h); ctx.drawImage(img,x,y,w,h,(192-w*scale)/2,202-h*scale,w*scale,h*scale); }
+      this.el.style.setProperty('--fit', 1); this._k = null;
+      return;
+    }
+    this.el.querySelector('canvas')?.remove();
+    const s = (this.el.clientWidth || 96) / ATLAS.cw;
+    this.el.style.backgroundPosition = `-${f.col * ATLAS.cw * s}px -${f.row * ATLAS.ch * s}px`;
+    const k = fitOf(this.pet, f.row); if (k !== this._k) { this._k = k; this.el.style.setProperty('--fit', k); }
+  }
   destroy() { sprites.delete(this); }
 }
 (function loop(now) { for (const s of sprites) s.tick(now); requestAnimationFrame(loop); })(performance.now());
 
 /* ---------- 布局与渲染 ---------- */
-const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 262, DEPT_GAP = 16, ROW_GAP = 26, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170, MROW_GAP = 18;
+const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 248, DEPT_GAP = 16, ROW_GAP = 18, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170, MROW_GAP = 8;
 let prev = null, selectedId = null, selectedSession = '', flights = 0, firstLoad = true;
+let selectedSource = 'all', requestEpoch = 0, conversationSig = '';
+try { selectedSource = normalizeSource(localStorage.getItem('team-board-source')); } catch (_) {}
+$('#source-filter').value = selectedSource;
 const personEls = new Map(), deptEls = new Map(), taskEls = new Map(), seenFeed = new Set(), seenComms = new Set();
 let positions = new Map(), leadPos = { x: 0, foot: LEAD_FOOT }, deptPos = new Map(), stageW = 0, spineX = 0, row0BusY = 0;
 
@@ -1277,7 +1444,42 @@ const zhTool = (label) => { const m = /^(\w+)( · )?(.*)$/.exec(label || ''); if
 const ACCENTS = ['#c8a64b', '#3a4fb8', '#5aa38a', '#a8452e', '#7085f0', '#d58b3f', '#43a9c4', '#9a7fd6'];
 const accent = (id) => { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return ACCENTS[Math.abs(h) % ACCENTS.length]; };
 const commKey = (c) => `${c.kind}|${c.from}|${c.to}|${c.ts}|${(c.text || '').slice(0, 30)}`;
-const modelChip = (m) => { const fam = m.modelFamily || (m.definedModel && m.definedModel !== 'inherit' ? m.definedModel : '') || '?'; return `<span class="fam ${esc(fam)}">${esc(fam)}</span>${m.effort ? `<span>· ${esc(m.effort)}</span>` : ''}${m.cost ? `<span>· ${fmtCost(m.cost)}</span>` : ''}`; };
+const modelChip = (m) => { const fam = displayModel(m); return `<span class="fam ${esc(m.modelFamily || '')}" title="${esc(m.model || fam)}">${esc(fam)}</span>${m.effort ? `<span>· ${esc(m.effort)}</span>` : ''}${m.cost ? `<span>· ${fmtCost(m.cost)}</span>` : ''}`; };
+
+/* CODEX VIEW HELPERS */
+function normalizeSource(value) { return ['claude', 'codex'].includes(value) ? value : 'all'; }
+function sessionSource(snap) { return snap && snap.session && snap.session.source === 'codex' || snap && snap.source === 'codex' ? 'codex' : 'claude'; }
+function providerName(snap) { return sessionSource(snap) === 'codex' ? 'Codex' : 'Claude Code'; }
+function leadName(snap) { return '队长 · ' + ((snap.lead && snap.lead.name) || (sessionSource(snap) === 'codex' ? 'Codex' : 'Claude')); }
+function displayModel(member) { const m = member || {}; return (m.source === 'codex' || /^(?:gpt-|o[1-9](?:-|$)|codex)/i.test(m.model || '')) && m.model ? m.model : m.modelFamily || (m.definedModel && m.definedModel !== 'inherit' ? m.definedModel : '') || m.model || '?'; }
+function selectableSessionId(session) { return session.source === 'codex' ? 'codex:' + session.id : session.id; }
+function snapshotUrl(source, session) { const q = new URLSearchParams({ source: normalizeSource(source) }); if (session) q.set('session', session); return '/snapshot.json?' + q.toString(); }
+function conversationRows(snap) {
+  return (Array.isArray(snap && snap.conversation) ? snap.conversation : []).filter(m => m && ['user', 'assistant'].includes(m.role) && typeof m.text === 'string' && m.text.trim()).slice(-100).map(m => ({ role: m.role, text: m.text.slice(0, 12000), ts: Number.isFinite(m.ts) && m.ts > 0 ? m.ts : 0, agentId: typeof m.agentId === 'string' ? m.agentId.slice(0, 100) : '' }));
+}
+function conversationMarkup(rows, provider) {
+  return rows.map(m => `<article class="conversation-message ${m.role}"><div class="who"><strong>${m.role === 'user' ? '你' : esc(provider)}</strong>${m.agentId && m.agentId !== '__lead' ? `<span>${esc(m.agentId)}</span>` : ''}${m.ts ? `<time>${esc(fmtClock(m.ts))}</time>` : ''}</div><div class="text">${esc(m.text)}</div></article>`).join('');
+}
+function wallpaperFileError(file) {
+  if (!file) return '';
+  const video = /\.(mp4|webm)$/i.test(file.name || '') || /^(video\/(mp4|webm))$/.test(file.type || '');
+  const image = /\.(png|webp|jpe?g|gif)$/i.test(file.name || '') || /^image\/(png|webp|jpeg|gif)$/.test(file.type || '');
+  if (!video && !image) return '只支持 png / webp / jpg / gif 或 MP4 / WebM';
+  if (file.size > (video ? 50 : 15) * 1024 * 1024) return video ? '视频超过 50 MB' : '图片超过 15 MB';
+  return '';
+}
+/* END CODEX VIEW HELPERS */
+function renderConversation(snap) {
+  const rows = conversationRows(snap), provider = providerName(snap);
+  $('#conversation-source').textContent = provider;
+  $('#conversation-count').textContent = rows.length ? `最近 ${rows.length} 条` : '';
+  const sig = JSON.stringify([snap.session && snap.session.id, sessionSource(snap), rows]);
+  if (sig === conversationSig) return;
+  conversationSig = sig;
+  const box = $('#conversation-list'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60, top = box.scrollTop;
+  box.innerHTML = conversationMarkup(rows, provider) || '<div class="empty">暂无可见的用户 / 助手消息。请选择另一个会话；工具调用不作为对话显示。</div>';
+  box.scrollTop = atBottom || firstLoad ? box.scrollHeight : top;
+}
 
 function hookEvents(snap) {
   const live = snap && snap.live;
@@ -1433,7 +1635,7 @@ function ensurePerson(m, isLead, snap) {
     el.innerHTML = `<div class="avatar-wrap"><div class="bubble"></div><div class="shadow"></div><div class="sprite"></div><div class="foot"></div><span class="extra"></span><span class="mailbox"></span><span class="unread" hidden></span></div>
       <div class="name"><span class="nm"></span><span class="role"></span><span class="star" hidden title="用户自定义 agent">★</span></div><div class="official-team" hidden>官方 Team</div>
       <div class="chip"></div><div class="state"></div><div class="act"></div><div class="testline"></div><div class="bar"><i></i></div><div class="meta"></div>`;
-    el.querySelector('.avatar-wrap').addEventListener('click', () => openDrawer(m.id));
+    el.querySelector('.avatar-wrap').addEventListener('click', (e) => lockThenOpen(e.currentTarget, m.id));
     $('#stage').appendChild(el);
     el._sprite = new Sprite(el.querySelector('.sprite'), m);
     personEls.set(m.id, el);
@@ -1487,7 +1689,7 @@ function ensureDept(d) {
 function layout(snap) {
   const stage = $('#stage'), members = snap.members, n = members.length;
   if (snap.petInfo) PET_INFO = snap.petInfo;
-  if (Array.isArray(snap.pets) && snap.pets.length) ALL_PETS = PREFERRED_PETS.filter(x => snap.pets.includes(x)).concat(snap.pets.filter(x => !PREFERRED_PETS.includes(x)));
+  if (Array.isArray(snap.pets) && snap.pets.length) ALL_PETS = visiblePets(snap.pets);
   assignPets(members, (snap.lead && snap.lead.pet) || '');
   // 舞台宽度以可视区为准，绝不超（不横向溢出）；一个部门人多到一行放不下时，在部门面板内部换行成多排，而不是把面板撑宽
   const width = Math.max(360, stage.parentElement.clientWidth - 2); stageW = width;
@@ -1498,7 +1700,7 @@ function layout(snap) {
 
   const L = snap.lead;
   const leadStatus = L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle';
-  const lead = ensurePerson({ id: '__lead', name: '队长 · Claude', roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '', lastTest: L.lastTest }, true, snap);
+  const lead = ensurePerson({ id: '__lead', name: leadName(snap), roleTitle: '指挥部', avatar: 'team-lead', status: leadStatus, model: L.model, source: sessionSource(snap), modelFamily: L.modelFamily, cost: L.cost, pet: L.pet || '', lastTest: L.lastTest }, true, snap);
   lead.dataset.link = (snap.officialTeam && typeof snap.officialTeam.lead === 'string') ? snap.officialTeam.lead : '';
   lead.tabIndex = 0;
   lead.querySelector('.name').title = linkPinTitle(lead.dataset.link);
@@ -1518,10 +1720,10 @@ function layout(snap) {
   const maxCols = Math.max(1, Math.floor((maxDeptW - PPAD * 2) / SLOT));
   const items = depts.map(d => {
     const ms = d.members.map(id => members.find(m => m.id === id)).filter(Boolean);
-    const cols = ms.length ? Math.min(ms.length, maxCols) : 0;
+    const cols = ms.length ? Math.ceil(ms.length / Math.ceil(ms.length / maxCols)) : 0;
     const memberRows = ms.length ? Math.ceil(ms.length / cols) : 0;
     const w = ms.length ? cols * SLOT + PPAD * 2 : EMPTY_W;
-    const h = ms.length ? DEPT_HEAD + memberRows * MEMBER_H + (memberRows - 1) * MROW_GAP : DEPT_HEAD + 96;
+    const h = ms.length ? DEPT_HEAD + 16 + memberRows * MEMBER_H + (memberRows - 1) * MROW_GAP : DEPT_HEAD + 96;
     return { d, ms, w, h, cols };
   });
   const rows = []; let cur = [], curW = 0;
@@ -1536,7 +1738,8 @@ function layout(snap) {
       deptPos.set(it.d.id, { x, y, w: it.w, h: rowH, cx: x + it.w / 2, row: rows.indexOf(row), busY: y - 14 });
       it.ms.forEach((m, i) => {
         const col = i % it.cols, rowI = Math.floor(i / it.cols);
-        const cx = x + PPAD + SLOT / 2 + col * SLOT, top = y + DEPT_HEAD + 8 + rowI * (MEMBER_H + MROW_GAP);
+        const rowCount = Math.min(it.cols, it.ms.length - rowI * it.cols);
+        const cx = x + PPAD + (it.cols - rowCount) * SLOT / 2 + SLOT / 2 + col * SLOT, top = y + DEPT_HEAD + 8 + rowI * (MEMBER_H + MROW_GAP);
         positions.set(m.id, { cx, top, dept: it.d.id });
         const pel = ensurePerson(m, false, snap);
         pel.dataset.link = m.name || '';
@@ -2520,6 +2723,7 @@ $('#feed').addEventListener('click', (e) => {
 });
 
 function renderRoster(snap) {
+  $('#roster-note').textContent = sessionSource(snap) === 'codex' ? '以下是独立的 Claude 成员配置；编辑它们不会修改 Codex 的角色或当前运行模型。Codex 实际成员见上方舞台。' : '以下配置来自 ~/.claude/agents，只修改 Claude 成员配置。';
   const active = new Set(snap.members.map(m => m.agentType));
   const list = (snap.roster || []).slice().sort((a, b) => (a.custom === b.custom ? 0 : a.custom ? 1 : -1));
   for (const r of list) if (r.pet) PET_BY_TYPE[r.name] = r.pet;
@@ -2682,20 +2886,20 @@ function renderHeader(snap) {
     ${snap.update && snap.update.hasUpdate ? `<button class="pill warn" id="btn-update" title="本机 v${esc(snap.update.local)} → GitHub v${esc(snap.update.remote)}。点击自动下载安装并重启看板；你的配置、形象、改过的成员都保留">⬆ 有新版本 v${esc(snap.update.remote)} · 一键更新</button>` : ''}
     ${t.unpriced ? `<span class="pill warn" title="这些模型不在 team.json 的价格表里，成本未计入：${esc((t.unpricedModels || []).join(', '))}。在 team-board/team.json 的 pricing_usd_per_mtok 里按模型 id（或前缀）加一条即可">⚠ ${t.unpriced} 个模型未定价</span>` : ''}
     ${t.allUsage ? `<span class="pill mono" title="成员 ${fmtTok(t.usage.total)} + 队长 ${fmtTok(t.leadUsage.total)}；输入 ${fmtTok(t.allUsage.in)} · 输出 ${fmtTok(t.allUsage.out)} · 缓存读 ${fmtTok(t.allUsage.cache_read)} · 缓存写 ${fmtTok(t.allUsage.cache_write)}">Σ ${fmtTok(t.allUsage.total)} tok · 缓存命中 ${Math.round(t.allUsage.cacheHit * 100)}%</span>` : ''}`;
-  $('#session-pill').textContent = snap.session ? `${snap.session.id.slice(0, 8)}${snap.session.branch ? ' · ' + snap.session.branch : ''} · ${fmtRel(snap.session.lastActivity)}` : '无会话';
+  $('#session-pill').textContent = snap.session ? `${sessionSource(snap) === 'codex' ? 'Codex · ' : ''}${snap.session.id.slice(0, 8)}${snap.session.branch ? ' · ' + snap.session.branch : ''} · ${fmtRel(snap.session.lastActivity)}` : '无会话';
   const proj = snap.session ? (snap.session.project.replace(/^C--Users-[^-]+-?/, '') || snap.session.project) : '';
   const quiet = snap.session ? Date.now() / 1000 - snap.session.lastActivity : Infinity;
   $('#mission').classList.toggle('idle', quiet > 120);
   renderHookBadge(snap);
-  $('#mission-text').textContent = snap.session ? `实时监听 Agent Team 工作 · ${snap.lead.running ? `${snap.lead.running} 位成员进行中` : quiet > 120 ? '暂无活动，等待下一次派工' : '队长在线'} · 最近活动 ${fmtRel(snap.session.lastActivity)}` : '实时监听 Agent Team 工作 · 还没有会话派出过子代理';
+  $('#mission-text').textContent = snap.session ? `实时监听 ${providerName(snap)} · ${snap.lead.running ? `${snap.lead.running} 位成员进行中` : quiet > 120 ? '暂无活动，等待下一次派工' : '队长在线'} · 最近活动 ${fmtRel(snap.session.lastActivity)}` : '当前来源暂无可观察会话';
   const mp = snap.lead.lastUserPrompt; $('#mission-sub').textContent = (proj ? `项目 ${proj}` : '') + (mp ? ` · 当前指令：${mp}` : ''); $('#mission-sub').title = mp || '';
   const sel = $('#session-select'), cur = sel.value;
   const opts = ['<option value="">自动：最近活跃的会话</option>'].concat((snap.sessions || []).map(s => {
     const branch = s.branch ? ` · ${s.branch}` : '';
     const project = (s.project || '').replace(/^C--Users-[^-]+-?/, '') || s.project || '';
-    return `<option value="${esc(s.id)}">${esc(project)}${branch} · ${esc(String(s.id || '').slice(0, 8))} · ${s.count} 人 · ${fmtRel(s.mtime)}</option>`;
+    return `<option value="${esc(selectableSessionId(s))}">${s.source === 'codex' ? 'Codex' : 'Claude'} · ${esc(project)}${branch} · ${esc(String(s.id || '').slice(0, 8))} · ${s.count} 人 · ${fmtRel(s.mtime)}</option>`;
   }));
-  if (sel.innerHTML !== opts.join('')) { sel.innerHTML = opts.join(''); sel.value = cur; }
+  if (sel.innerHTML !== opts.join('')) { sel.innerHTML = opts.join(''); sel.value = [...sel.options].some(o => o.value === cur) ? cur : ''; }
   renderTheater(snap);
 }
 
@@ -2714,14 +2918,14 @@ function renderTheater(snap) {
 }
 
 function memberFor(id, avatar) { if (id === '__lead' || id === '__all') return { id: '__lead', agentType: '', avatar: 'team-lead', name: '' }; return prev?.members.find(x => x.id === id) || { id, agentType: '', avatar: avatar || 'server-engineer', name: '' }; }
-function leadAsMember(snap) { const L = snap.lead; return { id: '__lead', name: '队长 · Claude', roleTitle: '主会话', avatar: 'team-lead', agentType: 'lead', dept: 'hq', pet: L.pet || '', status: L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle', prompt: L.lastUserPrompt || '', startedAt: null, endedAt: null, toolCount: L.toolCount ?? 0, thinkingCount: 0, outputTokens: L.outputTokens ?? 0, lastText: '', timeline: L.timeline || [], model: L.model, modelFamily: L.modelFamily, cost: L.cost, usage: L.usage || {}, messages: [], writes: [], reads: [] }; }
+function leadAsMember(snap) { const L = snap.lead; return { id: '__lead', name: leadName(snap), source: sessionSource(snap), roleTitle: '主会话', avatar: 'team-lead', agentType: 'lead', dept: 'hq', pet: L.pet || '', status: L.phase === 'coordinating' ? 'running' : L.phase === 'finished' ? 'completed' : 'idle', prompt: L.lastUserPrompt || '', startedAt: null, endedAt: null, toolCount: L.toolCount ?? 0, thinkingCount: 0, outputTokens: L.outputTokens ?? 0, lastText: '', timeline: L.timeline || [], model: L.model, modelFamily: L.modelFamily, cost: L.cost, usage: L.usage || {}, messages: [], writes: [], reads: [] }; }
 let drawerNote = { id: '', text: '', until: 0 };
 function openDrawer(id) {
   selectedId = id; const m = id === '__lead' ? leadAsMember(prev) : prev?.members.find(x => x.id === id); if (!m) return;
   $('#d-avatar').innerHTML = miniPet(m, 60); $('#d-name').textContent = `${m.name} · ${m.roleTitle}`;
   $('#d-sub').textContent = `${m.officialTeam ? '官方 Team · ' : ''}${DEPT_NAME[m.dept] || ''} · ${m.agentType || 'agent'} · ${STATUS_LABEL[m.status]} · ${id === '__lead' ? (prev.session?.id || '') : 'agent-' + m.id}`;
   if (($('#d-petbox') || {}).dataset?.member !== m.id) $('#d-body').innerHTML = '';
-  renderDrawerBody(m); $('#drawer').classList.add('open'); layout(prev);
+  renderDrawerBody(m); $('#drawer').classList.add('open'); layout(prev); expandDrawer($('#drawer'));
 }
 function renderDrawerBody(m) {
   const tl = m.timeline.slice().reverse().map(it => it.kind === 'tool'
@@ -2733,10 +2937,11 @@ function renderDrawerBody(m) {
   let box = $('#d-petbox');
   if (!box) { $('#d-body').innerHTML = '<div id="d-petbox"></div><div id="d-msgbox"></div><div id="d-rest"></div>'; box = $('#d-petbox'); }
   const mb = $('#d-msgbox');
-  if (mb && mb.dataset.member !== m.id) {
-    mb.dataset.member = m.id;
+  const codexReadOnly = m.source === 'codex' || sessionSource(prev) === 'codex';
+  if (mb && (mb.dataset.member !== m.id || mb.dataset.source !== String(codexReadOnly))) {
+    mb.dataset.member = m.id; mb.dataset.source = String(codexReadOnly);
     const tgt = m.id === '__lead' ? 'lead' : busTarget(m);
-    mb.innerHTML = `<h3>✉ 发消息 <small>→ ${esc(m.name)}${m.unread ? ` · 它还有 ${m.unread} 条未读` : ''}${m.id === '__lead' ? '' : ' · 走消息总线，并写进它的收件箱'}</small></h3><div class="dmsg"><textarea id="d-msg-input" rows="2" maxlength="4000" placeholder="Enter 发送 · Shift+Enter 换行" data-to="${esc(tgt)}"></textarea><button class="mini-btn gold primary" id="d-msg-send">发送</button><span id="d-msg-note"></span></div>`;
+    mb.innerHTML = codexReadOnly ? '<h3>Codex · 只读</h3><p class="conversation-note">此看板不会向 Codex 注入消息。请回到 Codex 原聊天继续对话；形象调整仅影响看板展示。</p>' : `<h3>✉ 发消息 <small>→ ${esc(m.name)}${m.unread ? ` · 它还有 ${m.unread} 条未读` : ''}${m.id === '__lead' ? '' : ' · 走消息总线，并写进它的收件箱'}</small></h3><div class="dmsg"><textarea id="d-msg-input" rows="2" maxlength="4000" placeholder="Enter 发送 · Shift+Enter 换行" data-to="${esc(tgt)}"></textarea><button class="mini-btn gold primary" id="d-msg-send">发送</button><span id="d-msg-note"></span></div>`;
   }
   if (box.dataset.member !== m.id || box.dataset.pet !== (m.pet || '') || box.dataset.note !== (drawerNote.id === m.id ? drawerNote.text : '')) {
     box.dataset.member = m.id; box.dataset.pet = m.pet || ''; box.dataset.note = drawerNote.id === m.id ? drawerNote.text : '';
@@ -2770,6 +2975,7 @@ async function openAgentModal(name) {
   $('#am-delete').hidden = !a;
   if (a) { f.name.value = a.name; f.display.value = a.display || ''; f.role.value = a.role || ''; f.dept.value = a.dept || 'dev'; f.model.value = a.model || 'inherit'; f.effort.value = a.effort || ''; f.pet.value = a.pet || ''; f.color.value = a.color || ''; f.description.value = a.description || ''; f.skills.value = (a.skills || []).join(', '); f.body.value = a.body || ''; }
   else { f.model.value = 'sonnet'; f.effort.value = 'medium'; }
+  if (prev && sessionSource(prev) === 'codex') $('#am-title').textContent += ' · Claude 配置（不修改 Codex）';
   $('#agent-modal').hidden = false; updatePreview(); f.querySelector(a ? '[name=display]' : '[name=name]').focus();
 }
 const DEPT_PET = { hq: 'huhu-plan', dev: 'dada-code', emb: 'rocky', qa: 'bubu-fix', rnd: 'dewey', docs: 'stacky', ops: 'huihui-build' };
@@ -2844,7 +3050,7 @@ async function runPetImport() {
   const r = await fetch('/api/pets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(x => x.json()).catch(err => ({ error: String(err) }));
   go.disabled = false;
   if (r.error) { pmSay(r.error + (/已存在/.test(r.error) ? '　← 勾上「同名覆盖」再点导入' : ''), true); return; }
-  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
+  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = visiblePets(r.pets);
   if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
   const label = r.pet.displayName && r.pet.displayName !== r.pet.id ? `${r.pet.displayName}（${r.pet.id}）` : r.pet.id;
   if (petImportTarget) {
@@ -2891,7 +3097,7 @@ $('#am-pet-del').addEventListener('click', async () => {
   if (!confirm(`删除形象 ${id}？会删掉 sprites/${(PET_INFO[id] || {}).file || id + '.webp'}`)) return;
   const r = await fetch('/api/pets/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(x => x.json()).catch(err => ({ error: String(err) }));
   if (r.error) { msg.className = 'err'; msg.textContent = r.error; return; }
-  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = PREFERRED_PETS.filter(x => r.pets.includes(x)).concat(r.pets.filter(x => !PREFERRED_PETS.includes(x)));
+  PET_INFO = r.petInfo || PET_INFO; ALL_PETS = visiblePets(r.pets);
   if (agentMeta) { agentMeta.pets = r.pets; agentMeta.petInfo = r.petInfo; }
   fillPetSelect(r.pets, ''); updatePreview(); msg.className = ''; msg.textContent = `✓ 已删除形象 ${id}`;
 });
@@ -2963,7 +3169,9 @@ document.addEventListener('pointerdown', (e) => {
 });
 $('#d-close').addEventListener('click', () => { selectedId = null; $('#drawer').classList.remove('open'); if (prev) layout(prev); });
 function selectSession(id) {
-  selectedSession = id || '';
+  selectedSession = id || ''; requestEpoch++; conversationSig = '';
+  $('#conversation-list').innerHTML = '<div class="empty">正在读取所选会话…</div>';
+  $('#conversation-count').textContent = ''; selectedId = null; $('#drawer').classList.remove('open');
   const sel = $('#session-select');
   if (sel && [...sel.options].some(o => o.value === selectedSession)) sel.value = selectedSession;
   prev = null; firstLoad = true; commsSig = ''; commsOpen.clear(); seenComms.clear(); seenFeed.clear(); closeTaskDetail(false);
@@ -2974,6 +3182,10 @@ function selectSession(id) {
   tick();
 }
 $('#session-select').addEventListener('change', (e) => selectSession(e.target.value));
+$('#session-pill').addEventListener('click', () => { $('#conversation-modal').hidden = false; expandCard($('#conversation-modal .modal-card')); });
+$('#conversation-close').addEventListener('click', () => { closeM('#conversation-modal'); $('#session-pill').focus(); });
+$('#conversation-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeM(e.currentTarget); });
+$('#source-filter').addEventListener('change', (e) => { selectedSource = normalizeSource(e.target.value); try { localStorage.setItem('team-board-source', selectedSource); } catch (_) {} selectSession(''); });
 $('#theater').addEventListener('click', (e) => {
   const b = e.target.closest('[data-theater-session]');
   if (!b || b.dataset.theaterSession === selectedSession) return;
@@ -2982,21 +3194,24 @@ $('#theater').addEventListener('click', (e) => {
 
 let failing = 0;
 async function tick() {
+  const epoch = requestEpoch;
   try {
-    const r = await fetch('/snapshot.json' + (selectedSession ? `?session=${encodeURIComponent(selectedSession)}` : ''), { cache: 'no-store' });
+    const r = await fetch(snapshotUrl(selectedSource, selectedSession), { cache: 'no-store' });
+    if (!r.ok) throw new Error('snapshot HTTP ' + r.status);
     const snap = await r.json();
+    if (epoch !== requestEpoch) return;
     if (DEMO) demoAugment(snap);
     syncLinkScope(snap);
     failing = 0; $('#live').classList.remove('off');
     if (snap.backdrop) { bdApi = true; applyBackdrop(snap.backdrop); } else if (bdApi === null) { bdApi = 'probing'; probeBackdrop(); }
     notifyChanges(snap);
-    renderHeader(snap); layout(snap); renderStats(snap); renderTaskBoard(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap); refreshRecipients(snap);
+    renderHeader(snap); renderConversation(snap); layout(snap); renderStats(snap); renderTaskBoard(snap); renderTasks(snap); renderComms(snap); animateComms(snap); renderFeed(snap); renderRoster(snap); refreshRecipients(snap);
     applyLinkHighlight();
     if (selectedId && $('#drawer').classList.contains('open')) { const m = selectedId === '__lead' ? leadAsMember(snap) : snap.members.find(x => x.id === selectedId); if (m) { $('#d-avatar').innerHTML = miniPet(m, 60); renderDrawerBody(m); } }
     const booting = firstLoad;
     prev = snap; firstLoad = false;
     renderStallAlerts(snap, booting);
-  } catch (e) { console.error(e); if (++failing > 2) { if (failing === 3) toast('连不上看板服务，稍后自动重试', 'err', 'OFFLINE'); $('#live').classList.add('off'); } }
+  } catch (e) { if (epoch !== requestEpoch) return; console.error(e); if (++failing > 2) { if (failing === 3) toast('连不上看板服务，稍后自动重试', 'err', 'OFFLINE'); $('#live').classList.add('off'); } }
 }
 /* ---------- Toast ---------- */
 function toast(text, kind = 'info', tag = 'NOTICE', ms = 4200, onClick = null) {
@@ -3046,6 +3261,11 @@ function rcptInfo(val) {
 let rcptSig = '';
 function refreshRecipients(snap) {
   const sel = $('#comms-to'), cur = sel.value || 'lead';
+  const readOnly = sessionSource(snap) === 'codex', form = $('#composer');
+  if (readOnly || form.dataset.readonly !== String(readOnly)) { sel.disabled = readOnly; $('#comms-input').disabled = readOnly; $('#comms-send').disabled = readOnly; }
+  form.dataset.readonly = String(readOnly);
+  $('#composer-note').textContent = readOnly ? 'Codex 会话只读：看板消息不会注入或写回 Codex。请回到 Codex 原聊天发送消息。' : '';
+
   const roster = (snap.roster || []).filter(r => !snap.members.some(m => m.agentType === r.name));
   const html = `<option value="lead">队长 · 主会话${snap.bus && snap.bus.unreadLead ? `（${snap.bus.unreadLead} 未读）` : ''}</option><option value="all">全员广播</option>`
     + (snap.members.length ? `<optgroup label="在场成员">${snap.members.map(m => `<option value="${esc(busTarget(m))}">${esc(m.name)} · ${esc(m.roleTitle || m.agentType || '')}${m.unread ? `（${m.unread} 未读）` : ''}${m.status === 'completed' ? ' ✓' : ''}</option>`).join('')}</optgroup>` : '')
@@ -3054,6 +3274,7 @@ function refreshRecipients(snap) {
   rcptSig = html; sel.innerHTML = html; sel.value = cur; if (sel.value !== cur) sel.value = 'lead';
 }
 async function sendBus(to, text) {
+  if ((prev && sessionSource(prev) === 'codex') || selectedSource === 'codex' || selectedSession.startsWith('codex:')) return { error: 'Codex 会话只读，看板消息不会注入 Codex' };
   text = String(text || '').trim();
   if (!text) return { error: '消息是空的' };
   if (text.length > 4000) return { error: '超过 4000 字' };
@@ -3121,10 +3342,11 @@ $('#d-body').addEventListener('keydown', (e) => { if (e.target.id === 'd-msg-inp
   const cin = $('#comms-input'), form = $('#composer');
   const autosize = () => { cin.style.height = 'auto'; cin.style.height = Math.min(160, cin.scrollHeight) + 'px'; };
   const submit = async () => {
+    if (prev && sessionSource(prev) === 'codex') { toast('Codex 会话只读：请回到 Codex 原聊天发送消息。', 'info', 'READ ONLY'); return; }
     const text = cin.value; if (!text.trim()) { cin.focus(); return; }
     const btn = $('#comms-send'); btn.disabled = true; cin.value = ''; autosize();
     const r = await sendBus($('#comms-to').value, text);
-    btn.disabled = false;
+    btn.disabled = !!(prev && sessionSource(prev) === 'codex');
     if (r.error && !cin.value) { cin.value = text; autosize(); }   // 没发出去：原文放回输入框，方便重发
     cin.focus();
   };
@@ -3149,7 +3371,7 @@ document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
     if (!$('#bdq-pop').hidden) { closeQuickOp(); e.preventDefault(); return; }
-    const open = ['#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
+    const open = ['#conversation-modal', '#pet-modal', '#look-modal', '#agent-modal', '#dept-modal'].map(s => $(s)).find(m => !m.hidden);
     if (open) { open.hidden = true; e.preventDefault(); return; }
     if (!$('#task-detail').hidden) { closeTaskDetail(true); e.preventDefault(); return; }
     if ($('#drawer').classList.contains('open')) { $('#d-close').click(); e.preventDefault(); return; }
@@ -3259,7 +3481,8 @@ function bdVideoFail(reason) {   // 视频播不了：有该壁纸的预览图�
     $('#lk-video-row').hidden = true;
     toast(`这个视频浏览器放不了（${reason}），已改用预览图`, 'err', 'BACKDROP', 6500);
   } else {
-    toast(`这个视频浏览器放不了（${reason}）`, 'err', 'BACKDROP', 6500);
+    const message = `这个视频浏览器放不了（${reason}）。请改用浏览器支持的 H.264 MP4 / WebM，或导入静态图片。`;
+    lkSay(message, 'err'); toast(message, 'err', 'BACKDROP', 8500);
   }
   if (!$('#look-modal').hidden) renderLook();
 }
@@ -3378,7 +3601,7 @@ function bdFallbackFromWe() {   // 默认页签是 Wallpaper Engine，没扫到�
   if ($('#lk-src [data-src="we"]')?.classList.contains('on')) lkSetSource('upload');
 }
 async function openLook() {
-  $('#look-modal').hidden = false; lkSay(''); renderLook();
+  $('#look-modal').hidden = false; lkSay(''); renderLook(); expandCard($('#look-modal .modal-card'));
   if (!lkSrcInited) { lkSrcInited = true; lkSetSource('we'); }
   if (bdDesktopAvailable === null) fetch('/api/wallpapers', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { if (j) { bdDesktopAvailable = !!(j.desktop && j.desktop.available); bdApplyDesktopAvail(); } }).catch(() => {});
   if (bdApi !== false) {
@@ -3406,7 +3629,9 @@ function bdSetting(patch) {   // 尺寸/位置/透明度等：先本地立即生
   }, 300);
 }
 $('#look-btn').addEventListener('click', openLook);
-$('#lk-close').addEventListener('click', () => { $('#look-modal').hidden = true; bdSetAdjust(false); });
+function closeLook() { $('#look-modal').hidden = true; bdSetAdjust(false); $('#look-btn').focus(); }
+$('#lk-close').addEventListener('click', closeLook);
+$('#lk-done').addEventListener('click', closeLook);
 $('#look-modal').addEventListener('click', async (e) => {
   if (e.target === e.currentTarget) { $('#look-modal').hidden = true; bdSetAdjust(false); return; }
   const srcBtn = e.target.closest('#lk-src button'); if (srcBtn) { lkSetSource(srcBtn.dataset.src); return; }
@@ -3442,7 +3667,7 @@ $('#look-modal').addEventListener('click', async (e) => {
   if (e.target.closest('#lk-adjust')) { bdSetAdjust(!bdAdjusting); return; }
   if (e.target.closest('#lk-we-reload')) { bdFetchWallpapers(true); return; }
   if (e.target.closest('#lk-pick')) { $('#lk-file').click(); return; }
-  if (e.target.closest('#lk-path-go')) { const path = $('#lk-path').value.trim(); if (!path) { lkSay('先填一个本机图片路径', 'err'); return; } const r = await bdSend({ path, enabled: true }, '从本机导入中…'); if (r) lkSay('✓ 已导入并启用', 'ok'); return; }
+  if (e.target.closest('#lk-path-go')) { const path = $('#lk-path').value.trim(); if (!path) { lkSay('先填写本机媒体文件或 Wallpaper Engine 工程目录', 'err'); return; } bdVideoFallback = ''; const r = await bdSend({ path, enabled: true }, '从本机导入中…'); if (r) lkSay(r.note || '✓ 已导入并启用', r.warning ? 'err' : 'ok'); return; }
   const cl = e.target.closest('#lk-clear');
   if (cl) {
     if (!cl.dataset.armed) { cl.dataset.armed = '1'; cl.textContent = '再点一次确认删除'; setTimeout(() => { delete cl.dataset.armed; cl.textContent = '关闭并删除图片'; }, 3000); return; }
@@ -3466,10 +3691,10 @@ $('#lk-we-grid').addEventListener('mouseover', (e) => {   // 悬停时懒加载 
 });
 async function bdUpload(file) {
   if (!file) return;
-  if (!/^image\/(png|webp|jpeg|gif)$/.test(file.type) && !/\.(png|webp|jpe?g|gif)$/i.test(file.name)) { lkSay('只支持 png / webp / jpg / gif', 'err'); return; }
-  if (file.size > 15 * 1024 * 1024) { lkSay('图片超过 15 MB', 'err'); return; }
+  const error = wallpaperFileError(file); if (error) { lkSay(error, 'err'); return; }
+  bdVideoFallback = '';
   let data; try { data = await readB64(file); } catch (err) { lkSay('读不了文件：' + err, 'err'); return; }
-  const r = await bdSend({ data, name: file.name, enabled: true }, `上传 ${file.name}…`); if (r) lkSay('✓ 已上传并启用', 'ok');
+  const r = await bdSend({ data, name: file.name, enabled: true }, `上传 ${file.name}…`); if (r) lkSay(r.note || '✓ 已上传并启用', r.warning ? 'err' : 'ok');
 }
 $('#lk-file').addEventListener('change', (e) => { bdUpload(e.target.files[0]); e.target.value = ''; });
 $('#lk-opacity').addEventListener('input', (e) => { $('#lk-opacity-v').textContent = Math.round(e.target.value * 100) + '%'; bdSetting({ opacity: +e.target.value }); });
@@ -4285,7 +4510,7 @@ function stallText(item) {
   return (item.name || '成员') + ' · ' + why + ' · 已 ' + stallIdleLabel(item.idleSeconds) + '无动静';
 }
 function stallCollapsed() {
-  try { return sessionStorage.getItem('team-board-stall-collapsed') === '1'; } catch (e) { return false; }
+  try { return sessionStorage.getItem('team-board-stall-collapsed') !== '0'; } catch (e) { return true; }
 }
 function stallCollapse() {
   stallForceOpen = false;
@@ -4411,6 +4636,7 @@ async function stallToggleNotify() {
   if (prev) renderStallAlerts(prev, false);
 }
 $('#stall-badge').addEventListener('click', () => {
+  if (!$('#conversation-modal').hidden) closeM('#conversation-modal');
   if ($('#stall-panel').hidden) {
     stallForceOpen = true;
     try { sessionStorage.removeItem('team-board-stall-collapsed'); } catch (e) {}
@@ -4449,6 +4675,137 @@ $('#stall-list').addEventListener('click', (e) => {
   }
   openDrawer(item.id);
 });
+
+/* ---------- v1.5.0 交互质感：波纹 / 触碰高光 / 展开动效 ---------- */
+function reducedMotion() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function fineHover() { return matchMedia('(hover: hover) and (pointer: fine)').matches; }
+let lastPointer = { x: innerWidth / 2, y: innerHeight / 2, t: 0 };
+document.addEventListener('pointerdown', (e) => { lastPointer = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+function popOrigin() { return (Date.now() - lastPointer.t < 1500) ? lastPointer : { x: innerWidth / 2, y: innerHeight / 2 }; }
+
+const RIPPLE_SEL = 'button, .task, .ra, .person .avatar-wrap, .we-item, .comms .msg .av, .comms .msg .who';
+function semanticColor(el) {
+  const host = el.closest('.pill, .mini-btn') || el;
+  for (const [cls, v] of [['gold', '--gold'], ['ok', '--ok'], ['err', '--err'], ['danger', '--err'], ['warn', '--warn'], ['info', '--info'], ['hand', '--hand'], ['peer', '--peer'], ['bus', '--bus']]) {
+    if (host.classList.contains(cls)) return `var(${v})`;
+  }
+  return 'var(--brand)';
+}
+function spawnRipple(target, x, y) {
+  if (target.disabled) return;
+  const r = target.getBoundingClientRect();
+  const lx = x == null ? r.width / 2 : x - r.left, ly = y == null ? r.height / 2 : y - r.top;
+  if (reducedMotion()) { target.classList.add('rm-tap'); setTimeout(() => target.classList.remove('rm-tap'), 140); return; }
+  if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
+  const host = document.createElement('i'); host.className = 'rpl-host';
+  const size = Math.max(18, Math.ceil(Math.hypot(Math.max(lx, r.width - lx), Math.max(ly, r.height - ly)) * 2));
+  const c = semanticColor(target);
+  const mk = (cls, extra) => { const s = document.createElement('i'); s.className = cls; s.style.cssText = `left:${lx}px;top:${ly}px;width:${size}px;height:${size}px;${extra}`; return s; };
+  host.appendChild(mk('rpl-fill', `background:${c};`));
+  host.appendChild(mk('rpl-ring', `border-color:${c};`));
+  target.appendChild(host);
+  setTimeout(() => host.remove(), 720);
+}
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const t = e.target.closest(RIPPLE_SEL); if (!t) return;
+  spawnRipple(t, e.clientX, e.clientY);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const t = document.activeElement; if (!t || typeof t.matches !== 'function' || !t.matches(RIPPLE_SEL)) return;
+  spawnRipple(t, null, null);
+});
+
+/* 触碰闪烁 / 边角括号 / 扫光 / 跟随指针高光：仅细指针设备，悬停时懒加载 .fx 容器 */
+const FX_SEL = 'button, .pill, .task, .ra, .we-item, .person .avatar-wrap, .comms .msg .av, .pack-item';
+let fxHoverEl = null, fxRaf = 0;
+function ensureFx(el) {
+  el.classList.add('fx-host');
+  if (el.querySelector(':scope > .fx')) return;
+  if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+  const fx = document.createElement('i'); fx.className = 'fx';
+  fx.innerHTML = '<i class="fx-glow"></i><i class="fx-corner tl"></i><i class="fx-corner br"></i><i class="fx-sweep"></i>';
+  el.appendChild(fx);
+}
+document.addEventListener('pointerover', (e) => {
+  if (!fineHover() || reducedMotion()) return;
+  const t = e.target.closest(FX_SEL); if (!t || t === fxHoverEl) return;
+  fxHoverEl = t; ensureFx(t);
+  t.classList.remove('swept'); void t.offsetWidth; t.classList.add('swept');
+  setTimeout(() => t.classList.remove('swept'), 520);
+  t.classList.remove('flick'); void t.offsetWidth; t.classList.add('flick');
+});
+document.addEventListener('pointerout', (e) => {
+  const t = e.target.closest(FX_SEL); if (!t || t !== fxHoverEl) return;
+  if (t.contains(e.relatedTarget)) return;
+  fxHoverEl = null;
+});
+document.addEventListener('pointermove', (e) => {
+  if (!fxHoverEl || fxRaf) return;
+  fxRaf = requestAnimationFrame(() => {
+    fxRaf = 0; if (!fxHoverEl) return;
+    const r = fxHoverEl.getBoundingClientRect();
+    fxHoverEl.style.setProperty('--mx', ((e.clientX - r.left) / Math.max(1, r.width) * 100) + '%');
+    fxHoverEl.style.setProperty('--my', ((e.clientY - r.top) / Math.max(1, r.height) * 100) + '%');
+  });
+});
+
+/* 弹窗 / 抽屉：从触发点展开 */
+function expandCard(card, origin) {
+  if (!card) return;
+  card.classList.remove('pop-pt', 'pop-go', 'pop-close'); void card.offsetWidth;
+  if (reducedMotion()) return;
+  const o = origin || popOrigin(), r = card.getBoundingClientRect();
+  const lx = o.x - r.left, ly = o.y - r.top;
+  // 半径按"卡片或整个视口，取大的"算：很多弹窗是先展开、内容后到（外观面板的壁纸网格、角色包、成员表单预览），
+  // 只按打开瞬间的卡片尺寸算，圆会盖不住后来长高的部分，底下几行看着像被切掉
+  const er = Math.ceil(Math.hypot(Math.max(lx, r.width - lx, innerWidth - lx), Math.max(ly, r.height - ly, innerHeight - ly, card.scrollHeight - ly)));
+  card.style.setProperty('--ex', lx + 'px'); card.style.setProperty('--ey', ly + 'px'); card.style.setProperty('--er', er + 'px');
+  card.classList.add('pop-pt');
+  requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('pop-go')));
+  card.addEventListener('animationend', function done(ev) {
+    if (ev.animationName !== 'cardExpand') return;
+    card.classList.remove('pop-pt', 'pop-go'); card.removeEventListener('animationend', done);
+  });
+}
+function closeM(sel) {
+  const el = typeof sel === 'string' ? $(sel) : sel; if (!el || el.hidden) return;
+  const card = el.querySelector('.modal-card');
+  if (reducedMotion() || !card) { el.hidden = true; if (card) card.classList.remove('pop-pt', 'pop-go'); return; }
+  card.classList.remove('pop-go'); card.classList.add('pop-close');
+  setTimeout(() => { el.hidden = true; card.classList.remove('pop-pt', 'pop-close'); }, 200);
+}
+function lockThenOpen(wrap, id) {
+  if (reducedMotion()) { openDrawer(id); return; }
+  const fx = document.createElement('i'); fx.className = 'lock-fx';
+  fx.innerHTML = '<i></i><i></i><i></i><i></i><i class="scan"></i>';
+  wrap.appendChild(fx);
+  setTimeout(() => { fx.remove(); openDrawer(id); }, 180);
+}
+function expandDrawer(drawer, origin) {
+  if (!drawer) return;
+  drawer.classList.remove('expand-go');
+  if (reducedMotion()) return;
+  const o = origin || popOrigin(), r = drawer.getBoundingClientRect();
+  // 人物在舞台上，点击点基本都落在抽屉外面很远。直接拿它当圆心的话，圆要先跑几百 px 才碰到抽屉，
+  // 前大半段时间屏幕上什么都没有、最后 100 多毫秒突然刷出来。夹到抽屉最近的那条边上：
+  // 方向感还在（从靠近人物的那侧推开），整段 380ms 也都用在了抽屉自己身上。
+  const lx = Math.max(0, Math.min(r.width, o.x - r.left));
+  const ly = Math.max(0, Math.min(r.height, o.y - r.top));
+  // 到最远角的距离，圆必须盖满整个抽屉，否则右侧会被圆弧切掉
+  const dx = Math.max(lx, r.width - lx);
+  const dy = Math.max(ly, r.height - ly, drawer.scrollHeight - ly);
+  drawer.style.setProperty('--ex', lx + 'px'); drawer.style.setProperty('--ey', ly + 'px');
+  drawer.style.setProperty('--dr', Math.ceil(Math.hypot(dx, dy)) + 'px');
+  void drawer.offsetWidth; drawer.classList.add('expand-go');
+  // 动画是 both：不收尾的话 clip-path 会一直留着，抽屉右侧被圆弧切掉
+  drawer.addEventListener('animationend', function done(ev) {
+    if (ev.animationName !== 'drawerExpand') return;
+    drawer.classList.remove('expand-go'); drawer.removeEventListener('animationend', done);
+  });
+}
+
 
 tick(); setInterval(tick, 1500);
 /* 文档截图辅助：?shot=stats|lower|member|dept 只显示对应区域 / 打开对应弹窗（对普通使用无影响） */

@@ -1,6 +1,10 @@
 # Maintaining this project with Codex
 
-Codex is a contributor tool for reproducing bugs, preparing fixes, reviewing changes and triaging reports in this repository. The board itself reads Claude Code transcripts from `~/.claude/projects/`. The separate [Codex exec metrics adapter](CODEX_METRICS.md) summarizes explicitly supplied JSONL logs offline. It does not import interactive Codex sessions into the board or invoke an OpenAI API.
+Codex is a contributor tool for reproducing bugs, preparing fixes, reviewing changes and triaging reports in this repository. The board reads Claude Code transcripts and interactive Codex rollouts from local session directories. The separate [Codex exec metrics adapter](CODEX_METRICS.md) summarizes explicitly supplied exec JSONL logs offline.
+
+Run `python team-board/team_board.py --source all` to discover both providers, or use `--source codex`. Click the session identifier in the header to filter providers and read conversation messages. Actual model names, verified child agents, tool activity and usage are shown. Codex remains read-only: the board does not inject messages, configure models or start agents.
+
+Recorded `send_input`, `send_message`, `followup_task` and `send_message_to_thread` calls become communication rows and edges only when the recipient uniquely matches a verified participant. The panel labels these as recorded send calls; a tool call is not proof the recipient read a message. Failed calls are labeled, ambiguous or unrelated recipients are omitted, and messages absent from the logs cannot be reconstructed. Claude Code also supports its existing message bus and file handoffs. The standalone demo uses synthetic exchanges and is not evidence of a live session.
 
 ## Start with a bounded task
 
