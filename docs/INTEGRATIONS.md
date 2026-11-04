@@ -4,7 +4,7 @@ These recipes use the local board and standard-library tools. Interactive Codex 
 
 ## Optional Claude Code hook channel
 
-`python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` lists those events for the selected session and sets `merged` to false: they are not deduplicated against transcript rows. `correlate` is `tool_use_id`, reserved for a later join. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
+`python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` still lists the raw events for the selected session. `live.merged` is true when that list has been joined into `feed`: one tool call is one row. The preferred key is `session_id + tool_use_id` (`live.correlate` stays `tool_use_id`). With no id, the key is tool name, a 5 second window, and a short hash of the tool input. Estimated cost still comes only from the transcript. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
 
 ## Codex exec event metrics
 

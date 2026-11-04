@@ -60,7 +60,7 @@ python install.py --hooks
 | `session_id` | 公共输入 |
 | `event` | 公共输入里的 `hook_event_name` |
 | `tool_name` | `PreToolUse` / `PostToolUse` |
-| `tool_use_id` | 同上，见下面的「还没和转录合并」 |
+| `tool_use_id` | 同上。和转录并成一条时的首选键 |
 | `agent_id` / `agent_type` | 公共输入；子代理和队内成员会带 |
 | `notification_type` | 只在 `Notification` |
 | `stop_hook_active` | 只在 `Stop` / `SubagentStop`，布尔值 |
@@ -86,7 +86,7 @@ python install.py --hooks
 {
   "v": 1,
   "source": "claude-hook",
-  "merged": false,
+  "merged": true,
   "correlate": "tool_use_id",
   "available": true,
   "fresh": true,
@@ -95,15 +95,30 @@ python install.py --hooks
 }
 ```
 
-`merged` 现在恒为 `false`。`correlate` 只是声明以后可以用 `tool_use_id` 和转录里的同一次工具调用对上，**这一版不做对账，也不会把两边收成一条**。动作流里会同时看到钩子行和转录行。
+`merged` 为 `true` 表示这帧快照的动作流已经和 `events` 对过账。`events` 仍是内存里的原始钩子（当前会话最近 40 条），用来判断通道是不是刚到过事件。动作流 `feed` 里同一次调用只有一条。
 
-页面顶部的 **实时** 在最近 `freshSeconds` 秒内收到当前会话的事件时亮起；否则显示 **实时·等待**。这和原来的 LIVE（页面还连着看板）不是同一件事。成员卡片上的「实时 · …」也只覆盖显示，转录字段还在。
+`correlate` 仍是 `tool_use_id`，这是首选键。完整规则写在 `team_board.activity_key` 上面：
 
-`python tools/demo_board.py` 的合成快照里有两条假事件，用来看这个指示。那不是本机钩子，横幅仍然写着合成数据。
+1. 有 `tool_use_id`：键是 `session_id + tool_use_id`。`PreToolUse` 和 `PostToolUse` 算同一次。不看时间差，转录晚几秒写盘也对得上。两边工具名都有且不一样时不对上，只留转录那一条。
+2. 没有 `tool_use_id`：键是 `session_id + tool_name + 5 秒窗口 + 入参指纹`。指纹是工具入参 JSON（键排序）的 sha256 前 16 位。钩子不转发 `tool_input`，所以钩子侧指纹为空；只有同一窗口里恰好一条同名转录时才并上。多条就不猜，也不另加一行。
 
-## 还没做的事
+并上之后保留更早的时间（通常是钩子先到的那一下），用转录补上 `工具 · 参数摘要`、测试结果和报错。`PostToolUse` 把这一条标成已完成。估算成本只来自转录里的 usage，钩子不加价、不记第二次 token。转录里已经数过的 id，`toolCount` 不加第二次；转录还没落盘时先算一次，落盘后回到转录的次数。
 
-事件和转录的去重合并是下一步，不是这次的范围。要对上的话，用 `session_id` + `tool_use_id` + `event`，不要用工具参数的文本。
+没装钩子时通道不可用，`merged` 保持 `false`，动作流和成本与只读转录时一样。装了钩子但这一帧还没有事件时，动作流也与只读转录相同，只是 `merged` 为 `true`，表示之后到的事件会并进去。
+
+页面顶部的 **实时** 在最近 `freshSeconds` 秒内收到当前会话的事件时亮起；否则显示 **实时·等待**。这和原来的 LIVE（页面还连着看板）不是同一件事。成员卡片上的「实时 · …」只在这条调用还没写进转录时覆盖那一行；对上之后改回转录里的摘要。
+
+`python tools/demo_board.py` 的合成快照里 `live.merged` 仍是 `false`，两条假事件只用来看指示，不经过这块对账。横幅仍然写着合成数据。
+
+## 怎么自己对一下
+
+用合成转录和合成钩子，不要把真实会话贴进来：
+
+```bash
+python -m unittest tests.test_event_merge tests.test_hook_relay -v
+```
+
+`tests/test_event_merge.py` 覆盖三种情况：先钩子后转录只有一条，而且时间留在钩子那边；只有转录时还是一条，成本不变；只有钩子时先出现一条，`PreToolUse` 加 `PostToolUse` 也不拆成两条。
 
 ## English
 
@@ -111,4 +126,4 @@ python install.py --hooks
 
 `team-board/hook_relay.py` reads the hook JSON from stdin, keeps the identifiers listed above, and POSTs them to `http://127.0.0.1:<port>/api/hooks/event` with a loopback `Origin`. The opener uses `ProxyHandler({})`, same as `ensure.py`. If the board is down the process exits 0 and prints nothing, so Claude Code does not treat the hook as a decision. The socket timeout is 0.2s; the settings `timeout` of 2 seconds is only Claude Code's ceiling.
 
-The board accepts loopback clients only, requires a matching Origin, and rejects bodies over 4096 bytes. It stores at most 200 events in memory. `live.merged` is `false`: hook rows are not deduplicated against the transcript feed. `live.correlate` names `tool_use_id` as the future join key. That join is not implemented.
+The board accepts loopback clients only, requires a matching Origin, and rejects bodies over 4096 bytes. It stores at most 200 events in memory. `live.events` stays that raw ring. `live.merged` is true when those events have been joined into `feed`. `live.correlate` is still `tool_use_id`: the preferred key is `session_id + tool_use_id`, with no time limit. Without an id the key is `session_id + tool_name + a 5 second window + a sha256 prefix of the canonical tool input`. The relay still does not send tool input, so a hook fingerprint is empty and matches only a single transcript row in that window. The canonical row keeps the earlier timestamp and the transcript label. Usage and estimated cost stay on the transcript; a joined id is not counted twice. The static demo fixture leaves `merged` false and does not run this join.
