@@ -1037,6 +1037,19 @@
         "normalizedStatus": "in_progress",
         "owner": "合成研究员",
         "ownerMatch": "合成研究员",
+        "estimate": {
+          "cost": 0.018,
+          "tokens": {
+            "in": 3000,
+            "out": 600,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "status": "known",
+          "partial": false,
+          "unpriced": false,
+          "basis": "transcript"
+        },
         "blockedBy": [],
         "blocks": [
           "3"
@@ -1080,6 +1093,19 @@
         "normalizedStatus": "completed",
         "owner": "合成写手",
         "ownerMatch": "合成写手",
+        "estimate": {
+          "cost": null,
+          "tokens": {
+            "in": 100,
+            "out": 40,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "status": "partial",
+          "partial": true,
+          "unpriced": true,
+          "basis": "transcript"
+        },
         "blockedBy": [],
         "blocks": [
           "4"
@@ -1155,7 +1181,23 @@
         "notices": [],
         "stateSince": 1767261700,
         "stateSinceKind": "file-shared",
-        "stateSeconds": 40
+        "stateSeconds": 40,
+        "acceptance": {
+          "items": [
+            {
+              "text": "The detail lists this criterion",
+              "checked": true
+            },
+            {
+              "text": "An open criterion stays unchecked",
+              "checked": false
+            }
+          ],
+          "checklist": {
+            "done": 1,
+            "total": 2
+          }
+        }
       },
       {
         "id": "4",
@@ -1184,7 +1226,15 @@
         "notices": [],
         "stateSince": 1767261680,
         "stateSinceKind": "observed",
-        "stateSeconds": 60
+        "stateSeconds": 60,
+        "acceptance": {
+          "items": [
+            {
+              "text": "The owner is the lead name",
+              "checked": null
+            }
+          ]
+        }
       },
       {
         "id": "5",

@@ -47,7 +47,11 @@ class FixtureRowsTest(unittest.TestCase):
             self.assertTrue(by_id['3']['blocked'])
             self.assertEqual(by_id['3']['waitingOn'], ['2'])
             self.assertEqual(by_id['4']['normalizedStatus'], 'pending')
-            self.assertEqual(by_id['4']['description'], 'Synthetic task stored in the TaskGet output shape.')
+            self.assertEqual(by_id['4']['description'], (
+                'Synthetic task stored in the TaskGet output shape.\n\n'
+                '## Acceptance\n'
+                '- [x] The detail lists this checklist\n'
+                '- [ ] A missing mark stays open'))
             self.assertEqual(by_id['4']['blocks'], [])
             self.assertTrue(by_id['4']['blocked'])
             self.assertEqual(by_id['1']['stateSinceKind'], 'file-shared')

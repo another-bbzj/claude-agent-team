@@ -6,6 +6,8 @@ Agent Team Board — 本地实时看板服务
 直接读取 Claude Code 写在 ~/.claude/projects/<project>/<session>/subagents/ 下的
 子代理 transcript (agent-*.jsonl + agent-*.meta.json)，推导每个子代理的状态与当前动作，
 通过 /snapshot.json 提供给前端页面轮询。
+可选推送：GET /events（/api/events 相同）在本机回环上用 Server-Sent Events
+推送修订号。页面收到后再拉 /snapshot.json。连不上时仍按原来的间隔轮询。
 可选实时通道：hook_relay.py 把 Claude Code 钩子收成短事件，POST /api/hooks/event。
 事件仍只留在内存里。公开快照的动作流会按 activity_key 和转录并成一条，见 docs/HOOKS.md。
 
@@ -1194,14 +1196,18 @@ def update_apply() -> dict:
 
 class UsageLedger:
     """按 message.id 去重累计 usage：同一条 API 消息会被写成多行（每个 content block 一行，usage 是当时的快照），
-    只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。"""
+    只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。
+
+    events() 带上这份快照的时间和模型，给任务归因用。后一行没有时间或模型时，沿用这条消息上一次有的值。
+    """
 
     def __init__(self):
         self.by_id = {}
         self.order = []
         self.anon = 0
+        self.meta = {}
 
-    def add(self, msg: dict, request_id: str = ''):
+    def add(self, msg: dict, request_id: str = '', ts=None, model: str = ''):
         usage = msg.get('usage') or {}
         if not usage:
             return
@@ -1212,6 +1218,16 @@ class UsageLedger:
         if mid not in self.by_id:
             self.order.append(mid)
         self.by_id[mid] = usage
+        previous = self.meta.get(mid) or {}
+        kept_ts = ts if isinstance(ts, (int, float)) and not isinstance(ts, bool) else None
+        if isinstance(kept_ts, float) and (kept_ts != kept_ts or kept_ts in (float('inf'), float('-inf'))):
+            kept_ts = None
+        if kept_ts is None:
+            kept_ts = previous.get('ts')
+        kept_model = model if real_model(model) else ''
+        if not kept_model:
+            kept_model = previous.get('model') or ''
+        self.meta[mid] = {'ts': kept_ts, 'model': kept_model}
 
     def total(self):
         t = {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
@@ -1222,6 +1238,46 @@ class UsageLedger:
             t['cache_write'] += u.get('cache_creation_input_tokens', 0) or 0
         return t
 
+    def events(self):
+        out = []
+        for mid in self.order:
+            meta = self.meta.get(mid) or {}
+            out.append({
+                'ts': meta.get('ts'),
+                'model': meta.get('model') or '',
+                'usage': _task_cost.normalize_usage(self.by_id.get(mid) or {}),
+            })
+        return out
+
+
+def _note_task_mark(marks, name, inp, ts):
+    """TaskUpdate / TaskCreate 入参里只留下 id、状态、owner 和时间。不保存说明。"""
+    if name not in ('TaskUpdate', 'TaskCreate') or not isinstance(inp, dict):
+        return
+    task_id = None
+    for key in ('taskId', 'task_id', 'id'):
+        value = inp.get(key)
+        if isinstance(value, str) and value:
+            task_id = value
+            break
+    if not task_id or len(task_id) > 200 or '\n' in task_id or '\r' in task_id:
+        return
+    status = inp.get('status') if isinstance(inp.get('status'), str) else None
+    if status == 'in progress':
+        status = 'in_progress'
+    elif status not in ('pending', 'in_progress', 'completed', 'deleted'):
+        status = None
+    owner = inp.get('owner') if isinstance(inp.get('owner'), str) else None
+    if isinstance(owner, str) and (len(owner) > 200 or '\n' in owner or '\r' in owner):
+        owner = None
+    if status is None and owner is None:
+        return
+    if not isinstance(ts, (int, float)) or isinstance(ts, bool):
+        return
+    if isinstance(ts, float) and (ts != ts or ts in (float('inf'), float('-inf'))):
+        return
+    marks.append({'ts': float(ts), 'id': task_id, 'status': status, 'owner': owner})
+
 
 def _parse_agent_file(jsonl: Path):
     entries = read_jsonl(jsonl)
@@ -1231,7 +1287,7 @@ def _parse_agent_file(jsonl: Path):
     tool_ids, pending = [], {}
     last_text, last_stop, last_kind = '', None, None
     model, ledger = '', UsageLedger()
-    messages, writes, reads = [], [], []
+    messages, writes, reads, task_marks = [], [], [], []
     trace = _cache_advice.Trace(agent_id, agent_id, True)
 
     for e in entries:
@@ -1266,7 +1322,7 @@ def _parse_agent_file(jsonl: Path):
                         last_kind = 'tool_result'
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
-            ledger.add(msg, e.get('requestId') or '')
+            ledger.add(msg, e.get('requestId') or '', ts, msg.get('model') or '')
             if real_model(msg.get('model')):
                 model = msg['model']
             has_tool = False
@@ -1282,6 +1338,7 @@ def _parse_agent_file(jsonl: Path):
                         item = {'ts': ts, 'kind': 'tool', 'name': name,
                                 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
+                        _note_task_mark(task_marks, name, inp, ts)
                         _stamp_tool(item, inp, c.get('id'), tool_ids)
                         pending[c.get('id')] = item
                         timeline.append(item)
@@ -1314,7 +1371,8 @@ def _parse_agent_file(jsonl: Path):
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
             'tool_count': tool_count, 'toolIds': tool_ids, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
-            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads,
+            'usage': ledger.total(), 'usageEvents': ledger.events(), 'taskMarks': task_marks,
+            'messages': messages, 'writes': writes, 'reads': reads,
             'cacheTurns': trace.turns()}
 
 
@@ -1352,6 +1410,8 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'model': P['model'],
         'modelFamily': model_family(P['model']),
         'usage': P['usage'],
+        'usageEvents': list(P.get('usageEvents') or []),
+        'taskMarks': list(P.get('taskMarks') or []),
         'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(P['model'], P['usage'])),
         'priced': estimate_cost(P['model'], P['usage']) is not None,
         'priceKey': price_key(P['model']),
@@ -1450,6 +1510,7 @@ def parse_lead(path: Path, now: float):
         data = cached[1]
     else:
         timeline, pending, dispatches, messages, tool_count, tool_ids, out_tokens = [], {}, {}, [], 0, [], 0
+        task_marks = []
         last_user_prompt, last_ts, first_ts = '', None, None
         cwds = {}   # 队长转录里出现过的 cwd → 最后出现的序号（队长会 cd 走；键顺序 = 首次出现顺序）
         notifications = {}
@@ -1496,7 +1557,7 @@ def parse_lead(path: Path, now: float):
                                 if item.get('_test_command'):
                                     _finish_test_item(item, c, _tool_output(c.get('content')))
             elif et == 'assistant':
-                lead_ledger.add(msg, e.get('requestId') or '')
+                lead_ledger.add(msg, e.get('requestId') or '', ts, msg.get('model') or '')
                 if real_model(msg.get('model')):
                     lead_model = msg['model']
                 if isinstance(content, list):
@@ -1505,6 +1566,7 @@ def parse_lead(path: Path, now: float):
                             continue
                         name, inp, tid = c.get('name', '?'), c.get('input') or {}, c.get('id')
                         tool_count += 1
+                        _note_task_mark(task_marks, name, inp, ts)
                         item = {'ts': ts, 'kind': 'tool', 'name': name, 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
                         _stamp_tool(item, inp, tid, tool_ids)
@@ -1531,7 +1593,8 @@ def parse_lead(path: Path, now: float):
         last_test = _latest_test(timeline, '__lead')
         data = {'timeline': _clip_timeline(timeline, 60), 'lastTest': last_test,
                 'toolCount': tool_count, 'toolIds': tool_ids, 'outputTokens': out_tokens,
-                'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
+                'model': lead_model, 'usage': lead_usage, 'usageEvents': lead_ledger.events(), 'taskMarks': task_marks,
+                'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
                 'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime,
@@ -2477,21 +2540,29 @@ def _official_team_view(session_id):
         'teamName': parsed['teamName'],
         'lead': lead,
         'warnings': list(parsed['warnings']),
-        'tasks': [{
-            'id': task.get('id'),
-            'subject': task.get('subject'),
-            'description': task.get('description'),
-            'status': task.get('status'),
-            'normalizedStatus': task.get('normalizedStatus'),
-            'owner': task.get('owner'),
-            'blockedBy': task.get('blockedBy'),
-            'blocks': task.get('blocks'),
-            'source': task.get('source'),
-            'sourceMtime': task.get('sourceMtime'),
-        } for task in parsed['tasks']],
+        'tasks': [_view_task(task) for task in parsed['tasks']],
         'members': parsed['members'],
     })
     return view
+
+
+def _view_task(task):
+    """快照用的任务字段。不带 raw。验收只在已经抽出条目时带上。"""
+    row = {
+        'id': task.get('id'),
+        'subject': task.get('subject'),
+        'description': task.get('description'),
+        'status': task.get('status'),
+        'normalizedStatus': task.get('normalizedStatus'),
+        'owner': task.get('owner'),
+        'blockedBy': task.get('blockedBy'),
+        'blocks': task.get('blocks'),
+        'source': task.get('source'),
+        'sourceMtime': task.get('sourceMtime'),
+    }
+    if task.get('acceptance'):
+        row['acceptance'] = task.get('acceptance')
+    return row
 
 
 def exact_owner_name(owner, names):
@@ -2668,6 +2739,36 @@ def _task_id_list(value):
     return [item for item in value if isinstance(item, str)]
 
 
+def _public_acceptance(value):
+    """只留下条目文本和真实的勾选状态。没有条目就返回 None，不补空清单。"""
+    if not isinstance(value, dict):
+        return None
+    items = value.get('items')
+    if not isinstance(items, list):
+        return None
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        text = item.get('text')
+        if not isinstance(text, str) or not text.strip():
+            continue
+        checked = item.get('checked')
+        if checked is not True and checked is not False:
+            checked = None
+        cleaned.append({'text': text.strip(), 'checked': checked})
+    if not cleaned:
+        return None
+    public = {'items': cleaned}
+    boxes = [item for item in cleaned if item['checked'] is not None]
+    if boxes:
+        public['checklist'] = {
+            'done': sum(1 for item in boxes if item['checked'] is True),
+            'total': len(boxes),
+        }
+    return public
+
+
 def _task_clock_key(team_name, task):
     ident = task.get('id')
     if ident:
@@ -2760,6 +2861,7 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
     """把已解析的任务收成只读看板行。不含 raw、source、sourceMtime。
 
     每行另有 blockedByDetail / blocksDetail（对得上的带 subject）、flags、notices。
+    已经抽出验收条目时带 acceptance，没有就省略这个键。
     这些字段都从已经留下的行和警告推导，不读任务目录。
 
     同一个 id 只留修改时间较新的一条。可见行超过 MAX_TASK_ROWS 时截断。
@@ -2794,7 +2896,7 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
         waiting = [item for item in blocked_by if item not in completed]
         since, kind = _task_state_since(clock, team_name, task, now, counts.get(task.get('source'), 0) == 1)
         seen.add(_task_clock_key(team_name, task))
-        rows.append({
+        row = {
             'id': task.get('id'),
             'subject': task.get('subject'),
             'description': task.get('description'),
@@ -2808,7 +2910,11 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
             'stateSince': since,
             'stateSinceKind': kind,
             'stateSeconds': max(0, int(now - since)),
-        })
+        }
+        acceptance = _public_acceptance(task.get('acceptance'))
+        if acceptance:
+            row['acceptance'] = acceptance
+        rows.append(row)
     if len(rows) > MAX_TASK_ROWS:
         warnings.append('任务超过 %d 条，看板只显示前 %d 条' % (MAX_TASK_ROWS, MAX_TASK_ROWS))
         rows = rows[:MAX_TASK_ROWS]
@@ -2907,10 +3013,54 @@ def _public_official_team(view, now):
     return public
 
 
-def _snapshot_official_team(view, members, now, lead=None):
-    """公开快照上的官方团队。ownerMatch 只在这里写，不写回任务目录。
+def _task_cost_inputs(members, lead_data, lead_name):
+    """按显示名收集转录用量。同名的人和 lead 撞在一起时标成 ambiguous，不把两份用量加总。
+
+    没有 usageEvents 键的卡是官方队友占位，没有转录，不放进 sources。
+    """
+    sources = {}
+    marks = []
+
+    def add(name, events):
+        if not isinstance(name, str) or not name:
+            return
+        if name in sources or not isinstance(events, list):
+            sources[name] = {'ambiguous': True}
+            return
+        sources[name] = {'ambiguous': False, 'events': events}
+
+    def take_marks(person):
+        for mark in person.get('taskMarks') or []:
+            if isinstance(mark, dict):
+                marks.append(mark)
+
+    for member in members or ():
+        if not isinstance(member, dict) or 'usageEvents' not in member:
+            continue
+        add(member.get('name'), member.get('usageEvents'))
+        take_marks(member)
+    if isinstance(lead_data, dict) and 'usageEvents' in lead_data:
+        add(lead_name, lead_data.get('usageEvents'))
+        take_marks(lead_data)
+    return sources, marks
+
+
+def _drop_task_cost_trace(members, lead_data):
+    """用量切片和任务标记只用来归因，不进公开快照。"""
+    for member in members or ():
+        if isinstance(member, dict):
+            member.pop('usageEvents', None)
+            member.pop('taskMarks', None)
+    if isinstance(lead_data, dict):
+        lead_data.pop('usageEvents', None)
+        lead_data.pop('taskMarks', None)
+
+
+def _snapshot_official_team(view, members, now, lead=None, lead_data=None):
+    """公开快照上的官方团队。ownerMatch 和 estimate 只在这里写，不写回任务目录。
 
     成员最近一次测试在 owner 与名字完全一致时抄到任务上。队长用官方 lead 名字，不用舞台上的「队长 · Claude」。
+    estimate 只统计这个名字在任务进行中的转录用量。对不上就不写金额。
     """
     public = _public_official_team(view, now)
     annotate_owner_matches(
@@ -2926,6 +3076,9 @@ def _snapshot_official_team(view, members, now, lead=None):
             named['name'] = official
         people.append(named)
     _test_results.attach_last_tests(public.get('tasks') or [], people)
+    sources, marks = _task_cost_inputs(members, lead_data, public.get('lead') or '')
+    _task_cost.attach_estimates(public.get('tasks') or [], sources, marks, now, estimate_cost)
+    _drop_task_cost_trace(members, lead_data)
     return public
 
 
@@ -2938,7 +3091,17 @@ def _load_budget():
     return module
 
 
+def _load_task_cost():
+    """本目录的 task_cost.py。按文件加载，测试换了看板副本时不会串到别的路径。"""
+    path = HERE / 'task_cost.py'
+    spec = importlib.util.spec_from_file_location('task_cost_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 _budget_mod = _load_budget()
+_task_cost = _load_task_cost()
 
 
 class HookEventLog(object):
@@ -3814,7 +3977,7 @@ def build_snapshot(args, merge=True):
         '_activityIndex': activity_index,
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _snapshot_official_team(official_view, members, now, lead),
+        'officialTeam': _snapshot_official_team(official_view, members, now, lead, lead_data),
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info and provider == 'claude' else '', now),
     }
@@ -3847,6 +4010,178 @@ def build_snapshot(args, merge=True):
     if merge:
         return merge_hook_events(snapshot, snapshot.get('live'))
     return snapshot
+
+
+# 浏览器没有 EventSource、或这条流失败时，页面仍每 1.5 秒请求 /snapshot.json。
+SSE_POLL_SEC = 1.0
+# 活动、状态、成本、任务、停滞提醒和实时钩子都没变时，仍定期推一次，用时和顶栏时钟才继续走。
+SSE_HEARTBEAT_SEC = 12.0
+SSE_RETRY_MS = 3000
+SSE_PATHS = ('/events', '/api/events')
+# 这些字段只跟着时钟走。去掉之后，修订号才表示「看板内容变了」。
+SSE_CLOCK_KEYS = frozenset(('generatedAt', 'stateSeconds', 'idleSeconds'))
+
+
+def sse_request_allowed(client_host, origin, server_port):
+    """订阅只给本机回环。没有 Origin（curl / 测试）可以；带了 Origin 就必须是本服务自己的页面。"""
+    if not loopback_host(client_host):
+        return False
+    if not origin:
+        return True
+    try:
+        port = int(server_port)
+    except (TypeError, ValueError):
+        return False
+    return hook_origin_allowed(origin, port)
+
+
+def snapshot_request(query):
+    """解析和 /snapshot.json 相同的 source / session / project / cwd。错误时返回 400 用的对象。"""
+    q = parse_qs(query)
+    args = argparse.Namespace(**vars(Handler.args))
+    if 'session' in q:
+        args.session = q['session'][0]
+    elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
+        args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
+    if 'source' in q:
+        args.source = q['source'][0]
+        if args.source not in ('all', 'claude', 'codex'):
+            return args, True, {'error': 'source must be all, claude or codex'}
+    custom = 'session' in q or 'project' in q or 'cwd' in q or 'source' in q
+    return args, custom, None
+
+
+def public_snapshot(args, custom):
+    """和 GET /snapshot.json 同一份公开快照：短缓存，钩子每次响应再合并。"""
+    with Handler._lock:
+        t, data = Handler._cache
+        if data is None or time.time() - t > 1.0 or custom:
+            data = build_snapshot(args, False)
+            if not custom:
+                Handler._cache = (time.time(), data)
+        session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
+        live = hook_live_view(session_id if data.get('source', 'claude') == 'claude' else '', time.time())
+        return merge_hook_events(data, live)
+
+
+def _sse_number(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
+def _sse_scrub(value):
+    """去掉只随时钟变化的字段。不改原对象，缓存里的快照还要给下一次轮询用。"""
+    if isinstance(value, dict):
+        return {key: _sse_scrub(item) for key, item in value.items() if key not in SSE_CLOCK_KEYS}
+    if isinstance(value, list):
+        return [_sse_scrub(item) for item in value]
+    return value
+
+
+def _sse_alerting(seconds, threshold):
+    left, right = _sse_number(seconds), _sse_number(threshold)
+    if left is None or right is None:
+        return False
+    return left >= right
+
+
+def sse_canonical_snapshot(view):
+    """修订号看的内容。停滞秒数本身不计，跨过阈值变成提醒才计。"""
+    if not isinstance(view, dict):
+        return None
+    data = _sse_scrub(view)
+    stall = view.get('stallAlerts')
+    if not isinstance(stall, dict) or not isinstance(data.get('stallAlerts'), dict):
+        return data
+    flags = []
+    for item in stall.get('candidates') or []:
+        if not isinstance(item, dict):
+            continue
+        ident = item.get('id') if isinstance(item.get('id'), str) else ''
+        status = item.get('status') if isinstance(item.get('status'), str) else ''
+        flags.append({
+            'id': ident,
+            'status': status,
+            'alerting': _sse_alerting(item.get('idleSeconds'), stall.get('thresholdSec')),
+        })
+    data['stallAlerts']['alerting'] = flags
+    return data
+
+
+def snapshot_revision(view):
+    """公开快照的短修订号。时钟字段和未跨阈值的停滞秒数相同则修订号相同。"""
+    try:
+        raw = json.dumps(sse_canonical_snapshot(view), ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    except (TypeError, ValueError):
+        raw = ''
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:20]
+
+
+def sse_notice(view, rev):
+    """推给浏览器的正文：修订号和定位字段。消息、提示词和本机路径留在 /snapshot.json。"""
+    source, session_id, generated = '', '', None
+    if isinstance(view, dict):
+        if isinstance(view.get('source'), str):
+            source = view['source']
+        session = view.get('session')
+        if isinstance(session, dict) and isinstance(session.get('id'), str):
+            session_id = session['id']
+        generated = _sse_number(view.get('generatedAt'))
+    return {'rev': rev, 'source': source, 'session': session_id, 'generatedAt': generated}
+
+
+def format_sse_event(name, data, retry_ms=None):
+    lines = []
+    if retry_ms is not None:
+        lines.append('retry: %d' % int(retry_ms))
+    lines.append('event: %s' % name)
+    text = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+    for line in text.split('\n'):
+        lines.append('data: ' + line)
+    return ('\n'.join(lines) + '\n\n').encode('utf-8')
+
+
+def format_sse_comment(text='ping'):
+    safe = ''.join(ch for ch in str(text) if ch not in '\r\n')
+    return (': ' + safe + '\n\n').encode('utf-8')
+
+
+def iter_sse_notices(load_view, poll, clock, heartbeat_sec, rounds=None):
+    """先 hello，修订号变了或到了心跳就 refresh，否则只给注释。poll 返回真就停。
+
+    rounds 限制 load_view 的次数，测试不用真的睡觉。heartbeat_sec 为空或 0 时不发心跳。
+    """
+    last = None
+    last_emit = None
+    count = 0
+    while rounds is None or count < rounds:
+        now = clock()
+        view = load_view()
+        count += 1
+        rev = snapshot_revision(view)
+        due = bool(heartbeat_sec) and last_emit is not None and (now - last_emit) >= heartbeat_sec
+        if last is None:
+            yield 'hello', sse_notice(view, rev)
+            last, last_emit = rev, now
+        elif rev != last or due:
+            yield 'refresh', sse_notice(view, rev)
+            last, last_emit = rev, now
+        else:
+            yield 'ping', None
+        if rounds is not None and count >= rounds:
+            return
+        if poll(SSE_POLL_SEC):
+            return
+
+
+def write_sse_stream(write, load_view, poll, clock, heartbeat_sec, rounds=None):
+    """把通知写成 SSE 字节。hello 带上 retry，断线后浏览器按这个间隔重连。"""
+    for kind, payload in iter_sse_notices(load_view, poll, clock, heartbeat_sec, rounds):
+        if kind == 'ping':
+            write(format_sse_comment())
+        else:
+            write(format_sse_event(kind, payload, SSE_RETRY_MS))
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -3888,31 +4223,72 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.flush()
         return True
 
+    def _sse_wait(self, seconds):
+        time.sleep(seconds)
+        return False
+
+    def _write_chunk(self, payload):
+        if not payload:
+            return
+        if isinstance(payload, str):
+            payload = payload.encode('utf-8')
+        self.wfile.write(('%x\r\n' % len(payload)).encode('ascii'))
+        self.wfile.write(payload)
+        self.wfile.write(b'\r\n')
+        self.wfile.flush()
+
+    def _end_chunks(self):
+        try:
+            self.wfile.write(b'0\r\n\r\n')
+            self.wfile.flush()
+        except OSError:
+            pass
+
+    def _stream_events(self, parsed):
+        """GET /events：本机 SSE。先写 hello，之后内容变了或到心跳再写 refresh。"""
+        client = self.client_address[0] if self.client_address else ''
+        origin = self.headers.get('Origin') if self.headers else ''
+        try:
+            port = self.server.server_address[1]
+        except Exception:
+            port = 0
+        if not sse_request_allowed(client, origin, port):
+            return self._json({'error': '拒绝非本机或跨站的实时订阅'}, 403)
+        args, custom, error = snapshot_request(parsed.query)
+        if error:
+            return self._json(error, 400)
+        # 只改这一次响应的协议版本。类上的 HTTP/1.0 不动，其它接口的短连接保持原样。
+        self.protocol_version = 'HTTP/1.1'
+        self.close_connection = True
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Connection', 'close')
+        self.send_header('Transfer-Encoding', 'chunked')
+        self.send_header('X-Accel-Buffering', 'no')
+        self.end_headers()
+
+        def load():
+            return public_snapshot(args, custom)
+
+        try:
+            write_sse_stream(self._write_chunk, load, self._sse_wait, time.time, SSE_HEARTBEAT_SEC)
+        except OSError:
+            return
+        finally:
+            self._end_chunks()
+
     def do_GET(self):
         if self._reject_task_api():
             return
         u = urlparse(self.path)
+        if u.path in SSE_PATHS:
+            return self._stream_events(u)
         if u.path == '/snapshot.json':
-            q = parse_qs(u.query)
-            args = argparse.Namespace(**vars(Handler.args))
-            if 'session' in q:
-                args.session = q['session'][0]
-            elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
-                args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
-            if 'source' in q:
-                args.source = q['source'][0]
-                if args.source not in ('all', 'claude', 'codex'):
-                    return self._json({'error': 'source must be all, claude or codex'}, 400)
-            custom = 'session' in q or 'project' in q or 'cwd' in q or 'source' in q
-            with Handler._lock:
-                t, data = Handler._cache
-                if data is None or time.time() - t > 1.0 or custom:
-                    data = build_snapshot(args, False)
-                    if not custom:
-                        Handler._cache = (time.time(), data)
-                session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
-                live = hook_live_view(session_id if data.get('source', 'claude') == 'claude' else '', time.time())
-                view = merge_hook_events(data, live)
+            args, custom, error = snapshot_request(u.query)
+            if error:
+                return self._json(error, 400)
+            view = public_snapshot(args, custom)
             body = json.dumps(view, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')

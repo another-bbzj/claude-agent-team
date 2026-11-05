@@ -478,7 +478,9 @@
   .kcard .kowner.unknown { color: var(--text-3); font-weight: 500; }
   .kcard .kdeps { color: var(--text-2); }
   .kcard.blocked .kdeps { color: var(--warn); }
-  .kcard .kage { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  .kcard .kmeta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  .kcard .kage { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  .kcard .kcost { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); }
   .kcard .kpin { margin-left: auto; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font: 700 11px var(--mono); padding: 0 6px; line-height: 18px; cursor: pointer; }
   .kcard .kpin:hover { border-color: var(--gold); color: var(--gold); }
   .kcard .kpin:focus { outline: none; }
@@ -531,6 +533,12 @@
   .td-links .miss { color: var(--text-2); }
   .td-links .tid { font-family: var(--mono); color: var(--text-3); flex: none; }
   .td-links .tsub { flex: 1; min-width: 8em; word-break: break-word; }
+  .td-accept { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .td-accept li { display: flex; gap: 8px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); padding: 7px 10px; font-size: 13px; line-height: 1.45; }
+  .td-accept li:not(.check)::before { content: ""; width: 6px; height: 6px; margin-top: 6px; background: var(--gold); transform: rotate(45deg); flex: none; }
+  .td-accept input { margin: 2px 0 0; flex: none; accent-color: var(--ok); pointer-events: none; }
+  .td-accept .td-accept-text { min-width: 0; word-break: break-word; }
+  .kcard .kaccept { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--text-2); border: 1px solid var(--line); padding: 0 5px; line-height: 16px; }
   @media (max-width: 520px) { .task-detail-panel { width: 100%; border-left: 0; } }
   body:has(#synthetic-demo-notice) .task-detail-panel { bottom: 38px; }
 
@@ -1427,6 +1435,8 @@ class Sprite {
 const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 248, DEPT_GAP = 16, ROW_GAP = 18, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170, MROW_GAP = 8;
 let prev = null, selectedId = null, selectedSession = '', flights = 0, firstLoad = true;
 let selectedSource = 'all', requestEpoch = 0, conversationSig = '';
+let pollTimer = null, liveEvents = null, sseHadHello = false;
+const SNAPSHOT_POLL_MS = 1500;
 try { selectedSource = normalizeSource(localStorage.getItem('team-board-source')); } catch (_) {}
 $('#source-filter').value = selectedSource;
 const personEls = new Map(), deptEls = new Map(), taskEls = new Map(), seenFeed = new Set(), seenComms = new Set();
@@ -1469,6 +1479,41 @@ function wallpaperFileError(file) {
   return '';
 }
 /* END CODEX VIEW HELPERS */
+function eventsUrl(source, session) {
+  const q = new URLSearchParams({ source: normalizeSource(source) });
+  if (session) q.set('session', session);
+  return '/events?' + q.toString();
+}
+function sseWatchDecision(state, signal) {
+  const current = state && typeof state === 'object' ? state : { mode: 'poll', hadHello: false };
+  const next = { mode: current.mode === 'sse' ? 'sse' : 'poll', hadHello: !!current.hadHello, refresh: false, close: false };
+  if (signal === 'unsupported') {
+    next.mode = 'poll';
+    next.hadHello = false;
+    next.close = true;
+    return next;
+  }
+  if (signal === 'hello' || signal === 'refresh') {
+    next.mode = 'sse';
+    next.hadHello = true;
+    next.refresh = true;
+    next.close = false;
+    return next;
+  }
+  if (signal === 'error') {
+    next.mode = 'poll';
+    next.refresh = false;
+    if (!current.hadHello) {
+      next.hadHello = false;
+      next.close = true;
+    } else {
+      next.hadHello = true;
+      next.close = false;
+    }
+    return next;
+  }
+  return next;
+}
 function renderConversation(snap) {
   const rows = conversationRows(snap), provider = providerName(snap);
   $('#conversation-source').textContent = provider;
@@ -1915,6 +1960,37 @@ function taskAgeTitle(task) {
   if (task.stateSinceKind === 'file-shared') return '官方文件没有单独的状态时间。这条和同一文件里的其他任务共用最近写入时间，直到看板看到状态变化';
   return '官方任务文件没有状态时间';
 }
+/* 估算成本只在 owner 完全对上时出现。未知不写到卡片上，详情里说明为什么没有金额。 */
+function taskEstimateView(task, snap) {
+  const est = task && task.estimate;
+  if (!est || typeof est !== 'object') return null;
+  if (snap && !ownerMatchOf(task, snap)) return null;
+  const cost = typeof est.cost === 'number' && isFinite(est.cost) && est.cost >= 0 ? est.cost : null;
+  const partial = est.status === 'partial' || est.partial === true || est.unpriced === true;
+  const unknown = est.status === 'unknown' || (cost == null && !partial);
+  let text = '估算未知';
+  let title = '负责人对得上，但这条任务进行中的时间对不上用量，不编造金额';
+  if (!unknown && cost == null) {
+    text = '部分 · 未知';
+    title = '对得上的用量里有价格表没有的模型，不补金额。这是估算，不是账单';
+  } else if (!unknown && partial) {
+    text = fmtCost(cost) + ' · 部分';
+    title = '只计入能单独对上的用量。重叠的不摊开，文件时间只算写入之后，未定价的不补金额。这是估算，不是账单';
+  } else if (!unknown) {
+    text = fmtCost(cost);
+    title = '按这位负责人在任务进行中的转录用量和价格表估算，不是服务商账单';
+  }
+  const tokens = est.tokens;
+  const bits = [];
+  if (!unknown && tokens && typeof tokens === 'object') {
+    const keys = [['in', '输入'], ['out', '输出'], ['cache_read', '缓存读'], ['cache_write', '缓存写']];
+    for (let i = 0; i < keys.length; i++) {
+      const n = tokens[keys[i][0]];
+      if (typeof n === 'number' && isFinite(n) && n > 0) bits.push(keys[i][1] + ' ' + fmtTok(n));
+    }
+  }
+  return { text: text, title: title, showOnCard: !unknown, tokens: bits.join(' · ') };
+}
 const TASK_STATUS_LABEL = { pending: '待处理', in_progress: '进行中', completed: '已完成' };
 const TASK_STATUS_PILL = { pending: 'info', in_progress: 'brand', completed: 'ok' };
 const TASK_FLAG_LABEL = { blocked: '阻塞', approximate: '计时大约' };
@@ -2071,6 +2147,47 @@ function relationHtml(details) {
     return `<li><button type="button"${open}><span class="tid">${esc(tid)}</span><span class="tsub">${esc(subject)}</span>${label ? `<span class="pill ${pill}">${esc(label)}</span>` : ''}</button></li>`;
   }).join('') + '</ul>';
 }
+function acceptanceItems(task) {
+  const block = task && task.acceptance;
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return [];
+  const items = Array.isArray(block.items) ? block.items : [];
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const text = typeof item.text === 'string' ? item.text.trim() : '';
+    if (!text) continue;
+    out.push({ text: text, checked: item.checked === true ? true : (item.checked === false ? false : null) });
+  }
+  return out;
+}
+function acceptanceChecklist(task) {
+  const block = task && task.acceptance;
+  const list = block && !Array.isArray(block) ? block.checklist : null;
+  if (!list || typeof list !== 'object' || Array.isArray(list)) return null;
+  const done = list.done, total = list.total;
+  if (typeof done !== 'number' || typeof total !== 'number') return null;
+  if (!isFinite(done) || !isFinite(total) || done < 0 || total < 1 || done > total) return null;
+  if (Math.floor(done) !== done || Math.floor(total) !== total) return null;
+  return { done: done, total: total };
+}
+function acceptanceHtml(task) {
+  const items = acceptanceItems(task);
+  if (!items.length) return '';
+  const rows = items.map(item => {
+    if (item.checked === null) return `<li><span class="td-accept-text">${esc(item.text)}</span></li>`;
+    const mark = item.checked ? ' checked' : '';
+    const label = item.checked ? '已勾选' : '未勾选';
+    return `<li class="check"><input type="checkbox" disabled tabindex="-1"${mark} aria-label="${esc(label)}"><span class="td-accept-text">${esc(item.text)}</span></li>`;
+  }).join('');
+  return `<h3>验收 <small>Acceptance</small></h3><ul class="td-accept">${rows}</ul>`;
+}
+function acceptanceCardHtml(task) {
+  const checklist = acceptanceChecklist(task);
+  if (!checklist) return '';
+  const label = checklist.done + '/' + checklist.total;
+  return `<span class="kaccept" title="${esc('验收清单 ' + label)}">${esc(label)}</span>`;
+}
 function flagHtml(task, view, owner) {
   const chips = [];
   for (const flag of view.flags || []) if (TASK_FLAG_LABEL[flag]) chips.push(`<span class="pill warn">${esc(TASK_FLAG_LABEL[flag])}</span>`);
@@ -2083,6 +2200,7 @@ function taskDetailHtml(task, snap) {
   const team = snap.officialTeam || {};
   const tasks = team.tasks || [];
   const owner = taskOwnerLabel(task, snap);
+  const estimate = taskEstimateView(task, snap);
   const view = taskDetailView(task, tasks, team.warnings || []);
   const status = TASK_STATUS_LABEL[task.normalizedStatus] || (task.normalizedStatus || '未知');
   const pill = TASK_STATUS_PILL[task.normalizedStatus] || '';
@@ -2095,9 +2213,11 @@ function taskDetailHtml(task, snap) {
       <dt>状态</dt><dd><span class="pill ${pill}">${esc(status)}</span>${raw}</dd>
       ${task.lastTest ? `<dt>测试</dt><dd>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest.memberId, task.lastTest))}<span class="td-note">${esc(testDetailText(task.lastTest))}</span></dd>` : ''}
       <dt>负责人</dt><dd>${esc(owner.text)}${ownerNote}</dd>
+      ${estimate ? `<dt>估算</dt><dd>${esc(estimate.text)}<span class="td-note">${esc(estimate.title)}</span>${estimate.tokens ? `<span class="td-note">${esc(estimate.tokens)}</span>` : ''}</dd>` : ''}
       <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
     </dl>
     <h3>说明</h3>${desc}
+    ${acceptanceHtml(task)}
     <h3>依赖 <small>blockedBy</small></h3>${relationHtml(view.blockedBy)}
     <h3>挡住 <small>blocks</small></h3>${relationHtml(view.blocks)}
     <h3>标记</h3>${flagHtml(task, view, owner)}`;
@@ -2105,14 +2225,17 @@ function taskDetailHtml(task, snap) {
 function taskDetailSignature(task, snap) {
   const team = snap.officialTeam || {};
   const owner = taskOwnerLabel(task, snap);
+  const estimate = taskEstimateView(task, snap);
   return JSON.stringify({
     key: taskDetailKey,
     subject: task.subject || '',
     description: task.description || '',
+    acceptance: task.acceptance || null,
     status: task.status || '',
     normalizedStatus: task.normalizedStatus || '',
     owner: owner.text,
     known: owner.known,
+    estimate: estimate ? estimate.text + '|' + estimate.tokens : '',
     ageTitle: taskAgeTitle(task),
     lastTest: task.lastTest ? testDetailText(task.lastTest) : '',
     view: taskDetailView(task, team.tasks || [], team.warnings || []),
@@ -2316,10 +2439,12 @@ function renderTaskBoard(snap) {
         ? `<button type="button" class="kpin${pinned ? ' on' : ''}" data-pin="${esc(match)}" aria-pressed="${pinned ? 'true' : 'false'}" title="${esc(pinned ? '取消钉住「' + match + '」' : '钉住「' + match + '」，不打开详情')}">钉</button>`
         : '';
       const testFail = task.lastTest && task.lastTest.status === 'fail';
+      const estimate = taskEstimateView(task, snap);
+      const cost = estimate && estimate.showOnCard ? `<span class="kcost" title="${esc(estimate.title)}">${esc(estimate.text)}</span>` : '';
       return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}${testFail ? ' test-fail' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
-        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${pin}</div>
-        <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
+        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${acceptanceCardHtml(task)}${pin}</div>
+        <div class="kmeta"><span class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</span>${cost}</div>
       </article>`;
     }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;
     return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
@@ -3194,6 +3319,7 @@ function selectSession(id) {
   personEls.clear();
   for (const el of deptEls.values()) el.remove(); deptEls.clear();
   for (const el of taskEls.values()) el.remove(); taskEls.clear();
+  openLiveEvents();
   tick();
 }
 $('#session-select').addEventListener('change', (e) => selectSession(e.target.value));
@@ -4360,8 +4486,8 @@ function demoAugment(s) {
     if (!demoOfficial) demoOfficial = {
       available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
       tasks: [
-        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
-        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
+        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed', estimate: { cost: 0.018, tokens: { in: 3000, out: 600, cache_read: 0, cache_write: 0 }, status: 'known', partial: false, unpriced: false, basis: 'transcript' } },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file', estimate: { cost: null, tokens: { in: 100, out: 40, cache_read: 0, cache_write: 0 }, status: 'partial', partial: true, unpriced: true, basis: 'transcript' } },
         { id: '3', subject: 'Wait for the synthetic survey', description: '合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1', '9'], blocks: [], blocked: true, waitingOn: ['1', '9'], stateSince: now - 40, stateSinceKind: 'file-shared' },
         { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: ['2'], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
         { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
@@ -4822,7 +4948,47 @@ function expandDrawer(drawer, origin) {
 }
 
 
-tick(); setInterval(tick, 1500);
+function sseSupported() { return typeof EventSource === 'function'; }
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(tick, SNAPSHOT_POLL_MS);
+}
+function stopPoll() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+function openLiveEvents() {
+  const previous = liveEvents;
+  liveEvents = null;
+  sseHadHello = false;
+  if (previous) previous.close();
+  // ?demo=1 的额外消息在浏览器里生成，继续按 1.5 秒轮询才会播出来。
+  if (DEMO || !sseSupported()) {
+    startPoll();
+    return;
+  }
+  startPoll();
+  const es = new EventSource(eventsUrl(selectedSource, selectedSession));
+  liveEvents = es;
+  const take = (signal) => {
+    if (liveEvents !== es) return;
+    const decision = sseWatchDecision({ mode: sseHadHello ? 'sse' : 'poll', hadHello: sseHadHello }, signal);
+    if (decision.close) {
+      es.close();
+      if (liveEvents === es) liveEvents = null;
+    }
+    sseHadHello = decision.hadHello;
+    if (decision.mode === 'poll') startPoll();
+    else stopPoll();
+    if (decision.refresh) tick();
+  };
+  es.addEventListener('hello', () => take('hello'));
+  es.addEventListener('refresh', () => take('refresh'));
+  es.onerror = () => take('error');
+}
+openLiveEvents();
+tick();
 /* 文档截图辅助：?shot=stats|lower|member|dept 只显示对应区域 / 打开对应弹窗（对普通使用无影响） */
 (function shotMode() {
   const shot = new URLSearchParams(location.search).get('shot'); if (!shot) return;

@@ -6,6 +6,14 @@ These recipes use the local board and standard-library tools. Interactive Codex 
 
 `python install.py --hooks` registers a local command hook. It does not replace hooks you already configured. The relay posts a short JSON event to `POST /api/hooks/event` on `127.0.0.1`. The snapshot field `live` still lists the raw events for the selected session. `live.merged` is true when that list has been joined into `feed`: one tool call is one row. The preferred key is `session_id + tool_use_id` (`live.correlate` stays `tool_use_id`). With no id, the key is tool name, a 5 second window, and a short hash of the tool input. Estimated cost still comes only from the transcript. Full field list, failure behavior, and uninstall notes are in [HOOKS.md](HOOKS.md).
 
+## Optional loopback snapshot events
+
+`GET /events` and `GET /api/events` are the same Server-Sent Events stream. The board still binds only `127.0.0.1`. A browser `Origin` must be that loopback host plus this server's port. A local client with no `Origin` (curl, the tests) may connect. The query string matches `/snapshot.json`: `source`, `session`, `project` or `cwd`.
+
+The first message is `hello`. Later `refresh` messages fire when the selected session changes in a way the board treats as meaningful: activity, status, cost, tasks, stall-alert threshold, or the live hook feed. Clock-only fields (snapshot time, task age, idle seconds that have not crossed the stall threshold) do not by themselves emit `refresh`. About every 12 seconds the server emits `refresh` anyway, so on-screen durations keep moving. Comment lines keep the connection open and do not refresh the page.
+
+Both events carry `rev`, `source`, `session` and `generatedAt`. They do not carry message text, prompts or local paths. The page loads `/snapshot.json` and uses the existing render path. `rev` is a short hash of that same public snapshot with the clock fields removed. If the browser has no `EventSource`, or the stream fails before `hello`, the page keeps polling `/snapshot.json` about every 1.5 seconds and closes the failed stream. If a stream that already delivered `hello` drops, the browser reconnects using the `retry` field (3 seconds) and polling covers the gap. `?demo=1` keeps polling because those extra messages are created in the page. Export, battle-card and retrospective tools keep reading `/snapshot.json` only.
+
 ## Codex exec event metrics
 
 The [Codex exec adapter](CODEX_METRICS.md) accepts an explicitly supplied `codex exec --json` log and emits aggregate counts and token usage without text, commands or identifiers:
@@ -64,7 +72,7 @@ The exporter constructs a new object from this explicit allowlist:
 
 Each usage object contains only `in`, `out`, `cache_read`, `cache_write`, `total`, and `cacheHit`. Token/count values must be nonnegative integers; costs must be finite nonnegative numbers; `cacheHit` must be between 0 and 1. Booleans are not accepted as numbers. Costs use the board's configured estimates, not provider invoices. With unpriced models, cost is a partial estimate; check `unpriced` before interpreting it.
 
-The source board JSON is an internal interface that can evolve. The exporter validates the fields it needs and rejects unsupported shapes rather than silently returning zero metrics. Unknown source fields are ignored. Consumers should depend on the versioned exporter output and test against `examples/snapshot.synthetic.json`, rather than copy the board's raw snapshot schema.
+The source board JSON is an internal interface that can evolve. The exporter validates the fields it needs and rejects unsupported shapes rather than silently returning zero metrics. Unknown source fields are ignored. Per-task estimates on `officialTeam.tasks[].estimate` stay on the board snapshot. They are not copied into this schemaVersion 1 object or the Prometheus text. Consumers should depend on the versioned exporter output and test against `examples/snapshot.synthetic.json`, rather than copy the board's raw snapshot schema.
 
 ## Prometheus and node_exporter
 

@@ -2,7 +2,7 @@
   "task": {
     "id": "4",
     "subject": "Hold the synthetic checklist",
-    "description": "Synthetic task stored in the TaskGet output shape.",
+    "description": "Synthetic task stored in the TaskGet output shape.\n\n## Acceptance\n- [x] The detail lists this checklist\n- [ ] A missing mark stays open",
     "status": "pending",
     "blocks": [],
     "blockedBy": ["2"]

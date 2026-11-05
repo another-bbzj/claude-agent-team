@@ -17,11 +17,26 @@
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![XERJ Corpus Hub](https://img.shields.io/badge/XERJ_Corpus_Hub-indexed-7C3AED)](https://hub.xerj.org/contributors/another-bbzj)
 
-[30 秒开始](#start) · [为什么](#why) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
+[30 秒开始](#start) · [对照](#compare) · [为什么](#why) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
 
 [参与贡献](CONTRIBUTING.md) · [集成](docs/INTEGRATIONS.md) · [用 Codex 维护](docs/CODEX.md) · [路线图](docs/ROADMAP.md) · [安全反馈](SECURITY.md)
 
 </div>
+
+<a id="compare"></a>
+
+## 对照
+
+下面只写 2026-11-05 在公开页面上对得上的事实。
+
+| 工具 | 定位 | 安装 / 运行时 | 可视化 | 开源？ |
+|---|---|---|---|---|
+| **[claude-agent-team](https://github.com/another-bbzj/claude-agent-team)** | 本机零依赖看板。按成员和部门看估算成本，读转录和可选钩子，并导出战报卡与离线回放 | Python 3.8+ 标准库。看板只绑 `127.0.0.1`，不调用模型 API | 浏览器里的部门、当前工具、token 和估算成本；SVG 战报卡；单文件 HTML 回放 | [MIT](LICENSE) |
+| **[官方 Agent Teams](https://code.claude.com/docs/en/agent-teams)** | 实验功能。一个 lead 协调多名各自独立的会话，共享任务并互相发消息 | 默认关闭，要设 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`。[一个会话只有一个团队，任务状态可能滞后](https://code.claude.com/docs/en/agent-teams)。[队友不进各自的 git worktree](https://code.claude.com/docs/en/agents) | lead 终端里的 agent 面板；也可以用 tmux 或 iTerm2 分屏 | 否。Claude Code 仓库的 [LICENSE.md](https://github.com/anthropics/claude-code/blob/main/LICENSE.md) 写明 All rights reserved |
+| **[Claude Squad](https://github.com/smtg-ai/claude-squad)** | 一个终端里并行管理多路本地 agent，包括 Claude Code、Codex、Gemini 和 Aider | Homebrew 或仓库里的安装脚本，命令是 `cs`。前置条件是 tmux 和 gh。每个任务一个 git worktree | 单窗口 TUI，可在预览和 diff 之间切换 | [AGPL-3.0](https://github.com/smtg-ai/claude-squad/blob/main/LICENSE.md) |
+| **[Conductor](https://www.conductor.build/docs)** | macOS 应用。并行跑 Claude Code、Codex、Cursor 和 OpenCode。每个任务一个 workspace | [只提供 macOS 安装包](https://www.conductor.build/docs/installation)。新建 workspace 时[创建 git worktree 并检出分支](https://www.conductor.build/docs/concepts/git-worktrees)。站点另有[云端隔离 sandbox](https://www.conductor.build/) | 应用里看[聊天和 diff](https://www.conductor.build/docs/concepts/git-worktrees)，再[审阅、开 pull request、合并](https://www.conductor.build/docs) | 专有平台（条款写 proprietary）。客户端可能带开源组件，清单需向 Conductor 索取。[条款](https://www.conductor.build/terms) |
+
+这个仓库叠在 Claude Code 的团队和子代理上面，提供本机的可视化、估算成本和验收；它不是另一套框架，也不是会话复用器。
 
 <a id="start"></a>
 
