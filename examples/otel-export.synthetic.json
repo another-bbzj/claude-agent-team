@@ -1,0 +1,566 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "claude-agent-team"
+            }
+          },
+          {
+            "key": "team.export.schema",
+            "value": {
+              "stringValue": "1"
+            }
+          },
+          {
+            "key": "team.export.signal",
+            "value": {
+              "stringValue": "traces"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "otel-fixture-1"
+            }
+          },
+          {
+            "key": "team.snapshot.demo",
+            "value": {
+              "boolValue": true
+            }
+          },
+          {
+            "key": "team.snapshot.generated_at_unix_nano",
+            "value": {
+              "stringValue": "1700000000000000000"
+            }
+          },
+          {
+            "key": "team.member_count",
+            "value": {
+              "intValue": "2"
+            }
+          },
+          {
+            "key": "team.totals.cost",
+            "value": {
+              "doubleValue": 2.0
+            }
+          },
+          {
+            "key": "team.totals.members_cost",
+            "value": {
+              "doubleValue": 1.75
+            }
+          },
+          {
+            "key": "team.totals.unpriced",
+            "value": {
+              "intValue": "1"
+            }
+          },
+          {
+            "key": "team.totals.output_tokens",
+            "value": {
+              "intValue": "14"
+            }
+          },
+          {
+            "key": "team.usage.members.input",
+            "value": {
+              "intValue": "12"
+            }
+          },
+          {
+            "key": "team.usage.members.output",
+            "value": {
+              "intValue": "10"
+            }
+          },
+          {
+            "key": "team.usage.members.cache_read",
+            "value": {
+              "intValue": "8"
+            }
+          },
+          {
+            "key": "team.usage.members.cache_write",
+            "value": {
+              "intValue": "0"
+            }
+          },
+          {
+            "key": "team.usage.members.total",
+            "value": {
+              "intValue": "30"
+            }
+          },
+          {
+            "key": "team.usage.members.cache_hit",
+            "value": {
+              "doubleValue": 0.5
+            }
+          },
+          {
+            "key": "team.usage.lead.input",
+            "value": {
+              "intValue": "3"
+            }
+          },
+          {
+            "key": "team.usage.lead.output",
+            "value": {
+              "intValue": "4"
+            }
+          },
+          {
+            "key": "team.usage.lead.cache_read",
+            "value": {
+              "intValue": "0"
+            }
+          },
+          {
+            "key": "team.usage.lead.cache_write",
+            "value": {
+              "intValue": "0"
+            }
+          },
+          {
+            "key": "team.usage.lead.total",
+            "value": {
+              "intValue": "7"
+            }
+          },
+          {
+            "key": "team.usage.lead.cache_hit",
+            "value": {
+              "doubleValue": 0
+            }
+          },
+          {
+            "key": "team.usage.all.input",
+            "value": {
+              "intValue": "15"
+            }
+          },
+          {
+            "key": "team.usage.all.output",
+            "value": {
+              "intValue": "14"
+            }
+          },
+          {
+            "key": "team.usage.all.cache_read",
+            "value": {
+              "intValue": "8"
+            }
+          },
+          {
+            "key": "team.usage.all.cache_write",
+            "value": {
+              "intValue": "0"
+            }
+          },
+          {
+            "key": "team.usage.all.total",
+            "value": {
+              "intValue": "37"
+            }
+          },
+          {
+            "key": "team.usage.all.cache_hit",
+            "value": {
+              "doubleValue": 0.5
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "team-board.export_otel",
+            "version": "1"
+          },
+          "spans": [
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "1cd3f79ee5adebc1",
+              "name": "合成队长",
+              "kind": 1,
+              "startTimeUnixNano": "1700000000000000000",
+              "endTimeUnixNano": "1700000020000000000",
+              "attributes": [
+                {
+                  "key": "team.actor.kind",
+                  "value": {
+                    "stringValue": "lead"
+                  }
+                },
+                {
+                  "key": "team.actor",
+                  "value": {
+                    "stringValue": "合成队长"
+                  }
+                },
+                {
+                  "key": "team.dept",
+                  "value": {
+                    "stringValue": "hq"
+                  }
+                },
+                {
+                  "key": "team.status",
+                  "value": {
+                    "stringValue": "finished"
+                  }
+                },
+                {
+                  "key": "team.cost.usd",
+                  "value": {
+                    "doubleValue": 0.25
+                  }
+                },
+                {
+                  "key": "team.cost.unpriced",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "team.cost.partial",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "team.tokens.total",
+                  "value": {
+                    "intValue": "7"
+                  }
+                },
+                {
+                  "key": "team.tokens.output",
+                  "value": {
+                    "intValue": "4"
+                  }
+                },
+                {
+                  "key": "team.cache_hit",
+                  "value": {
+                    "doubleValue": 0
+                  }
+                },
+                {
+                  "key": "team.usage.input",
+                  "value": {
+                    "intValue": "3"
+                  }
+                },
+                {
+                  "key": "team.usage.output",
+                  "value": {
+                    "intValue": "4"
+                  }
+                },
+                {
+                  "key": "team.usage.cache_read",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "team.usage.cache_write",
+                  "value": {
+                    "intValue": "0"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "0807bd8ec9aefe6a",
+              "name": "合成甲",
+              "kind": 1,
+              "startTimeUnixNano": "1700000000000000000",
+              "endTimeUnixNano": "1700000010000000000",
+              "attributes": [
+                {
+                  "key": "team.actor.kind",
+                  "value": {
+                    "stringValue": "member"
+                  }
+                },
+                {
+                  "key": "team.actor",
+                  "value": {
+                    "stringValue": "合成甲"
+                  }
+                },
+                {
+                  "key": "team.dept",
+                  "value": {
+                    "stringValue": "dev"
+                  }
+                },
+                {
+                  "key": "team.role",
+                  "value": {
+                    "stringValue": "合成研发"
+                  }
+                },
+                {
+                  "key": "team.status",
+                  "value": {
+                    "stringValue": "completed"
+                  }
+                },
+                {
+                  "key": "team.cost.usd",
+                  "value": {
+                    "doubleValue": 0.5
+                  }
+                },
+                {
+                  "key": "team.cost.unpriced",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "team.tokens.total",
+                  "value": {
+                    "intValue": "30"
+                  }
+                },
+                {
+                  "key": "team.tokens.output",
+                  "value": {
+                    "intValue": "10"
+                  }
+                },
+                {
+                  "key": "team.tool_count",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "team.cache_hit",
+                  "value": {
+                    "doubleValue": 0.5
+                  }
+                },
+                {
+                  "key": "team.usage.input",
+                  "value": {
+                    "intValue": "12"
+                  }
+                },
+                {
+                  "key": "team.usage.output",
+                  "value": {
+                    "intValue": "10"
+                  }
+                },
+                {
+                  "key": "team.usage.cache_read",
+                  "value": {
+                    "intValue": "8"
+                  }
+                },
+                {
+                  "key": "team.usage.cache_write",
+                  "value": {
+                    "intValue": "0"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "5ebe4d4311fd5580",
+              "parentSpanId": "0807bd8ec9aefe6a",
+              "name": "Read · notes",
+              "kind": 1,
+              "startTimeUnixNano": "1700000002000000000",
+              "endTimeUnixNano": "1700000002015000000",
+              "attributes": [
+                {
+                  "key": "team.actor",
+                  "value": {
+                    "stringValue": "合成甲"
+                  }
+                },
+                {
+                  "key": "team.event.kind",
+                  "value": {
+                    "stringValue": "tool"
+                  }
+                },
+                {
+                  "key": "team.event.done",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "team.event.error",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "team.test.framework",
+                  "value": {
+                    "stringValue": "go"
+                  }
+                },
+                {
+                  "key": "team.test.status",
+                  "value": {
+                    "stringValue": "fail"
+                  }
+                },
+                {
+                  "key": "team.test.passed",
+                  "value": {
+                    "intValue": "2"
+                  }
+                },
+                {
+                  "key": "team.test.failed",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "team.test.skipped",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "team.test.exit_status",
+                  "value": {
+                    "stringValue": "nonzero"
+                  }
+                },
+                {
+                  "key": "team.test.truncated",
+                  "value": {
+                    "boolValue": false
+                  }
+                }
+              ],
+              "status": {
+                "code": 2
+              }
+            },
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "fa2d7785f0d39d36",
+              "parentSpanId": "0807bd8ec9aefe6a",
+              "name": "report",
+              "kind": 1,
+              "startTimeUnixNano": "1700000003000000000",
+              "endTimeUnixNano": "1700000003000000000",
+              "attributes": [
+                {
+                  "key": "team.comm.kind",
+                  "value": {
+                    "stringValue": "report"
+                  }
+                },
+                {
+                  "key": "team.comm.from",
+                  "value": {
+                    "stringValue": "合成甲"
+                  }
+                },
+                {
+                  "key": "team.comm.to",
+                  "value": {
+                    "stringValue": "合成队长"
+                  }
+                },
+                {
+                  "key": "team.comm.text",
+                  "value": {
+                    "stringValue": "合成回报：检查通过。"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "c2c855b05adde64f",
+              "parentSpanId": "0807bd8ec9aefe6a",
+              "name": "Survey the module",
+              "kind": 1,
+              "startTimeUnixNano": "1700000004000000000",
+              "endTimeUnixNano": "1700000004000000000",
+              "attributes": [
+                {
+                  "key": "team.task.subject",
+                  "value": {
+                    "stringValue": "Survey the module"
+                  }
+                },
+                {
+                  "key": "team.task.status",
+                  "value": {
+                    "stringValue": "completed"
+                  }
+                },
+                {
+                  "key": "team.task.blocked",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "team.task.owner",
+                  "value": {
+                    "stringValue": "合成甲"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "d78f593f6c65681e61d4353aa51e3e3d",
+              "spanId": "67cbf891a3fe1c10",
+              "name": "PostToolUse Read",
+              "kind": 1,
+              "startTimeUnixNano": "1700000005000000000",
+              "endTimeUnixNano": "1700000005000000000",
+              "attributes": [
+                {
+                  "key": "team.hook.event",
+                  "value": {
+                    "stringValue": "PostToolUse"
+                  }
+                },
+                {
+                  "key": "team.tool.name",
+                  "value": {
+                    "stringValue": "Read"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

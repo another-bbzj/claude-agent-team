@@ -8,6 +8,7 @@
 
 ### 新增
 
+- `tools/export_otel.py` 把离线快照、`--demo` 或本机看板写成一份 OTLP/JSON trace 文件（`resourceSpans`），不发网络请求，也不增加运行时依赖。只抄快照里已有的时间、估算成本和 token；没有结束时间的成员不补时长，价格是 null 不写成 0。本机路径、邮箱、密钥、会话 id 和提示词不写入。字段范围和 Langfuse / Phoenix 的导入命令见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。合成样例是 `examples/otel-snapshot.synthetic.json` 与 `examples/otel-export.synthetic.json`。
 - `tools/export_replay.py` 把一份快照收成单个 HTML 回放文件。浏览器直接打开，不启动看板，也不加载外部脚本。文件里嵌的是脱敏后的成员、动作和关键消息；本机路径、邮箱、密钥、会话标识和提示词会去掉。聚合数字只走 `export_metrics`，快照里没有的不计。`--demo` 使用 `examples/board-demo.synthetic.json`。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。
 - 装了实时钩子之后，同一次工具调用在动作流里只留一条。钩子先到就先显示，转录稍后写盘时并进这一条，时间留在更早的那次，不另加一张卡，也不把估算成本再算一遍。对账键优先是 `session_id + tool_use_id`；没有 id 时用工具名、5 秒窗口和入参指纹。没装钩子时仍只读转录。说明见 [docs/HOOKS.md](docs/HOOKS.md)。
 - `tools/retro_report.py` 把离线快照、`--demo` 或本机看板写成一份 Markdown 复盘。时间线只用已有的开始、最后活动和结束时间；用时只在开始和结束都在时出现。成本和 token 按成员、部门抄快照原字段，不把行加总。价格是 null 标「未知」，同一对象的 `unpriced` 大于 0 时，数字成本标「部分」。停滞、出错、阻塞任务和已解析的测试失败会写出来；没有这些字段的段落整段不出现。缓存建议只在 `cacheHit` 低于报告自己的 0.2 参考线、且同一处 token 数大于 0 时出现，不估算能省多少钱。不写会话 id、本机路径、邮箱、提示词或工具参数。

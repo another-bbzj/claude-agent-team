@@ -1,0 +1,139 @@
+{
+  "demo": true,
+  "generatedAt": 1700000000,
+  "version": "otel-fixture-1",
+  "lead": {
+    "name": "合成队长",
+    "status": "finished",
+    "dept": "hq",
+    "startedAt": 1700000000,
+    "endedAt": 1700000020,
+    "cost": 0.25,
+    "unpriced": 1,
+    "totalTokens": 7,
+    "outputTokens": 4,
+    "cacheHit": 0,
+    "usage": {
+      "in": 3,
+      "out": 4,
+      "cache_read": 0,
+      "cache_write": 0
+    }
+  },
+  "members": [
+    {
+      "name": "合成甲",
+      "roleTitle": "合成研发",
+      "dept": "dev",
+      "status": "completed",
+      "startedAt": 1700000000,
+      "endedAt": 1700000010,
+      "cost": 0.5,
+      "unpriced": 0,
+      "totalTokens": 30,
+      "outputTokens": 10,
+      "cacheHit": 0.5,
+      "toolCount": 1,
+      "usage": {
+        "in": 12,
+        "out": 10,
+        "cache_read": 8,
+        "cache_write": 0
+      }
+    },
+    {
+      "name": "合成乙",
+      "status": "running",
+      "startedAt": 1700000001,
+      "endedAt": null,
+      "cost": 1.25,
+      "totalTokens": 4
+    }
+  ],
+  "totals": {
+    "cost": 2.0,
+    "membersCost": 1.75,
+    "unpriced": 1,
+    "tokens": 14,
+    "usage": {
+      "in": 12,
+      "out": 10,
+      "cache_read": 8,
+      "cache_write": 0,
+      "total": 30,
+      "cacheHit": 0.5
+    },
+    "leadUsage": {
+      "in": 3,
+      "out": 4,
+      "cache_read": 0,
+      "cache_write": 0,
+      "total": 7,
+      "cacheHit": 0
+    },
+    "allUsage": {
+      "in": 15,
+      "out": 14,
+      "cache_read": 8,
+      "cache_write": 0,
+      "total": 37,
+      "cacheHit": 0.5
+    }
+  },
+  "feed": [
+    {
+      "ts": 1700000002,
+      "name": "合成甲",
+      "kind": "tool",
+      "label": "Read · notes",
+      "done": true,
+      "error": false,
+      "ms": 15,
+      "test": {
+        "framework": "go",
+        "status": "fail",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "nonzero",
+        "truncated": false
+      }
+    }
+  ],
+  "comms": [
+    {
+      "ts": 1700000003,
+      "kind": "report",
+      "fromName": "合成甲",
+      "toName": "合成队长",
+      "text": "合成回报：检查通过。"
+    }
+  ],
+  "officialTeam": {
+    "tasks": [
+      {
+        "subject": "Survey the module",
+        "description": "This description stays out of the export.",
+        "normalizedStatus": "completed",
+        "owner": "合成甲",
+        "blocked": false,
+        "stateSince": 1700000004
+      }
+    ]
+  },
+  "live": {
+    "merged": false,
+    "events": [
+      {
+        "ts": 1700000005,
+        "event": "PostToolUse",
+        "tool_name": "Read",
+        "session_id": "synthetic-session",
+        "tool_use_id": "toolu_synthetic_omit",
+        "agent_id": "not-a-member"
+      }
+    ]
+  }
+}

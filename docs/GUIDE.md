@@ -689,7 +689,7 @@ agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式�
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）
-tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · export_replay.py 单文件离线回放 · retro_report.py 团队复盘 Markdown · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
+tools/             demo_board.py 只读合成看板 · export_snapshot.py 聚合导出 · battle_card.py SVG 战报卡 · export_replay.py 单文件离线回放 · retro_report.py 团队复盘 Markdown · export_otel.py OTLP JSON 文件 · codex_metrics.py 离线 Codex exec 汇总 · make_dist_hashes.py 生成 dist-hashes.json
 CLAUDE.global.md   写入 ~/.claude/CLAUDE.md 的全局约定
 install.py         安装 / 更新 / 卸载        VERSION  版本号
 ```
@@ -714,6 +714,8 @@ python tools/export_replay.py --demo -o replay.html
 `--demo` 读 `examples/board-demo.synthetic.json`。嵌进去的数据已经去掉本机路径、邮箱、密钥、会话标识和提示词。聚合数字只在快照能通过 `export_metrics` 时出现。
 
 `python tools/retro_report.py --demo` 用 `examples/board-demo.synthetic.json` 写一份 Markdown 复盘。时间线、估算成本、token、停滞、阻塞和测试结果只在快照里有对应字段时出现；价格是 null 标「未知」，`unpriced` 大于 0 时成本标「部分」。没有的总数、停滞时长和缓存节省不补。
+
+`python tools/export_otel.py --demo` 把一份快照写成 OTLP/JSON 文件（`resourceSpans`），不上传。时间和数字只抄快照里已有的字段；没有结束时间的成员不补一段时长，价格是 null 不写成 0。样例是 `examples/otel-export.synthetic.json`。Langfuse / Phoenix 的导入命令见 [集成指南](INTEGRATIONS.md)。
 
 也支持将 `codex exec --json` 的事件日志离线转成聚合统计：
 
