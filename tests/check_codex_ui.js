@@ -145,7 +145,8 @@ if (process.argv[2] && process.argv[3]) {
       await pause(250);
       assert.equal(await evaluate(`document.querySelector('#conversation-modal').hidden`), true);
       await evaluate(`document.querySelector('#look-btn').click();`);
-      await pause(500);
+      // cardExpand 的 fill 是 both。animationend 去掉 pop-go 之前，computed clip-path 仍是 circle。
+      await evaluate(`new Promise((resolve, reject) => { const begun=Date.now(); const wait=()=>{ const clip=getComputedStyle(document.querySelector('#look-modal .modal-card')).clipPath; if (clip.startsWith('polygon(')) resolve(true); else if (Date.now()-begun>2500) reject(new Error('look modal clip did not settle: '+clip)); else setTimeout(wait, 40); }; wait(); })`);
       const bounds = await evaluate(`(() => { const modal=document.querySelector('#look-modal .modal-card'), button=document.querySelector('#lk-done'), r=button.getBoundingClientRect(); return {width:innerWidth,height:innerHeight,pageOverflow:document.documentElement.scrollWidth>innerWidth+1,cardScroll:modal.scrollHeight>modal.clientHeight+1,clip:getComputedStyle(modal).clipPath,bottom:r.bottom,top:r.top,left:r.left,right:r.right};})()`);
       assert.equal(bounds.pageOverflow, false, JSON.stringify(bounds)); assert.equal(bounds.cardScroll, false, JSON.stringify(bounds)); assert(bounds.clip.startsWith('polygon('), bounds.clip); assert(bounds.top >= 0 && bounds.bottom <= height && bounds.left >= 0 && bounds.right <= width, JSON.stringify(bounds));
       if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); fs.writeFileSync(path.join(shotDir, 'codex-appearance-' + width + '-' + theme + '.png'), Buffer.from(shot.data, 'base64')); }
