@@ -6,6 +6,8 @@ Agent Team Board — 本地实时看板服务
 直接读取 Claude Code 写在 ~/.claude/projects/<project>/<session>/subagents/ 下的
 子代理 transcript (agent-*.jsonl + agent-*.meta.json)，推导每个子代理的状态与当前动作，
 通过 /snapshot.json 提供给前端页面轮询。
+可选推送：GET /events（/api/events 相同）在本机回环上用 Server-Sent Events
+推送修订号。页面收到后再拉 /snapshot.json。连不上时仍按原来的间隔轮询。
 可选实时通道：hook_relay.py 把 Claude Code 钩子收成短事件，POST /api/hooks/event。
 事件仍只留在内存里。公开快照的动作流会按 activity_key 和转录并成一条，见 docs/HOOKS.md。
 
@@ -3849,6 +3851,178 @@ def build_snapshot(args, merge=True):
     return snapshot
 
 
+# 浏览器没有 EventSource、或这条流失败时，页面仍每 1.5 秒请求 /snapshot.json。
+SSE_POLL_SEC = 1.0
+# 活动、状态、成本、任务、停滞提醒和实时钩子都没变时，仍定期推一次，用时和顶栏时钟才继续走。
+SSE_HEARTBEAT_SEC = 12.0
+SSE_RETRY_MS = 3000
+SSE_PATHS = ('/events', '/api/events')
+# 这些字段只跟着时钟走。去掉之后，修订号才表示「看板内容变了」。
+SSE_CLOCK_KEYS = frozenset(('generatedAt', 'stateSeconds', 'idleSeconds'))
+
+
+def sse_request_allowed(client_host, origin, server_port):
+    """订阅只给本机回环。没有 Origin（curl / 测试）可以；带了 Origin 就必须是本服务自己的页面。"""
+    if not loopback_host(client_host):
+        return False
+    if not origin:
+        return True
+    try:
+        port = int(server_port)
+    except (TypeError, ValueError):
+        return False
+    return hook_origin_allowed(origin, port)
+
+
+def snapshot_request(query):
+    """解析和 /snapshot.json 相同的 source / session / project / cwd。错误时返回 400 用的对象。"""
+    q = parse_qs(query)
+    args = argparse.Namespace(**vars(Handler.args))
+    if 'session' in q:
+        args.session = q['session'][0]
+    elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
+        args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
+    if 'source' in q:
+        args.source = q['source'][0]
+        if args.source not in ('all', 'claude', 'codex'):
+            return args, True, {'error': 'source must be all, claude or codex'}
+    custom = 'session' in q or 'project' in q or 'cwd' in q or 'source' in q
+    return args, custom, None
+
+
+def public_snapshot(args, custom):
+    """和 GET /snapshot.json 同一份公开快照：短缓存，钩子每次响应再合并。"""
+    with Handler._lock:
+        t, data = Handler._cache
+        if data is None or time.time() - t > 1.0 or custom:
+            data = build_snapshot(args, False)
+            if not custom:
+                Handler._cache = (time.time(), data)
+        session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
+        live = hook_live_view(session_id if data.get('source', 'claude') == 'claude' else '', time.time())
+        return merge_hook_events(data, live)
+
+
+def _sse_number(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
+def _sse_scrub(value):
+    """去掉只随时钟变化的字段。不改原对象，缓存里的快照还要给下一次轮询用。"""
+    if isinstance(value, dict):
+        return {key: _sse_scrub(item) for key, item in value.items() if key not in SSE_CLOCK_KEYS}
+    if isinstance(value, list):
+        return [_sse_scrub(item) for item in value]
+    return value
+
+
+def _sse_alerting(seconds, threshold):
+    left, right = _sse_number(seconds), _sse_number(threshold)
+    if left is None or right is None:
+        return False
+    return left >= right
+
+
+def sse_canonical_snapshot(view):
+    """修订号看的内容。停滞秒数本身不计，跨过阈值变成提醒才计。"""
+    if not isinstance(view, dict):
+        return None
+    data = _sse_scrub(view)
+    stall = view.get('stallAlerts')
+    if not isinstance(stall, dict) or not isinstance(data.get('stallAlerts'), dict):
+        return data
+    flags = []
+    for item in stall.get('candidates') or []:
+        if not isinstance(item, dict):
+            continue
+        ident = item.get('id') if isinstance(item.get('id'), str) else ''
+        status = item.get('status') if isinstance(item.get('status'), str) else ''
+        flags.append({
+            'id': ident,
+            'status': status,
+            'alerting': _sse_alerting(item.get('idleSeconds'), stall.get('thresholdSec')),
+        })
+    data['stallAlerts']['alerting'] = flags
+    return data
+
+
+def snapshot_revision(view):
+    """公开快照的短修订号。时钟字段和未跨阈值的停滞秒数相同则修订号相同。"""
+    try:
+        raw = json.dumps(sse_canonical_snapshot(view), ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    except (TypeError, ValueError):
+        raw = ''
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:20]
+
+
+def sse_notice(view, rev):
+    """推给浏览器的正文：修订号和定位字段。消息、提示词和本机路径留在 /snapshot.json。"""
+    source, session_id, generated = '', '', None
+    if isinstance(view, dict):
+        if isinstance(view.get('source'), str):
+            source = view['source']
+        session = view.get('session')
+        if isinstance(session, dict) and isinstance(session.get('id'), str):
+            session_id = session['id']
+        generated = _sse_number(view.get('generatedAt'))
+    return {'rev': rev, 'source': source, 'session': session_id, 'generatedAt': generated}
+
+
+def format_sse_event(name, data, retry_ms=None):
+    lines = []
+    if retry_ms is not None:
+        lines.append('retry: %d' % int(retry_ms))
+    lines.append('event: %s' % name)
+    text = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+    for line in text.split('\n'):
+        lines.append('data: ' + line)
+    return ('\n'.join(lines) + '\n\n').encode('utf-8')
+
+
+def format_sse_comment(text='ping'):
+    safe = ''.join(ch for ch in str(text) if ch not in '\r\n')
+    return (': ' + safe + '\n\n').encode('utf-8')
+
+
+def iter_sse_notices(load_view, poll, clock, heartbeat_sec, rounds=None):
+    """先 hello，修订号变了或到了心跳就 refresh，否则只给注释。poll 返回真就停。
+
+    rounds 限制 load_view 的次数，测试不用真的睡觉。heartbeat_sec 为空或 0 时不发心跳。
+    """
+    last = None
+    last_emit = None
+    count = 0
+    while rounds is None or count < rounds:
+        now = clock()
+        view = load_view()
+        count += 1
+        rev = snapshot_revision(view)
+        due = bool(heartbeat_sec) and last_emit is not None and (now - last_emit) >= heartbeat_sec
+        if last is None:
+            yield 'hello', sse_notice(view, rev)
+            last, last_emit = rev, now
+        elif rev != last or due:
+            yield 'refresh', sse_notice(view, rev)
+            last, last_emit = rev, now
+        else:
+            yield 'ping', None
+        if rounds is not None and count >= rounds:
+            return
+        if poll(SSE_POLL_SEC):
+            return
+
+
+def write_sse_stream(write, load_view, poll, clock, heartbeat_sec, rounds=None):
+    """把通知写成 SSE 字节。hello 带上 retry，断线后浏览器按这个间隔重连。"""
+    for kind, payload in iter_sse_notices(load_view, poll, clock, heartbeat_sec, rounds):
+        if kind == 'ping':
+            write(format_sse_comment())
+        else:
+            write(format_sse_event(kind, payload, SSE_RETRY_MS))
+
+
 class Handler(SimpleHTTPRequestHandler):
     args = None
     _cache = (0.0, None)
@@ -3888,31 +4062,72 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.flush()
         return True
 
+    def _sse_wait(self, seconds):
+        time.sleep(seconds)
+        return False
+
+    def _write_chunk(self, payload):
+        if not payload:
+            return
+        if isinstance(payload, str):
+            payload = payload.encode('utf-8')
+        self.wfile.write(('%x\r\n' % len(payload)).encode('ascii'))
+        self.wfile.write(payload)
+        self.wfile.write(b'\r\n')
+        self.wfile.flush()
+
+    def _end_chunks(self):
+        try:
+            self.wfile.write(b'0\r\n\r\n')
+            self.wfile.flush()
+        except OSError:
+            pass
+
+    def _stream_events(self, parsed):
+        """GET /events：本机 SSE。先写 hello，之后内容变了或到心跳再写 refresh。"""
+        client = self.client_address[0] if self.client_address else ''
+        origin = self.headers.get('Origin') if self.headers else ''
+        try:
+            port = self.server.server_address[1]
+        except Exception:
+            port = 0
+        if not sse_request_allowed(client, origin, port):
+            return self._json({'error': '拒绝非本机或跨站的实时订阅'}, 403)
+        args, custom, error = snapshot_request(parsed.query)
+        if error:
+            return self._json(error, 400)
+        # 只改这一次响应的协议版本。类上的 HTTP/1.0 不动，其它接口的短连接保持原样。
+        self.protocol_version = 'HTTP/1.1'
+        self.close_connection = True
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Connection', 'close')
+        self.send_header('Transfer-Encoding', 'chunked')
+        self.send_header('X-Accel-Buffering', 'no')
+        self.end_headers()
+
+        def load():
+            return public_snapshot(args, custom)
+
+        try:
+            write_sse_stream(self._write_chunk, load, self._sse_wait, time.time, SSE_HEARTBEAT_SEC)
+        except OSError:
+            return
+        finally:
+            self._end_chunks()
+
     def do_GET(self):
         if self._reject_task_api():
             return
         u = urlparse(self.path)
+        if u.path in SSE_PATHS:
+            return self._stream_events(u)
         if u.path == '/snapshot.json':
-            q = parse_qs(u.query)
-            args = argparse.Namespace(**vars(Handler.args))
-            if 'session' in q:
-                args.session = q['session'][0]
-            elif 'project' in q or 'cwd' in q:   # msg.py who：按项目 key（或 cwd 推出的 key）取该项目最近的会话
-                args.session, args.project = None, q['project'][0] if 'project' in q else resolve_project(q['cwd'][0])
-            if 'source' in q:
-                args.source = q['source'][0]
-                if args.source not in ('all', 'claude', 'codex'):
-                    return self._json({'error': 'source must be all, claude or codex'}, 400)
-            custom = 'session' in q or 'project' in q or 'cwd' in q or 'source' in q
-            with Handler._lock:
-                t, data = Handler._cache
-                if data is None or time.time() - t > 1.0 or custom:
-                    data = build_snapshot(args, False)
-                    if not custom:
-                        Handler._cache = (time.time(), data)
-                session_id = ((data.get('session') or {}).get('id') if isinstance(data, dict) else '') or ''
-                live = hook_live_view(session_id if data.get('source', 'claude') == 'claude' else '', time.time())
-                view = merge_hook_events(data, live)
+            args, custom, error = snapshot_request(u.query)
+            if error:
+                return self._json(error, 400)
+            view = public_snapshot(args, custom)
             body = json.dumps(view, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
