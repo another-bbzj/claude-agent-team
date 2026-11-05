@@ -1433,6 +1433,8 @@ class Sprite {
 const BEACON_Y = 22, LEAD_TOP = 46, LEAD_FOOT = 180, DEPT_TOP = 292, DEPT_HEAD = 34, MEMBER_H = 248, DEPT_GAP = 16, ROW_GAP = 18, SLOT = 200, PPAD = 12, PAD = 24, EMPTY_W = 170, MROW_GAP = 8;
 let prev = null, selectedId = null, selectedSession = '', flights = 0, firstLoad = true;
 let selectedSource = 'all', requestEpoch = 0, conversationSig = '';
+let pollTimer = null, liveEvents = null, sseHadHello = false;
+const SNAPSHOT_POLL_MS = 1500;
 try { selectedSource = normalizeSource(localStorage.getItem('team-board-source')); } catch (_) {}
 $('#source-filter').value = selectedSource;
 const personEls = new Map(), deptEls = new Map(), taskEls = new Map(), seenFeed = new Set(), seenComms = new Set();
@@ -1475,6 +1477,41 @@ function wallpaperFileError(file) {
   return '';
 }
 /* END CODEX VIEW HELPERS */
+function eventsUrl(source, session) {
+  const q = new URLSearchParams({ source: normalizeSource(source) });
+  if (session) q.set('session', session);
+  return '/events?' + q.toString();
+}
+function sseWatchDecision(state, signal) {
+  const current = state && typeof state === 'object' ? state : { mode: 'poll', hadHello: false };
+  const next = { mode: current.mode === 'sse' ? 'sse' : 'poll', hadHello: !!current.hadHello, refresh: false, close: false };
+  if (signal === 'unsupported') {
+    next.mode = 'poll';
+    next.hadHello = false;
+    next.close = true;
+    return next;
+  }
+  if (signal === 'hello' || signal === 'refresh') {
+    next.mode = 'sse';
+    next.hadHello = true;
+    next.refresh = true;
+    next.close = false;
+    return next;
+  }
+  if (signal === 'error') {
+    next.mode = 'poll';
+    next.refresh = false;
+    if (!current.hadHello) {
+      next.hadHello = false;
+      next.close = true;
+    } else {
+      next.hadHello = true;
+      next.close = false;
+    }
+    return next;
+  }
+  return next;
+}
 function renderConversation(snap) {
   const rows = conversationRows(snap), provider = providerName(snap);
   $('#conversation-source').textContent = provider;
@@ -3243,6 +3280,7 @@ function selectSession(id) {
   personEls.clear();
   for (const el of deptEls.values()) el.remove(); deptEls.clear();
   for (const el of taskEls.values()) el.remove(); taskEls.clear();
+  openLiveEvents();
   tick();
 }
 $('#session-select').addEventListener('change', (e) => selectSession(e.target.value));
@@ -4871,7 +4909,47 @@ function expandDrawer(drawer, origin) {
 }
 
 
-tick(); setInterval(tick, 1500);
+function sseSupported() { return typeof EventSource === 'function'; }
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(tick, SNAPSHOT_POLL_MS);
+}
+function stopPoll() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+function openLiveEvents() {
+  const previous = liveEvents;
+  liveEvents = null;
+  sseHadHello = false;
+  if (previous) previous.close();
+  // ?demo=1 的额外消息在浏览器里生成，继续按 1.5 秒轮询才会播出来。
+  if (DEMO || !sseSupported()) {
+    startPoll();
+    return;
+  }
+  startPoll();
+  const es = new EventSource(eventsUrl(selectedSource, selectedSession));
+  liveEvents = es;
+  const take = (signal) => {
+    if (liveEvents !== es) return;
+    const decision = sseWatchDecision({ mode: sseHadHello ? 'sse' : 'poll', hadHello: sseHadHello }, signal);
+    if (decision.close) {
+      es.close();
+      if (liveEvents === es) liveEvents = null;
+    }
+    sseHadHello = decision.hadHello;
+    if (decision.mode === 'poll') startPoll();
+    else stopPoll();
+    if (decision.refresh) tick();
+  };
+  es.addEventListener('hello', () => take('hello'));
+  es.addEventListener('refresh', () => take('refresh'));
+  es.onerror = () => take('error');
+}
+openLiveEvents();
+tick();
 /* 文档截图辅助：?shot=stats|lower|member|dept 只显示对应区域 / 打开对应弹窗（对普通使用无影响） */
 (function shotMode() {
   const shot = new URLSearchParams(location.search).get('shot'); if (!shot) return;

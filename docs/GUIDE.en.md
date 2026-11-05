@@ -208,7 +208,7 @@ Open anyone, including the lead, for the drawer: change sprite, message them, re
 
 Sprite language: read or search looks like a review pose, write or shell looks like a run, delivery jumps, idle sleeps, an error falls over. The card names the cause it could see (token limit, usage limit, dropped network). `Esc` closes the drawer and other dialogs.
 
-The page polls `/snapshot.json` about every 1.5 seconds. `Esc` and the shortcuts above are properties of `team-board/index.html`.
+The page can subscribe to `GET /events` (`/api/events` is the same path) on this loopback server. The stream sends `hello`, then `refresh` when the selected session's activity, status, cost, tasks, stall alerts or live hooks change. Each event is a revision, source, session id and timestamp. The page applies it by fetching `/snapshot.json` through the existing path. A refresh also arrives about every 12 seconds so elapsed times keep moving. If `EventSource` is missing, the first event never arrives, or the stream drops, the page polls `/snapshot.json` about every 1.5 seconds. After a stream that already connected drops, the browser reconnects (`retry` is 3 seconds) and polling covers the gap. `?demo=1` keeps the 1.5 second poll. Polling stays available for every other client. `Esc` and the shortcuts above are properties of `team-board/index.html`.
 
 <a id="members"></a>
 
