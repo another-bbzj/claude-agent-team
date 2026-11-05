@@ -478,7 +478,9 @@
   .kcard .kowner.unknown { color: var(--text-3); font-weight: 500; }
   .kcard .kdeps { color: var(--text-2); }
   .kcard.blocked .kdeps { color: var(--warn); }
-  .kcard .kage { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  .kcard .kmeta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  .kcard .kage { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+  .kcard .kcost { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); }
   .kcard .kpin { margin-left: auto; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font: 700 11px var(--mono); padding: 0 6px; line-height: 18px; cursor: pointer; }
   .kcard .kpin:hover { border-color: var(--gold); color: var(--gold); }
   .kcard .kpin:focus { outline: none; }
@@ -1915,6 +1917,37 @@ function taskAgeTitle(task) {
   if (task.stateSinceKind === 'file-shared') return '官方文件没有单独的状态时间。这条和同一文件里的其他任务共用最近写入时间，直到看板看到状态变化';
   return '官方任务文件没有状态时间';
 }
+/* 估算成本只在 owner 完全对上时出现。未知不写到卡片上，详情里说明为什么没有金额。 */
+function taskEstimateView(task, snap) {
+  const est = task && task.estimate;
+  if (!est || typeof est !== 'object') return null;
+  if (snap && !ownerMatchOf(task, snap)) return null;
+  const cost = typeof est.cost === 'number' && isFinite(est.cost) && est.cost >= 0 ? est.cost : null;
+  const partial = est.status === 'partial' || est.partial === true || est.unpriced === true;
+  const unknown = est.status === 'unknown' || (cost == null && !partial);
+  let text = '估算未知';
+  let title = '负责人对得上，但这条任务进行中的时间对不上用量，不编造金额';
+  if (!unknown && cost == null) {
+    text = '部分 · 未知';
+    title = '对得上的用量里有价格表没有的模型，不补金额。这是估算，不是账单';
+  } else if (!unknown && partial) {
+    text = fmtCost(cost) + ' · 部分';
+    title = '只计入能单独对上的用量。重叠的不摊开，文件时间只算写入之后，未定价的不补金额。这是估算，不是账单';
+  } else if (!unknown) {
+    text = fmtCost(cost);
+    title = '按这位负责人在任务进行中的转录用量和价格表估算，不是服务商账单';
+  }
+  const tokens = est.tokens;
+  const bits = [];
+  if (!unknown && tokens && typeof tokens === 'object') {
+    const keys = [['in', '输入'], ['out', '输出'], ['cache_read', '缓存读'], ['cache_write', '缓存写']];
+    for (let i = 0; i < keys.length; i++) {
+      const n = tokens[keys[i][0]];
+      if (typeof n === 'number' && isFinite(n) && n > 0) bits.push(keys[i][1] + ' ' + fmtTok(n));
+    }
+  }
+  return { text: text, title: title, showOnCard: !unknown, tokens: bits.join(' · ') };
+}
 const TASK_STATUS_LABEL = { pending: '待处理', in_progress: '进行中', completed: '已完成' };
 const TASK_STATUS_PILL = { pending: 'info', in_progress: 'brand', completed: 'ok' };
 const TASK_FLAG_LABEL = { blocked: '阻塞', approximate: '计时大约' };
@@ -2083,6 +2116,7 @@ function taskDetailHtml(task, snap) {
   const team = snap.officialTeam || {};
   const tasks = team.tasks || [];
   const owner = taskOwnerLabel(task, snap);
+  const estimate = taskEstimateView(task, snap);
   const view = taskDetailView(task, tasks, team.warnings || []);
   const status = TASK_STATUS_LABEL[task.normalizedStatus] || (task.normalizedStatus || '未知');
   const pill = TASK_STATUS_PILL[task.normalizedStatus] || '';
@@ -2095,6 +2129,7 @@ function taskDetailHtml(task, snap) {
       <dt>状态</dt><dd><span class="pill ${pill}">${esc(status)}</span>${raw}</dd>
       ${task.lastTest ? `<dt>测试</dt><dd>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest.memberId, task.lastTest))}<span class="td-note">${esc(testDetailText(task.lastTest))}</span></dd>` : ''}
       <dt>负责人</dt><dd>${esc(owner.text)}${ownerNote}</dd>
+      ${estimate ? `<dt>估算</dt><dd>${esc(estimate.text)}<span class="td-note">${esc(estimate.title)}</span>${estimate.tokens ? `<span class="td-note">${esc(estimate.tokens)}</span>` : ''}</dd>` : ''}
       <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
     </dl>
     <h3>说明</h3>${desc}
@@ -2105,6 +2140,7 @@ function taskDetailHtml(task, snap) {
 function taskDetailSignature(task, snap) {
   const team = snap.officialTeam || {};
   const owner = taskOwnerLabel(task, snap);
+  const estimate = taskEstimateView(task, snap);
   return JSON.stringify({
     key: taskDetailKey,
     subject: task.subject || '',
@@ -2113,6 +2149,7 @@ function taskDetailSignature(task, snap) {
     normalizedStatus: task.normalizedStatus || '',
     owner: owner.text,
     known: owner.known,
+    estimate: estimate ? estimate.text + '|' + estimate.tokens : '',
     ageTitle: taskAgeTitle(task),
     lastTest: task.lastTest ? testDetailText(task.lastTest) : '',
     view: taskDetailView(task, team.tasks || [], team.warnings || []),
@@ -2316,10 +2353,12 @@ function renderTaskBoard(snap) {
         ? `<button type="button" class="kpin${pinned ? ' on' : ''}" data-pin="${esc(match)}" aria-pressed="${pinned ? 'true' : 'false'}" title="${esc(pinned ? '取消钉住「' + match + '」' : '钉住「' + match + '」，不打开详情')}">钉</button>`
         : '';
       const testFail = task.lastTest && task.lastTest.status === 'fail';
+      const estimate = taskEstimateView(task, snap);
+      const cost = estimate && estimate.showOnCard ? `<span class="kcost" title="${esc(estimate.title)}">${esc(estimate.text)}</span>` : '';
       return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}${testFail ? ' test-fail' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
         <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${pin}</div>
-        <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
+        <div class="kmeta"><span class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</span>${cost}</div>
       </article>`;
     }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;
     return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
@@ -4360,8 +4399,8 @@ function demoAugment(s) {
     if (!demoOfficial) demoOfficial = {
       available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
       tasks: [
-        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed' },
-        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file' },
+        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed', estimate: { cost: 0.018, tokens: { in: 3000, out: 600, cache_read: 0, cache_write: 0 }, status: 'known', partial: false, unpriced: false, basis: 'transcript' } },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file', estimate: { cost: null, tokens: { in: 100, out: 40, cache_read: 0, cache_write: 0 }, status: 'partial', partial: true, unpriced: true, basis: 'transcript' } },
         { id: '3', subject: 'Wait for the synthetic survey', description: '合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1', '9'], blocks: [], blocked: true, waitingOn: ['1', '9'], stateSince: now - 40, stateSinceKind: 'file-shared' },
         { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: ['2'], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
         { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
