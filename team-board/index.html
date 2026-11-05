@@ -531,6 +531,12 @@
   .td-links .miss { color: var(--text-2); }
   .td-links .tid { font-family: var(--mono); color: var(--text-3); flex: none; }
   .td-links .tsub { flex: 1; min-width: 8em; word-break: break-word; }
+  .td-accept { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .td-accept li { display: flex; gap: 8px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); padding: 7px 10px; font-size: 13px; line-height: 1.45; }
+  .td-accept li:not(.check)::before { content: ""; width: 6px; height: 6px; margin-top: 6px; background: var(--gold); transform: rotate(45deg); flex: none; }
+  .td-accept input { margin: 2px 0 0; flex: none; accent-color: var(--ok); pointer-events: none; }
+  .td-accept .td-accept-text { min-width: 0; word-break: break-word; }
+  .kcard .kaccept { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--text-2); border: 1px solid var(--line); padding: 0 5px; line-height: 16px; }
   @media (max-width: 520px) { .task-detail-panel { width: 100%; border-left: 0; } }
   body:has(#synthetic-demo-notice) .task-detail-panel { bottom: 38px; }
 
@@ -2071,6 +2077,47 @@ function relationHtml(details) {
     return `<li><button type="button"${open}><span class="tid">${esc(tid)}</span><span class="tsub">${esc(subject)}</span>${label ? `<span class="pill ${pill}">${esc(label)}</span>` : ''}</button></li>`;
   }).join('') + '</ul>';
 }
+function acceptanceItems(task) {
+  const block = task && task.acceptance;
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return [];
+  const items = Array.isArray(block.items) ? block.items : [];
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const text = typeof item.text === 'string' ? item.text.trim() : '';
+    if (!text) continue;
+    out.push({ text: text, checked: item.checked === true ? true : (item.checked === false ? false : null) });
+  }
+  return out;
+}
+function acceptanceChecklist(task) {
+  const block = task && task.acceptance;
+  const list = block && !Array.isArray(block) ? block.checklist : null;
+  if (!list || typeof list !== 'object' || Array.isArray(list)) return null;
+  const done = list.done, total = list.total;
+  if (typeof done !== 'number' || typeof total !== 'number') return null;
+  if (!isFinite(done) || !isFinite(total) || done < 0 || total < 1 || done > total) return null;
+  if (Math.floor(done) !== done || Math.floor(total) !== total) return null;
+  return { done: done, total: total };
+}
+function acceptanceHtml(task) {
+  const items = acceptanceItems(task);
+  if (!items.length) return '';
+  const rows = items.map(item => {
+    if (item.checked === null) return `<li><span class="td-accept-text">${esc(item.text)}</span></li>`;
+    const mark = item.checked ? ' checked' : '';
+    const label = item.checked ? '已勾选' : '未勾选';
+    return `<li class="check"><input type="checkbox" disabled tabindex="-1"${mark} aria-label="${esc(label)}"><span class="td-accept-text">${esc(item.text)}</span></li>`;
+  }).join('');
+  return `<h3>验收 <small>Acceptance</small></h3><ul class="td-accept">${rows}</ul>`;
+}
+function acceptanceCardHtml(task) {
+  const checklist = acceptanceChecklist(task);
+  if (!checklist) return '';
+  const label = checklist.done + '/' + checklist.total;
+  return `<span class="kaccept" title="${esc('验收清单 ' + label)}">${esc(label)}</span>`;
+}
 function flagHtml(task, view, owner) {
   const chips = [];
   for (const flag of view.flags || []) if (TASK_FLAG_LABEL[flag]) chips.push(`<span class="pill warn">${esc(TASK_FLAG_LABEL[flag])}</span>`);
@@ -2098,6 +2145,7 @@ function taskDetailHtml(task, snap) {
       <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
     </dl>
     <h3>说明</h3>${desc}
+    ${acceptanceHtml(task)}
     <h3>依赖 <small>blockedBy</small></h3>${relationHtml(view.blockedBy)}
     <h3>挡住 <small>blocks</small></h3>${relationHtml(view.blocks)}
     <h3>标记</h3>${flagHtml(task, view, owner)}`;
@@ -2109,6 +2157,7 @@ function taskDetailSignature(task, snap) {
     key: taskDetailKey,
     subject: task.subject || '',
     description: task.description || '',
+    acceptance: task.acceptance || null,
     status: task.status || '',
     normalizedStatus: task.normalizedStatus || '',
     owner: owner.text,
@@ -2318,7 +2367,7 @@ function renderTaskBoard(snap) {
       const testFail = task.lastTest && task.lastTest.status === 'fail';
       return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}${testFail ? ' test-fail' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
-        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${pin}</div>
+        <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${acceptanceCardHtml(task)}${pin}</div>
         <div class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</div>
       </article>`;
     }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;

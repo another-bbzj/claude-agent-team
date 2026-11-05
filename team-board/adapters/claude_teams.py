@@ -2,9 +2,11 @@
 
 字段取舍见 docs/AGENT_TEAMS.md。官方没有公布的 JSON 键不会被要求存在；
 未知键留在 raw / rawConfig 里。坏文件记警告，不向外抛。
+验收条目只在正文或候选字段里真有内容时才附在任务上，不写回文件。
 """
 import json
 import os
+import re
 from pathlib import Path
 
 NAME_KEYS = ('name', 'teammate_name')
@@ -296,7 +298,7 @@ def _normalize_task(obj, source, warnings):
     owner = obj.get('owner') if isinstance(obj.get('owner'), str) else None
     if 'owner' in obj and not isinstance(obj.get('owner'), str):
         warnings.append('任务 owner 不是字符串，已忽略')
-    return {
+    task = {
         'id': _pick_string(obj, TASK_ID_KEYS, '任务', warnings),
         'subject': _pick_string(obj, SUBJECT_KEYS, '任务', warnings),
         'description': _pick_string(obj, DESCRIPTION_KEYS, '任务', warnings),
@@ -309,6 +311,252 @@ def _normalize_task(obj, source, warnings):
         'source': source,
         'raw': obj,
     }
+    acceptance = extract_acceptance(obj)
+    if acceptance:
+        task['acceptance'] = acceptance
+    return task
+
+
+# 验收不是已公布的任务字段。只在正文的标明段落、清单，或下面这些候选键里
+# 真有条目时才抽出。候选键不是 schema，缺了就当没有，不警告。
+_ACCEPTANCE_FIELD_KEYS = ('acceptance', 'acceptanceCriteria', 'acceptance_criteria')
+_ACCEPTANCE_TEXT_KEYS = ('text', 'title', 'criterion', 'item', 'description')
+_ACCEPTANCE_CHECK_KEYS = ('checked', 'done', 'completed')
+_FENCE = re.compile(r'^[ \t]{0,3}(`{3,}|~{3,})')
+_HEADING = re.compile(r'^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*$')
+_MARKER = re.compile(
+    r'^(?:acceptance(?:[ \t]+criteria|[ \t]+criterion)?|definition[ \t]+of[ \t]+done|done[ \t]+when'
+    r'|验收标准|验收条件|验收|完成标准|完成条件)'
+    r'(?:[ \t]*[:：][ \t]*(?P<rest>.*)|[ \t]*)$',
+    re.IGNORECASE)
+_CHECKBOX = re.compile(r'^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[([ xX])\][ \t]*(.*)$')
+_BULLET = re.compile(r'^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.*)$')
+_RULE = re.compile(r'^[-*_]{3,}$')
+
+
+def extract_acceptance(obj):
+    """从一条任务对象抽出验收条目。没有可提取的内容时返回 None。
+
+    专用字段优先于 description。description 里只有标明的段落，或带复选框的
+    清单，才算验收；普通句子和普通圆点不算。代码块里的行不看。
+    """
+    if not isinstance(obj, dict):
+        return None
+    items = _acceptance_from_fields(obj)
+    if not items and isinstance(obj.get('metadata'), dict):
+        items = _acceptance_from_fields(obj['metadata'])
+    if not items:
+        items = _acceptance_from_description(_description_text(obj))
+    return _pack_acceptance(items)
+
+
+def _description_text(obj):
+    for key in DESCRIPTION_KEYS:
+        if key not in obj:
+            continue
+        value = obj.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ''
+
+
+def _acceptance_from_fields(obj):
+    for key in _ACCEPTANCE_FIELD_KEYS:
+        if key not in obj:
+            continue
+        items = _items_from_field(obj.get(key))
+        if items:
+            return items
+    return []
+
+
+def _items_from_field(value):
+    if isinstance(value, str):
+        return _items_from_acceptance_string(value)
+    if isinstance(value, list):
+        items = []
+        for entry in value:
+            items.extend(_items_from_entry(entry))
+        return items
+    if isinstance(value, dict):
+        nested = value.get('items')
+        if isinstance(nested, list):
+            items = _items_from_field(nested)
+            if items:
+                return items
+        return _items_from_entry(value)
+    return []
+
+
+def _items_from_entry(entry):
+    if isinstance(entry, str):
+        return _items_from_acceptance_string(entry)
+    if not isinstance(entry, dict):
+        return []
+    text = None
+    for key in _ACCEPTANCE_TEXT_KEYS:
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            break
+    if not text:
+        return []
+    checked = None
+    for key in _ACCEPTANCE_CHECK_KEYS:
+        if key in entry and isinstance(entry.get(key), bool):
+            checked = entry.get(key)
+            break
+    return [{'text': text, 'checked': checked}]
+
+
+def _items_from_acceptance_string(text):
+    if not isinstance(text, str) or not text.strip():
+        return []
+    lines = _lines_outside_fences(text)
+    section = _first_section_items(lines)
+    if section:
+        return section
+    items = []
+    for line in lines:
+        items.extend(_line_items(line, True))
+    return items
+
+
+def _acceptance_from_description(text):
+    if not isinstance(text, str) or not text.strip():
+        return []
+    lines = _lines_outside_fences(text)
+    section = _first_section_items(lines)
+    if section:
+        return section
+    items = []
+    for line in lines:
+        items.extend(_line_items(line, False))
+    return items
+
+
+def _lines_outside_fences(text):
+    lines = []
+    fence = None
+    for line in text.splitlines():
+        token = _fence_token(line)
+        if fence:
+            if token == fence:
+                fence = None
+            continue
+        if token:
+            fence = token
+            continue
+        lines.append(line)
+    return lines
+
+
+def _fence_token(line):
+    match = _FENCE.match(line)
+    if not match:
+        return None
+    return match.group(1)[0] * 3
+
+
+def _strip_emphasis(text):
+    if len(text) >= 4 and text.startswith('**') and text.endswith('**'):
+        return text[2:-2].strip()
+    if len(text) >= 4 and text.startswith('__') and text.endswith('__'):
+        return text[2:-2].strip()
+    return text
+
+
+def _heading_title(line):
+    match = _HEADING.match(line)
+    if not match:
+        return None
+    title = re.sub(r'[ \t]+#+$', '', match.group(1)).strip()
+    return _strip_emphasis(title)
+
+
+def _marker_payload(line):
+    title = _heading_title(line)
+    heading = title is not None
+    if title is None:
+        title = _strip_emphasis(line.strip())
+    match = _MARKER.match(title)
+    if not match:
+        return None
+    rest = match.group('rest')
+    return {'heading': heading, 'rest': rest.strip() if isinstance(rest, str) else ''}
+
+
+def _first_section_items(lines):
+    index = 0
+    while index < len(lines):
+        payload = _marker_payload(lines[index])
+        if not payload:
+            index += 1
+            continue
+        items = []
+        if payload['rest']:
+            items.extend(_line_items(payload['rest'], True))
+        cursor = index + 1
+        if not payload['heading']:
+            while cursor < len(lines) and not lines[cursor].strip():
+                cursor += 1
+        while cursor < len(lines):
+            current = lines[cursor]
+            if _heading_title(current) is not None:
+                break
+            if not payload['heading'] and (not current.strip() or _marker_payload(current)):
+                break
+            items.extend(_line_items(current, True))
+            cursor += 1
+        if items:
+            return items
+        index = cursor if cursor > index else index + 1
+    return None
+
+
+def _line_items(line, prose):
+    checkbox = _CHECKBOX.match(line)
+    if checkbox:
+        text = checkbox.group(2).strip()
+        if not text:
+            return []
+        return [{'text': text, 'checked': checkbox.group(1) in ('x', 'X')}]
+    if not prose:
+        return []
+    bullet = _BULLET.match(line)
+    if bullet:
+        text = bullet.group(1).strip()
+        if not text:
+            return []
+        return [{'text': text, 'checked': None}]
+    text = line.strip()
+    if not text or _RULE.match(text):
+        return []
+    return [{'text': text, 'checked': None}]
+
+
+def _pack_acceptance(items):
+    cleaned = []
+    for item in items or ():
+        if not isinstance(item, dict):
+            continue
+        text = item.get('text')
+        if not isinstance(text, str) or not text.strip():
+            continue
+        checked = item.get('checked')
+        if checked is not True and checked is not False:
+            checked = None
+        cleaned.append({'text': text.strip(), 'checked': checked})
+    if not cleaned:
+        return None
+    public = {'items': cleaned}
+    boxes = [item for item in cleaned if item['checked'] is not None]
+    if boxes:
+        public['checklist'] = {
+            'done': sum(1 for item in boxes if item['checked'] is True),
+            'total': len(boxes),
+        }
+    return public
 
 
 def _read_inboxes(root, directory, team):

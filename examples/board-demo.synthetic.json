@@ -1155,7 +1155,14 @@
         "notices": [],
         "stateSince": 1767261700,
         "stateSinceKind": "file-shared",
-        "stateSeconds": 40
+        "stateSeconds": 40,
+        "acceptance": {
+          "items": [
+            {"text": "The detail lists this criterion", "checked": true},
+            {"text": "An open criterion stays unchecked", "checked": false}
+          ],
+          "checklist": {"done": 1, "total": 2}
+        }
       },
       {
         "id": "4",
@@ -1184,7 +1191,12 @@
         "notices": [],
         "stateSince": 1767261680,
         "stateSinceKind": "observed",
-        "stateSeconds": 60
+        "stateSeconds": 60,
+        "acceptance": {
+          "items": [
+            {"text": "The owner is the lead name", "checked": null}
+          ]
+        }
       },
       {
         "id": "5",

@@ -10,6 +10,7 @@
     {
       "id": "2",
       "subject": "Draft synthetic notes",
+      "description": "Draft the note. The word acceptance appears here, but this is not a section.\n- this bullet is a step, not a criterion",
       "status": "in_progress",
       "owner": "synthetic-writer",
       "blockedBy": ["1"]
@@ -18,7 +19,10 @@
       "id": "3",
       "subject": "Wait for the synthetic draft",
       "status": "pending",
-      "blockedBy": ["2"]
+      "blockedBy": ["2"],
+      "metadata": {
+        "acceptance": ["The synthetic draft exists", "The note names the module"]
+      }
     }
   ]
 }

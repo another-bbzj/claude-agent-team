@@ -26,7 +26,7 @@ claude-home/
 
 ## session-a1b2c3d4
 
-文档示例团队。一名 `team-lead`、一名写了 agent type 的 teammate、一名省略 agent type 的 teammate。任务 1 已完成，2 进行中并依赖 1，3 和 4 待处理并依赖 2。`tasks.json` 是 TaskList 的 `tasks` 数组，`task-get.json` 是 TaskGet 的 `task` 对象。
+文档示例团队。一名 `team-lead`、一名写了 agent type 的 teammate、一名省略 agent type 的 teammate。任务 1 已完成，2 进行中并依赖 1，3 和 4 待处理并依赖 2。`tasks.json` 是 TaskList 的 `tasks` 数组，`task-get.json` 是 TaskGet 的 `task` 对象。任务 1 没有说明。任务 2 的说明里出现了 acceptance 这个词，还有一条普通圆点，这不是验收。任务 3 的 `metadata.acceptance` 是两条字符串，没有复选框。任务 4 的说明里有 `## Acceptance` 和两条清单。
 
 ## session-c0ffee01
 
@@ -37,3 +37,4 @@ claude-home/
 - **两种工具输出形状**。列表文件是 TaskList 的 `tasks` 数组，另一份是 TaskGet 的 `task` 对象。文件名是本仓库起的。
 - **没有对上 owner 的 teammate**。`synthetic-observer` 在 `members` 里，没有任何任务的 `owner` 等于这个名字，看板状态是待命，说明仍是「官方 Agent Team 成员」。任务 16 的 `owner` 是 `synthetic-not-on-team`，这个名字不在 `members` 里。
 - **超过 2MB 的任务文件**。这种文件不提交。已提交的本目录文件保持在 64KB 以内。测试在临时目录生成一份超限文件，放在上述小文件旁边，确认它被跳过，小文件仍在。
+- **验收有无**。任务 13 的说明用「验收标准：」带两条圆点。任务 15 的说明里只有清单，没有标题。任务 16 的说明是普通句子。任务 10、11、14 没有说明。id 12 的旧副本没有验收；较新的 `task-get.json` 在 `metadata.acceptanceCriteria` 里放了两条带 `done` 的对象。看板只留较新的那条。
