@@ -24,6 +24,7 @@
     {
       "id": "13",
       "subject": "Review the synthetic chain",
+      "description": "Review the chain.\n\n验收标准：\n- 依赖链仍被挡住\n- 未认领的任务保持未认领",
       "status": "pending",
       "owner": "synthetic-researcher",
       "blockedBy": ["12"]
@@ -37,6 +38,7 @@
     {
       "id": "15",
       "subject": "File the cleared synthetic checklist",
+      "description": "File the note.\n- [x] Sources are collected\n- [x] Outline is done\n- [ ] The note is filed",
       "status": "pending",
       "owner": "synthetic-writer",
       "blockedBy": ["10", "11"]
@@ -44,6 +46,7 @@
     {
       "id": "16",
       "subject": "Hold a synthetic note for a name that is not on the team",
+      "description": "Hold the note. No checklist and no acceptance heading.",
       "status": "pending",
       "owner": "synthetic-not-on-team",
       "blockedBy": []

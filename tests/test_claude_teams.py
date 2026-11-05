@@ -42,7 +42,11 @@ class FixtureParseTest(unittest.TestCase):
         by_status = {task['id']: task['normalizedStatus'] for task in team['tasks']}
         self.assertEqual(by_status, {'1': 'completed', '2': 'in_progress', '3': 'pending', '4': 'pending'})
         held = next(task for task in team['tasks'] if task['id'] == '4')
-        self.assertEqual(held['description'], 'Synthetic task stored in the TaskGet output shape.')
+        self.assertEqual(held['description'], (
+            'Synthetic task stored in the TaskGet output shape.\n\n'
+            '## Acceptance\n'
+            '- [x] The detail lists this checklist\n'
+            '- [ ] A missing mark stays open'))
         self.assertEqual(held['blocks'], [])
         self.assertEqual(held['blockedBy'], ['2'])
         by_name = {box['agentName']: box['entries'] for box in team['mailboxes']}

@@ -3,6 +3,12 @@
     "id": "12",
     "subject": "Revise the synthetic chain note",
     "description": "Newer TaskGet copy of the same id. Offline tests set this file mtime later than task-list.json.",
+    "metadata": {
+      "acceptanceCriteria": [
+        {"text": "The newer copy is the one on the board", "done": true},
+        {"text": "The older subject is not shown", "done": false}
+      ]
+    },
     "status": "in_progress",
     "owner": "synthetic-writer",
     "blocks": ["13"],

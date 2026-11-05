@@ -2540,21 +2540,29 @@ def _official_team_view(session_id):
         'teamName': parsed['teamName'],
         'lead': lead,
         'warnings': list(parsed['warnings']),
-        'tasks': [{
-            'id': task.get('id'),
-            'subject': task.get('subject'),
-            'description': task.get('description'),
-            'status': task.get('status'),
-            'normalizedStatus': task.get('normalizedStatus'),
-            'owner': task.get('owner'),
-            'blockedBy': task.get('blockedBy'),
-            'blocks': task.get('blocks'),
-            'source': task.get('source'),
-            'sourceMtime': task.get('sourceMtime'),
-        } for task in parsed['tasks']],
+        'tasks': [_view_task(task) for task in parsed['tasks']],
         'members': parsed['members'],
     })
     return view
+
+
+def _view_task(task):
+    """快照用的任务字段。不带 raw。验收只在已经抽出条目时带上。"""
+    row = {
+        'id': task.get('id'),
+        'subject': task.get('subject'),
+        'description': task.get('description'),
+        'status': task.get('status'),
+        'normalizedStatus': task.get('normalizedStatus'),
+        'owner': task.get('owner'),
+        'blockedBy': task.get('blockedBy'),
+        'blocks': task.get('blocks'),
+        'source': task.get('source'),
+        'sourceMtime': task.get('sourceMtime'),
+    }
+    if task.get('acceptance'):
+        row['acceptance'] = task.get('acceptance')
+    return row
 
 
 def exact_owner_name(owner, names):
@@ -2731,6 +2739,36 @@ def _task_id_list(value):
     return [item for item in value if isinstance(item, str)]
 
 
+def _public_acceptance(value):
+    """只留下条目文本和真实的勾选状态。没有条目就返回 None，不补空清单。"""
+    if not isinstance(value, dict):
+        return None
+    items = value.get('items')
+    if not isinstance(items, list):
+        return None
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        text = item.get('text')
+        if not isinstance(text, str) or not text.strip():
+            continue
+        checked = item.get('checked')
+        if checked is not True and checked is not False:
+            checked = None
+        cleaned.append({'text': text.strip(), 'checked': checked})
+    if not cleaned:
+        return None
+    public = {'items': cleaned}
+    boxes = [item for item in cleaned if item['checked'] is not None]
+    if boxes:
+        public['checklist'] = {
+            'done': sum(1 for item in boxes if item['checked'] is True),
+            'total': len(boxes),
+        }
+    return public
+
+
 def _task_clock_key(team_name, task):
     ident = task.get('id')
     if ident:
@@ -2823,6 +2861,7 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
     """把已解析的任务收成只读看板行。不含 raw、source、sourceMtime。
 
     每行另有 blockedByDetail / blocksDetail（对得上的带 subject）、flags、notices。
+    已经抽出验收条目时带 acceptance，没有就省略这个键。
     这些字段都从已经留下的行和警告推导，不读任务目录。
 
     同一个 id 只留修改时间较新的一条。可见行超过 MAX_TASK_ROWS 时截断。
@@ -2857,7 +2896,7 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
         waiting = [item for item in blocked_by if item not in completed]
         since, kind = _task_state_since(clock, team_name, task, now, counts.get(task.get('source'), 0) == 1)
         seen.add(_task_clock_key(team_name, task))
-        rows.append({
+        row = {
             'id': task.get('id'),
             'subject': task.get('subject'),
             'description': task.get('description'),
@@ -2871,7 +2910,11 @@ def task_board_rows(tasks, team_name, now, clock=None, warnings=None):
             'stateSince': since,
             'stateSinceKind': kind,
             'stateSeconds': max(0, int(now - since)),
-        })
+        }
+        acceptance = _public_acceptance(task.get('acceptance'))
+        if acceptance:
+            row['acceptance'] = acceptance
+        rows.append(row)
     if len(rows) > MAX_TASK_ROWS:
         warnings.append('任务超过 %d 条，看板只显示前 %d 条' % (MAX_TASK_ROWS, MAX_TASK_ROWS))
         rows = rows[:MAX_TASK_ROWS]
