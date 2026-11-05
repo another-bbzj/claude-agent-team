@@ -39,6 +39,8 @@ python tools/demo_board.py --port 7790
 
 打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。页面上有一行只读官方任务看板：待处理、进行中、已完成。点卡片或按 Enter 打开只读详情；`owner` 与成员名字完全一致时，悬停会互相点亮，Alt+点击或卡片上的「钉」可以钉住。合成成员里有通过、失败和未知三种测试徽章；失败的卡是红的，点徽章会跳到动作流里的那一条。
 
+不想启动 Python 时，用浏览器打开 [`docs/site/index.html`](docs/site/index.html)。同一份合成快照嵌在页面里，离线也能点。GitHub Pages 地址是 <https://another-bbzj.github.io/claude-agent-team/>。若还是 404，维护者把 Settings → Pages → Build and deployment → Source 设为 GitHub Actions，只做这一次。
+
 > 演示使用合成数据，不读取你的 `~/.claude/tasks/`，也不是用量基准。[成员动画](docs/img/demo-synthetic.svg) · [官方任务看板示意图](docs/img/task-board.svg) · [演示说明](docs/DEMO.md)
 
 同一份快照可以画成一张能贴进 README 或社交平台的战报卡，仍然不读你的会话：

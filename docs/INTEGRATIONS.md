@@ -14,7 +14,7 @@ The [Codex exec adapter](CODEX_METRICS.md) accepts an explicitly supplied `codex
 python tools/codex_metrics.py --input examples/codex-exec.synthetic.jsonl
 ```
 
-This command works entirely offline and does not start Codex or spend API credits. Its event-report format is separate from the board snapshot export below. For a no-account UI walkthrough, use the [read-only synthetic demo](DEMO.md).
+This command works entirely offline and does not start Codex or spend API credits. Its event-report format is separate from the board snapshot export below. For a no-account UI walkthrough, use the [read-only synthetic demo](DEMO.md) or the static files in [`docs/site/`](site/index.html).
 
 ## Export aggregate metrics
 

@@ -1,0 +1,75 @@
+{
+  "enabled": true,
+  "status": "over",
+  "error": "",
+  "warnRatio": 0.8,
+  "lowerBound": false,
+  "lowerBoundLabel": "",
+  "unpriced": 0,
+  "unpricedModels": [],
+  "spent": 2.0392,
+  "limit": 1.0196,
+  "ratio": 2.0,
+  "currency": "USD",
+  "scopes": [
+    {
+      "kind": "session",
+      "id": "session",
+      "name": "本次会话",
+      "limit": 1.0196,
+      "spent": 2.0392,
+      "ratio": 2.0,
+      "status": "over",
+      "lowerBound": false,
+      "present": true
+    },
+    {
+      "kind": "member",
+      "id": "synthetic-member-4",
+      "name": "演示文档",
+      "limit": 0.02,
+      "spent": 0.04,
+      "ratio": 2.0,
+      "status": "over",
+      "lowerBound": false,
+      "present": true,
+      "capKey": "docs-writer",
+      "agentType": "docs-writer",
+      "modelFamily": "sonnet"
+    },
+    {
+      "kind": "department",
+      "id": "docs",
+      "name": "文档部",
+      "limit": 0.02,
+      "spent": 0.04,
+      "ratio": 2.0,
+      "status": "over",
+      "lowerBound": false,
+      "present": true
+    }
+  ],
+  "topSpender": {
+    "id": "synthetic-member-2",
+    "name": "演示前端",
+    "kind": "member",
+    "agentType": "frontend-dev",
+    "dept": "dev",
+    "modelFamily": "sonnet",
+    "cost": 0.7084
+  },
+  "suggestions": [
+    {
+      "memberId": "synthetic-member-4",
+      "name": "演示文档",
+      "agentType": "docs-writer",
+      "dept": "docs",
+      "modelFamily": "sonnet",
+      "recommended": "haiku",
+      "recommendedLabel": "haiku · low",
+      "work": "文档",
+      "action": "演示文档（docs-writer）这次用了 sonnet，协议档位是 haiku · low（文档）。下次派工把 model 设为 haiku。",
+      "cost": 0.04
+    }
+  ]
+}

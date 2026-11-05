@@ -10,6 +10,31 @@ python tools/demo_board.py --port 7790
 Open [the local demo](http://127.0.0.1:7790/) in your browser. The command prints the
 actual URL; `--port 0` chooses an available port. Stop it with Ctrl+C. It does not
 open a browser automatically or install anything into your home directory.
+
+## Static pages
+
+The same synthetic board is also plain files in [`docs/site/`](site/index.html).
+Open `docs/site/index.html` in a browser. No Python process, no install, and no
+network. The snapshot is embedded, and the page clock stays on the fixture's
+`generatedAt`, so 演示文档 remains 15 minutes quiet instead of aging with the
+calendar. Add `?budget=over` to show the red budget guard. Switching the
+worktree chip still only changes the branch label.
+
+Publishing is [`.github/workflows/pages.yml`](../.github/workflows/pages.yml),
+which uploads `docs/site/` on pushes to `main`. The public URL is
+<https://another-bbzj.github.io/claude-agent-team/>. If that URL 404s, a
+maintainer sets **Settings → Pages → Build and deployment → Source** to
+**GitHub Actions** once, then re-runs the Pages workflow. This repository does
+not change that setting. Until then, the files still open locally.
+
+After the board UI or `examples/board-demo.synthetic.json` changes, rebuild and
+check:
+
+```sh
+python tools/build_pages_site.py
+python tools/build_pages_site.py --check
+```
+
 「导出战报卡」downloads an SVG built in the browser from this fixture. It does not
 upload the snapshot.
 
