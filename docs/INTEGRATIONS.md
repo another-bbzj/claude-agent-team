@@ -239,6 +239,119 @@ Sections with nothing to show are omitted. Session ids, local paths, e-mail addr
 
 Exit code 0 means the Markdown was written. Exit code 1 is a read or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks.
 
+## OTLP JSON file
+
+`tools/export_otel.py` writes one snapshot as an OTLP/JSON trace file. The process is offline: it does not POST the file, open a collector, or add a runtime dependency. Python 3.8+ and the standard library are enough. Langfuse and Phoenix can ingest that file later, with a command you run yourself.
+
+```sh
+python tools/export_otel.py --demo
+python tools/export_otel.py --input examples/otel-snapshot.synthetic.json --output traces.json
+python tools/export_otel.py --input examples/board-demo.synthetic.json -o traces.json
+python tools/export_otel.py --port 7788 --session sess-0001 -o traces.json
+python tools/export_otel.py --port 7788 --project C--demo -o traces.json
+```
+
+`--demo` reads [`examples/board-demo.synthetic.json`](../examples/board-demo.synthetic.json). Otherwise choose exactly one of `--input` or `--port`. `--session` and `--project` are the same mutually exclusive selectors as [aggregate export](#export-aggregate-metrics): they require `--port` and cannot filter an offline file. The port mode is one read-only GET through `export_snapshot.read_snapshot` (loopback only, proxies bypassed, redirects refused, five-second timeout, 8 MiB limit). There is no arbitrary remote URL. The output path must not be the input file. Exit code 0 means the file was written. Exit code 1 is a read, validation, or write failure. Argparse uses 2 for invalid arguments. Diagnostics omit source values and tracebacks.
+
+[`examples/otel-export.synthetic.json`](../examples/otel-export.synthetic.json) is the output of the second command. It is synthetic. The open member's cost (`1.25`) is not in that file: that member has no `endedAt`, and the exporter does not invent a span to hold the number.
+
+### OTLP/JSON subset
+
+The document is a subset of [`ExportTraceServiceRequest`](https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/collector/trace/v1/trace_service.proto) in the [OTLP/JSON protobuf encoding](https://opentelemetry.io/docs/specs/otlp/#json-protobuf-encoding). Keys are lowerCamelCase. `traceId` and `spanId` are lowercase hex, not base64. `kind` and `status.code` are integers, not enum names. `fixed64` and `int64` values are decimal strings.
+
+Implemented:
+
+| JSON | What is written |
+| --- | --- |
+| `resourceSpans[].resource.attributes[]` | `key` plus one of `stringValue`, `boolValue`, `intValue`, `doubleValue` |
+| `resourceSpans[].scopeSpans[].scope` | `name` `team-board.export_otel`, `version` `1` |
+| `spans[].traceId` | 32 lowercase hex characters, not all zeros. One id for the whole file |
+| `spans[].spanId` | 16 lowercase hex characters, not all zeros |
+| `spans[].parentSpanId` | Omitted for a root. Otherwise the `spanId` of another span in this file |
+| `spans[].name` | Redacted label, or a fixed fallback such as `lead`, `member`, `event`, `hook` |
+| `spans[].kind` | Integer `1` (`SPAN_KIND_INTERNAL`) only |
+| `spans[].startTimeUnixNano`, `endTimeUnixNano` | Decimal strings of unix nanoseconds. `end` is greater than or equal to `start` |
+| `spans[].attributes[]` | The same KeyValue shape as resource attributes. `intValue` is a decimal string |
+| `spans[].status.code` | Integer `1` (OK) or `2` (ERROR). Omitted when the snapshot does not say. No `status.message` |
+
+Not implemented: `resourceLogs`, metrics, `schemaUrl`, dropped-count fields, `flags`, `traceState`, span events, links, `arrayValue`, `kvlistValue`, `bytesValue`, gRPC, and protobuf. Attribute keys `gen_ai.*` and `langfuse.*` are not set. Receivers that ignore unknown fields can still read this document; a receiver that requires those missing fields will not get them from this file.
+
+Resource attributes that are always present:
+
+| Key | Value |
+| --- | --- |
+| `service.name` | `claude-agent-team`. This identifies the exporter. It is not read from the snapshot |
+| `team.export.schema` | `1` |
+| `team.export.signal` | `traces` |
+
+Copied only when the snapshot already has a usable value:
+
+| Key | Source |
+| --- | --- |
+| `service.version` | `version`, when it is a short string with no path, email, or key material |
+| `team.snapshot.demo` | `demo`, when it is a boolean |
+| `team.snapshot.generated_at_unix_nano` | `generatedAt`, when it is whole unix seconds. A decimal string, not an `intValue`, because OTLP integer attributes are signed and a nanosecond timestamp can exceed that range |
+| `team.member_count`, `team.totals.cost`, `team.totals.members_cost`, `team.totals.unpriced`, `team.totals.output_tokens` | `export_metrics`. `output_tokens` is the aggregate field `totals.tokens` (member output tokens). The numbers are copied, not added up again |
+| `team.usage.{members,lead,all}.{input,output,cache_read,cache_write,total,cache_hit}` | `totals.usage`, `totals.leadUsage`, and `totals.allUsage`. `input` is `in` and `output` is `out` |
+| `team.budget.utilization_ratio` | `budget.ratio` when `budget.enabled` is true and the ratio is a finite nonnegative number. It may be greater than 1. An invalid ratio is omitted. Names and suggestion text are omitted |
+| `team.export.omitted_spans` | How many candidate spans were dropped by the cap of 400. Omitted when nothing was dropped |
+
+If `export_metrics` rejects the snapshot, the totals and usage attributes are left out together. They are not filled with zeros.
+
+### Which snapshot objects become spans
+
+A candidate without a usable timestamp is skipped. Department rows are not spans. The cap keeps at most 400 spans, in this order: closed actors (lead, then members), activity, comms, tasks, then live hooks. Inside each group after the actors, order is timestamp, then the original order.
+
+| Snapshot object | Span |
+| --- | --- |
+| Lead or member with both `startedAt` and `endedAt` as whole unix seconds, and `endedAt` greater than or equal to `startedAt` | One root span. `team.actor.kind` is `lead` or `member`. Cost, `unpriced`, token counters, `cacheHit`, `toolCount`, status, department, and role are copied when those fields are usable. `cost: null`, a negative cost, or a non-number is omitted, not written as 0. `team.cost.partial` is true only when that same object has `unpriced` greater than 0 and a numeric cost was copied |
+| Lead or member with a null or missing `endedAt` | No actor span. The exporter does not use the current time, and it does not turn the start into a zero-length span. That actor's cost stays only inside the aggregate totals, when `export_metrics` accepted them |
+| `feed` item with `ts` | One span. When `feed` is an array, timelines are not also exported, including when that array is empty. When `feed` is missing or not an array, each lead and member `timeline` is used instead |
+| `ms` on that activity item | End time is `ts` plus that many milliseconds, when `ms` is a nonnegative integer that still fits in a uint64. Any other `ms` leaves the end equal to the start. A missing `ms` also leaves the end equal to the start, because the snapshot has only one timestamp |
+| `comms` item with `ts` | One instant span. `fromName`, `toName`, `kind`, and redacted `text` are copied when safe. `from` and `to` ids are not |
+| `officialTeam.tasks` item with `stateSince` | One instant span at `stateSince`. Subject, status, `blocked`, and owner are copied when safe. The description and dependency ids are not. `stateSeconds` is not added onto the end |
+| `live.events` item with `ts`, and `live.merged` is not true | One instant span. `session_id`, `tool_use_id`, and `agent_id` are not written. `agent_id` or a feed `memberId` may select a display name that is already on the lead or a member; the id itself is not written. When `live.merged` is true the events are skipped, because the board has already joined them into the feed |
+
+An activity, comm, task, or hook span becomes a child of the first closed actor with the same public name when the event start falls inside that actor's interval, including both ends. Actor spans stay roots. The first match wins, lead before members.
+
+`status.code` is `2` when an actor's `status` is `error`, an event's `error` is true, a copied test `status` is `fail`, or a comm `kind` is `error`. It is `1` when an actor's `status` is `completed` or `finished`, a test `status` is `pass`, or an event has `done: true` and `error: false` and the test status is not `unknown`. A test status of `unknown` leaves the code unset. Tasks and hooks do not get a status code.
+
+Test counters (`passed`, `failed`, `skipped`, `errors`, `exitCode`) are copied only when they are nonnegative integers. `null` stays omitted. `framework` must be a short token and must not itself look like a key or a path.
+
+Ids are a SHA-256 prefix of the redacted span contents. They are not session ids. The same snapshot produces the same ids. Re-running does not allocate new ones.
+
+### Privacy
+
+Home paths (`/home`, `/Users`, `C:\Users`, `D:/Users`, a `~/` path), e-mail addresses, and API-key-shaped strings (`sk-`, `ghp_`, `github_pat_`, `xox*`, `AKIA`, `Bearer`, `api_key`, a PEM private key) are replaced or dropped before the file is written. The patterns match [`tools/export_replay.py`](../tools/export_replay.py). A label that still contains a 16+ hex run or a UUID is dropped. Prompts, descriptions, model ids, pet ids, session ids, and tool-use ids are not copied. Message text that remains is redacted and clipped. The writer refuses the file if the serialized JSON still matches that private-data pattern. The refusal does not print the match.
+
+`team.cost.usd` is the board's estimate from the snapshot. It is not a provider invoice and not a price computed by Langfuse or Phoenix.
+
+### Import into Langfuse or Phoenix
+
+This repository does not call either service. The steps below are the OTLP/HTTP JSON requests those projects document. They send the file you already wrote. They need a host you choose, and credentials you supply in that shell. Do not commit those credentials.
+
+Langfuse accepts OTLP over HTTP with JSON or protobuf. gRPC is not accepted. The trace path is `POST /api/public/otel/v1/traces`, with Basic auth from the project keys and the header `x-langfuse-ingestion-version: 4`. That header and the curl shape are documented in [Get Started with Tracing](https://langfuse.com/docs/observability/get-started) and [OpenTelemetry (OTEL) for LLM Observability](https://langfuse.com/integrations/native/opentelemetry). Point `LANGFUSE_HOST` at the origin for your region or self-hosted deployment (`https://cloud.langfuse.com` for the EU cloud, `https://us.cloud.langfuse.com` for the US cloud, or your own origin).
+
+```sh
+curl -X POST "$LANGFUSE_HOST/api/public/otel/v1/traces" \
+  -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -H "x-langfuse-ingestion-version: 4" \
+  --data-binary @traces.json
+```
+
+This file does not set `gen_ai.*` or `langfuse.*` attributes and does not include a model id, so Langfuse has no model from which to price the span. A `team.cost.usd` attribute is the board estimate that was already on that closed actor. Token counts are the snapshot's own numbers. Unmapped attributes are stored by Langfuse under metadata; see the attribute-mapping section of the same OpenTelemetry page.
+
+Phoenix serves OTLP/HTTP JSON on its UI port, at `http://localhost:6006/v1/traces`, not on the generic OTLP port 4318. See [Exporter and OTLP](https://arize.com/docs/phoenix/tracing/concepts-tracing/otel-openinference/exporter). Phoenix's [Import Existing Traces](https://arize.com/docs/phoenix/tracing/how-to-tracing/importing-and-exporting-traces/importing-existing-traces) page loads a `phoenix.TraceDataset`. That is a different file. Do not pass this OTLP document to `TraceDataset.load`.
+
+```sh
+curl -X POST "http://localhost:6006/v1/traces" \
+  -H "Content-Type: application/json" \
+  --data-binary @traces.json
+```
+
+If that Phoenix deployment requires a key, the same exporter page shows `Authorization: Bearer <PHOENIX_API_KEY>`. A local `phoenix serve` without authentication uses the curl above. No live Langfuse or Phoenix response is claimed by this repository; the checked-in sample is the synthetic file, compared in `tests/test_export_otel.py`.
+
 ## File-based handoffs from other tools
 
 The existing `team-board/msg.py` can send a handoff to a project inbox without a running board:

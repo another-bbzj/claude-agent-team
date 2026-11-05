@@ -19,6 +19,7 @@ This repository provides a local team board for Claude Code and Codex rollout tr
 - `tools/battle_card.py`: self-contained SVG battle card from an offline snapshot or the loopback board.
 - `tools/export_replay.py`: one offline HTML file with an embedded desensitized snapshot. It does not start the board.
 - `tools/retro_report.py`: Markdown retrospective from an offline snapshot, `--demo`, or the loopback board. It copies present fields only.
+- `tools/export_otel.py`: OTLP/JSON trace file from an offline snapshot, `--demo`, or the loopback board. It copies present fields only and does not upload the file.
 
 ## Change and test
 

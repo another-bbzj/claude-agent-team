@@ -10,6 +10,8 @@ Implemented extension tools include the [versioned aggregate snapshot export](IN
 
 `tools/retro_report.py` writes a Markdown retrospective from `--demo`, an offline snapshot, or the loopback board. It copies timestamps, estimated cost, tokens, stalls, blocked tasks and parsed test results only when those fields are present. A null price is 未知, and a positive `unpriced` count marks that object's numeric cost 部分. It does not sum a missing total, invent an idle age, or estimate cache savings.
 
+`tools/export_otel.py` writes one OTLP/JSON trace file from `--demo`, an offline snapshot, or the loopback board. It copies timestamps, estimated cost, token counts, and parsed test fields only when those fields are present. A null cost is omitted. A member with no end time does not get a span. The file is not uploaded. The OTLP subset and the Langfuse / Phoenix import commands are in [INTEGRATIONS.md](INTEGRATIONS.md).
+
 The synthetic tree in [`examples/agent-teams.synthetic/`](../examples/agent-teams.synthetic/README.md) reproduces that command room offline: a blocked dependency chain, the same task id in two files, mixed TaskList and TaskGet shapes, and a teammate whose name matches no task owner. Tests reject credential-like strings, absolute home paths, email-shaped text, and `sk-` / API key patterns under `examples/`. The over-2MB skip uses a temporary file generated during the test. The planned shared collection below still applies that bar to every future fixture family.
 
 ## Planned work
