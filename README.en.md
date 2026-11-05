@@ -12,11 +12,26 @@ Department roles, a file-based office protocol, and a live dashboard bound to lo
 ![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-[30-second start](#start) · [Why](#why) · [Guide](docs/GUIDE.en.md) · [中文](README.md)
+[30-second start](#start) · [Compare](#compare) · [Why](#why) · [Guide](docs/GUIDE.en.md) · [中文](README.md)
 
 [Contribute](CONTRIBUTING.md) · [Integrations](docs/INTEGRATIONS.md) · [Security](SECURITY.md) · [Roadmap](docs/ROADMAP.md)
 
 </div>
+
+<a id="compare"></a>
+
+## Compare
+
+The cells below are limited to facts checked against public pages on 2026-11-05.
+
+| Tool | Positioning | Install / runtime | Visualization | Open source? |
+|---|---|---|---|---|
+| **[claude-agent-team](https://github.com/another-bbzj/claude-agent-team)** | A local, zero-dependency board. Estimated cost by member and department, transcripts plus optional hooks, and a battle card or offline replay | Python 3.8+ and the standard library. The board binds to `127.0.0.1` and does not call a model API | A browser view of departments, the current tool, tokens, and estimated cost; an SVG battle card; a single-file HTML replay | [MIT](LICENSE) |
+| **[Official Agent Teams](https://code.claude.com/docs/en/agent-teams)** | Experimental. One lead coordinates independent sessions that share tasks and message each other | Off by default. Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. [One team per session, and task status can lag](https://code.claude.com/docs/en/agent-teams). [Teammates are not isolated in git worktrees](https://code.claude.com/docs/en/agents) | An agent panel in the lead’s terminal, or tmux / iTerm2 split panes | No. The Claude Code repo’s [LICENSE.md](https://github.com/anthropics/claude-code/blob/main/LICENSE.md) says “All rights reserved” |
+| **[Claude Squad](https://github.com/smtg-ai/claude-squad)** | One terminal for parallel local agents, including Claude Code, Codex, Gemini, and Aider | Homebrew or the repo install script. The command is `cs`. Requires tmux and gh. Each task gets a git worktree | A single-window TUI with a preview tab and a diff tab | [AGPL-3.0](https://github.com/smtg-ai/claude-squad/blob/main/LICENSE.md) |
+| **[Conductor](https://www.conductor.build/docs)** | A macOS app. Runs Claude Code, Codex, Cursor, and OpenCode in parallel. Each task gets a workspace | [macOS only](https://www.conductor.build/docs/installation). Creating a workspace [creates a git worktree and checks out a branch](https://www.conductor.build/docs/concepts/git-worktrees). The site also offers [isolated cloud sandboxes](https://www.conductor.build/) | In the app: [chats and diffs](https://www.conductor.build/docs/concepts/git-worktrees), then [review, open a pull request, and merge](https://www.conductor.build/docs) | Proprietary (the terms use that word). The client may include open-source components; the list is available on request. [Terms](https://www.conductor.build/terms) |
+
+This repository is the local visualization, estimated-cost, and acceptance layer on top of Claude Code teams and subagents; it is not a framework or a session multiplexer.
 
 <a id="start"></a>
 
