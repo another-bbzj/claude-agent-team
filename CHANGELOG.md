@@ -8,6 +8,7 @@
 
 ### 新增
 
+- 官方任务在 `owner` 与成员或 lead 的名字完全一致时，卡片和只读详情带上估算成本。金额只加总这位负责人在任务进行中的转录用量，再乘 `team.json` 的价格表，不是服务商账单。区间对不上写「估算未知」，未定价且没有金额写「部分 · 未知」。没有 owner 的任务不写这个数。字段留在快照的 `officialTeam.tasks[].estimate`，不写回任务目录，也不进 schemaVersion 1 的聚合导出、Prometheus、战报卡或复盘。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。
 - 看板可以订本机的 `GET /events`（`/api/events` 相同）。服务仍只听 `127.0.0.1`。浏览器带了 `Origin` 时必须是这个回环地址和端口。连上先收到 `hello`，所选会话的活动、状态、成本、任务、停滞提醒或实时钩子有变化时收到 `refresh`。两条只带修订号、来源、会话 id 和生成时间，页面再去取原来的 `/snapshot.json`。大约 12 秒没有这些变化也会推一次，用时和顶栏时钟继续走。没有 `EventSource`、首包失败，或流断开时，仍每 1.5 秒轮询。`?demo=1` 继续轮询。说明见 [docs/GUIDE.md](docs/GUIDE.md) 和 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。
 - `tools/export_otel.py` 把离线快照、`--demo` 或本机看板写成一份 OTLP/JSON trace 文件（`resourceSpans`），不发网络请求，也不增加运行时依赖。只抄快照里已有的时间、估算成本和 token；没有结束时间的成员不补时长，价格是 null 不写成 0。本机路径、邮箱、密钥、会话 id 和提示词不写入。字段范围和 Langfuse / Phoenix 的导入命令见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。合成样例是 `examples/otel-snapshot.synthetic.json` 与 `examples/otel-export.synthetic.json`。
 - `tools/export_replay.py` 把一份快照收成单个 HTML 回放文件。浏览器直接打开，不启动看板，也不加载外部脚本。文件里嵌的是脱敏后的成员、动作和关键消息；本机路径、邮箱、密钥、会话标识和提示词会去掉。聚合数字只走 `export_metrics`，快照里没有的不计。`--demo` 使用 `examples/board-demo.synthetic.json`。`--session` / `--project` 与聚合导出一样，只在 `--port` 下二选一。

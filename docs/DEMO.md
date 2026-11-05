@@ -24,7 +24,7 @@ teammates, plus coherent example departments, tool activity, token counts and
 estimated costs. Official teammates are marked with a 官方 Team badge. When the
 fixture includes `officialTeam.tasks`, the page also shows a read-only kanban with
 pending, in progress and completed columns (owner, dependencies or blocked, and
-time in the current state). Clicking a card opens a read-only detail drawer; at
+time in the current state). A card whose owner matches a member or the lead can also show an estimated cost from `estimate` when the snapshot has one: the first synthetic card is $0.018, the second is partial and unpriced, and the unowned card has no figure. Clicking a card opens a read-only detail drawer; at
 least one synthetic task has a full description so that drawer can be opened
 offline. Hover or focus a card to light the stage member whose name is an exact
 match, or hover a member to light that person's tasks. Tasks with no owner, and

@@ -1,0 +1,70 @@
+{
+  "note": "合成用量。cost-1 按 team.json 的 sonnet 行估算，窗口外的一条不计。cost-2 没有 owner。cost-3 的模型不在价格表里。金额不是账单。",
+  "now": 1700001000,
+  "sources": {
+    "synthetic-researcher": {
+      "ambiguous": false,
+      "events": [
+        {
+          "ts": 1699990000,
+          "model": "claude-sonnet-5",
+          "usage": {"in": 9000, "out": 9000, "cache_read": 0, "cache_write": 0}
+        },
+        {
+          "ts": 1700000100,
+          "model": "claude-sonnet-5",
+          "usage": {"in": 1000, "out": 500, "cache_read": 0, "cache_write": 0}
+        },
+        {
+          "ts": 1700000500,
+          "model": "claude-sonnet-5",
+          "usage": {"in": 2000, "out": 100, "cache_read": 0, "cache_write": 0}
+        }
+      ]
+    },
+    "synthetic-unpriced": {
+      "ambiguous": false,
+      "events": [
+        {
+          "ts": 1700000200,
+          "model": "example-local",
+          "usage": {"in": 100, "out": 40, "cache_read": 0, "cache_write": 0}
+        }
+      ]
+    }
+  },
+  "marks": [
+    {"ts": 1700000000, "id": "cost-1", "status": "in_progress", "owner": "synthetic-researcher"},
+    {"ts": 1700000800, "id": "cost-1", "status": "completed", "owner": "synthetic-researcher"},
+    {"ts": 1700000000, "id": "cost-3", "status": "in_progress", "owner": "synthetic-unpriced"}
+  ],
+  "tasks": [
+    {
+      "id": "cost-1",
+      "subject": "Owned synthetic task",
+      "normalizedStatus": "completed",
+      "owner": "synthetic-researcher",
+      "ownerMatch": "synthetic-researcher",
+      "stateSince": 1700000800,
+      "stateSinceKind": "file"
+    },
+    {
+      "id": "cost-2",
+      "subject": "Unowned synthetic task",
+      "normalizedStatus": "pending",
+      "owner": null,
+      "ownerMatch": null,
+      "stateSince": 1700000000,
+      "stateSinceKind": "file"
+    },
+    {
+      "id": "cost-3",
+      "subject": "Unpriced synthetic task",
+      "normalizedStatus": "in_progress",
+      "owner": "synthetic-unpriced",
+      "ownerMatch": "synthetic-unpriced",
+      "stateSince": 1700000000,
+      "stateSinceKind": "file"
+    }
+  ]
+}

@@ -1037,6 +1037,14 @@
         "normalizedStatus": "in_progress",
         "owner": "合成研究员",
         "ownerMatch": "合成研究员",
+        "estimate": {
+          "cost": 0.018,
+          "tokens": {"in": 3000, "out": 600, "cache_read": 0, "cache_write": 0},
+          "status": "known",
+          "partial": false,
+          "unpriced": false,
+          "basis": "transcript"
+        },
         "blockedBy": [],
         "blocks": [
           "3"
@@ -1080,6 +1088,14 @@
         "normalizedStatus": "completed",
         "owner": "合成写手",
         "ownerMatch": "合成写手",
+        "estimate": {
+          "cost": null,
+          "tokens": {"in": 100, "out": 40, "cache_read": 0, "cache_write": 0},
+          "status": "partial",
+          "partial": true,
+          "unpriced": true,
+          "basis": "transcript"
+        },
         "blockedBy": [],
         "blocks": [
           "4"

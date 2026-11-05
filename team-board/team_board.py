@@ -1196,14 +1196,18 @@ def update_apply() -> dict:
 
 class UsageLedger:
     """按 message.id 去重累计 usage：同一条 API 消息会被写成多行（每个 content block 一行，usage 是当时的快照），
-    只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。"""
+    只取每条消息的最后一份快照，否则 token 会被重复计 2-5 倍。
+
+    events() 带上这份快照的时间和模型，给任务归因用。后一行没有时间或模型时，沿用这条消息上一次有的值。
+    """
 
     def __init__(self):
         self.by_id = {}
         self.order = []
         self.anon = 0
+        self.meta = {}
 
-    def add(self, msg: dict, request_id: str = ''):
+    def add(self, msg: dict, request_id: str = '', ts=None, model: str = ''):
         usage = msg.get('usage') or {}
         if not usage:
             return
@@ -1214,6 +1218,16 @@ class UsageLedger:
         if mid not in self.by_id:
             self.order.append(mid)
         self.by_id[mid] = usage
+        previous = self.meta.get(mid) or {}
+        kept_ts = ts if isinstance(ts, (int, float)) and not isinstance(ts, bool) else None
+        if isinstance(kept_ts, float) and (kept_ts != kept_ts or kept_ts in (float('inf'), float('-inf'))):
+            kept_ts = None
+        if kept_ts is None:
+            kept_ts = previous.get('ts')
+        kept_model = model if real_model(model) else ''
+        if not kept_model:
+            kept_model = previous.get('model') or ''
+        self.meta[mid] = {'ts': kept_ts, 'model': kept_model}
 
     def total(self):
         t = {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0}
@@ -1224,6 +1238,46 @@ class UsageLedger:
             t['cache_write'] += u.get('cache_creation_input_tokens', 0) or 0
         return t
 
+    def events(self):
+        out = []
+        for mid in self.order:
+            meta = self.meta.get(mid) or {}
+            out.append({
+                'ts': meta.get('ts'),
+                'model': meta.get('model') or '',
+                'usage': _task_cost.normalize_usage(self.by_id.get(mid) or {}),
+            })
+        return out
+
+
+def _note_task_mark(marks, name, inp, ts):
+    """TaskUpdate / TaskCreate 入参里只留下 id、状态、owner 和时间。不保存说明。"""
+    if name not in ('TaskUpdate', 'TaskCreate') or not isinstance(inp, dict):
+        return
+    task_id = None
+    for key in ('taskId', 'task_id', 'id'):
+        value = inp.get(key)
+        if isinstance(value, str) and value:
+            task_id = value
+            break
+    if not task_id or len(task_id) > 200 or '\n' in task_id or '\r' in task_id:
+        return
+    status = inp.get('status') if isinstance(inp.get('status'), str) else None
+    if status == 'in progress':
+        status = 'in_progress'
+    elif status not in ('pending', 'in_progress', 'completed', 'deleted'):
+        status = None
+    owner = inp.get('owner') if isinstance(inp.get('owner'), str) else None
+    if isinstance(owner, str) and (len(owner) > 200 or '\n' in owner or '\r' in owner):
+        owner = None
+    if status is None and owner is None:
+        return
+    if not isinstance(ts, (int, float)) or isinstance(ts, bool):
+        return
+    if isinstance(ts, float) and (ts != ts or ts in (float('inf'), float('-inf'))):
+        return
+    marks.append({'ts': float(ts), 'id': task_id, 'status': status, 'owner': owner})
+
 
 def _parse_agent_file(jsonl: Path):
     entries = read_jsonl(jsonl)
@@ -1233,7 +1287,7 @@ def _parse_agent_file(jsonl: Path):
     tool_ids, pending = [], {}
     last_text, last_stop, last_kind = '', None, None
     model, ledger = '', UsageLedger()
-    messages, writes, reads = [], [], []
+    messages, writes, reads, task_marks = [], [], [], []
     trace = _cache_advice.Trace(agent_id, agent_id, True)
 
     for e in entries:
@@ -1268,7 +1322,7 @@ def _parse_agent_file(jsonl: Path):
                         last_kind = 'tool_result'
         elif et == 'assistant':
             last_stop = msg.get('stop_reason')
-            ledger.add(msg, e.get('requestId') or '')
+            ledger.add(msg, e.get('requestId') or '', ts, msg.get('model') or '')
             if real_model(msg.get('model')):
                 model = msg['model']
             has_tool = False
@@ -1284,6 +1338,7 @@ def _parse_agent_file(jsonl: Path):
                         item = {'ts': ts, 'kind': 'tool', 'name': name,
                                 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
+                        _note_task_mark(task_marks, name, inp, ts)
                         _stamp_tool(item, inp, c.get('id'), tool_ids)
                         pending[c.get('id')] = item
                         timeline.append(item)
@@ -1316,7 +1371,8 @@ def _parse_agent_file(jsonl: Path):
     return {'agent_id': agent_id, 'prompt': prompt, 'first_ts': first_ts, 'last_ts': last_ts, 'timeline': timeline,
             'tool_count': tool_count, 'toolIds': tool_ids, 'out_tokens': out_tokens, 'thinking_count': thinking_count,
             'last_text': last_text, 'last_stop': last_stop, 'last_kind': last_kind, 'model': model,
-            'usage': ledger.total(), 'messages': messages, 'writes': writes, 'reads': reads,
+            'usage': ledger.total(), 'usageEvents': ledger.events(), 'taskMarks': task_marks,
+            'messages': messages, 'writes': writes, 'reads': reads,
             'cacheTurns': trace.turns()}
 
 
@@ -1354,6 +1410,8 @@ def _finish_agent(P, jsonl, meta, now, stale, group, mtime):
         'model': P['model'],
         'modelFamily': model_family(P['model']),
         'usage': P['usage'],
+        'usageEvents': list(P.get('usageEvents') or []),
+        'taskMarks': list(P.get('taskMarks') or []),
         'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(P['model'], P['usage'])),
         'priced': estimate_cost(P['model'], P['usage']) is not None,
         'priceKey': price_key(P['model']),
@@ -1452,6 +1510,7 @@ def parse_lead(path: Path, now: float):
         data = cached[1]
     else:
         timeline, pending, dispatches, messages, tool_count, tool_ids, out_tokens = [], {}, {}, [], 0, [], 0
+        task_marks = []
         last_user_prompt, last_ts, first_ts = '', None, None
         cwds = {}   # 队长转录里出现过的 cwd → 最后出现的序号（队长会 cd 走；键顺序 = 首次出现顺序）
         notifications = {}
@@ -1498,7 +1557,7 @@ def parse_lead(path: Path, now: float):
                                 if item.get('_test_command'):
                                     _finish_test_item(item, c, _tool_output(c.get('content')))
             elif et == 'assistant':
-                lead_ledger.add(msg, e.get('requestId') or '')
+                lead_ledger.add(msg, e.get('requestId') or '', ts, msg.get('model') or '')
                 if real_model(msg.get('model')):
                     lead_model = msg['model']
                 if isinstance(content, list):
@@ -1507,6 +1566,7 @@ def parse_lead(path: Path, now: float):
                             continue
                         name, inp, tid = c.get('name', '?'), c.get('input') or {}, c.get('id')
                         tool_count += 1
+                        _note_task_mark(task_marks, name, inp, ts)
                         item = {'ts': ts, 'kind': 'tool', 'name': name, 'label': tool_label(name, inp),
                                 'done': False, 'error': False}
                         _stamp_tool(item, inp, tid, tool_ids)
@@ -1533,7 +1593,8 @@ def parse_lead(path: Path, now: float):
         last_test = _latest_test(timeline, '__lead')
         data = {'timeline': _clip_timeline(timeline, 60), 'lastTest': last_test,
                 'toolCount': tool_count, 'toolIds': tool_ids, 'outputTokens': out_tokens,
-                'model': lead_model, 'usage': lead_usage, 'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
+                'model': lead_model, 'usage': lead_usage, 'usageEvents': lead_ledger.events(), 'taskMarks': task_marks,
+                'cost': (lambda c: round(c, 4) if c is not None else None)(estimate_cost(lead_model, lead_usage)),
                 'dispatches': dispatches, 'messages': messages, 'notifications': notifications,
                 'lastUserPrompt': short(last_user_prompt, 300),
                 'lastTs': last_ts, 'firstTs': first_ts, 'mtime': st.st_mtime,
@@ -2909,10 +2970,54 @@ def _public_official_team(view, now):
     return public
 
 
-def _snapshot_official_team(view, members, now, lead=None):
-    """公开快照上的官方团队。ownerMatch 只在这里写，不写回任务目录。
+def _task_cost_inputs(members, lead_data, lead_name):
+    """按显示名收集转录用量。同名的人和 lead 撞在一起时标成 ambiguous，不把两份用量加总。
+
+    没有 usageEvents 键的卡是官方队友占位，没有转录，不放进 sources。
+    """
+    sources = {}
+    marks = []
+
+    def add(name, events):
+        if not isinstance(name, str) or not name:
+            return
+        if name in sources or not isinstance(events, list):
+            sources[name] = {'ambiguous': True}
+            return
+        sources[name] = {'ambiguous': False, 'events': events}
+
+    def take_marks(person):
+        for mark in person.get('taskMarks') or []:
+            if isinstance(mark, dict):
+                marks.append(mark)
+
+    for member in members or ():
+        if not isinstance(member, dict) or 'usageEvents' not in member:
+            continue
+        add(member.get('name'), member.get('usageEvents'))
+        take_marks(member)
+    if isinstance(lead_data, dict) and 'usageEvents' in lead_data:
+        add(lead_name, lead_data.get('usageEvents'))
+        take_marks(lead_data)
+    return sources, marks
+
+
+def _drop_task_cost_trace(members, lead_data):
+    """用量切片和任务标记只用来归因，不进公开快照。"""
+    for member in members or ():
+        if isinstance(member, dict):
+            member.pop('usageEvents', None)
+            member.pop('taskMarks', None)
+    if isinstance(lead_data, dict):
+        lead_data.pop('usageEvents', None)
+        lead_data.pop('taskMarks', None)
+
+
+def _snapshot_official_team(view, members, now, lead=None, lead_data=None):
+    """公开快照上的官方团队。ownerMatch 和 estimate 只在这里写，不写回任务目录。
 
     成员最近一次测试在 owner 与名字完全一致时抄到任务上。队长用官方 lead 名字，不用舞台上的「队长 · Claude」。
+    estimate 只统计这个名字在任务进行中的转录用量。对不上就不写金额。
     """
     public = _public_official_team(view, now)
     annotate_owner_matches(
@@ -2928,6 +3033,9 @@ def _snapshot_official_team(view, members, now, lead=None):
             named['name'] = official
         people.append(named)
     _test_results.attach_last_tests(public.get('tasks') or [], people)
+    sources, marks = _task_cost_inputs(members, lead_data, public.get('lead') or '')
+    _task_cost.attach_estimates(public.get('tasks') or [], sources, marks, now, estimate_cost)
+    _drop_task_cost_trace(members, lead_data)
     return public
 
 
@@ -2940,7 +3048,17 @@ def _load_budget():
     return module
 
 
+def _load_task_cost():
+    """本目录的 task_cost.py。按文件加载，测试换了看板副本时不会串到别的路径。"""
+    path = HERE / 'task_cost.py'
+    spec = importlib.util.spec_from_file_location('task_cost_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 _budget_mod = _load_budget()
+_task_cost = _load_task_cost()
 
 
 class HookEventLog(object):
@@ -3816,7 +3934,7 @@ def build_snapshot(args, merge=True):
         '_activityIndex': activity_index,
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _snapshot_official_team(official_view, members, now, lead),
+        'officialTeam': _snapshot_official_team(official_view, members, now, lead, lead_data),
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info and provider == 'claude' else '', now),
     }
