@@ -60,15 +60,20 @@ def run_node(code):
     binary = shutil.which('node')
     if not binary:
         raise unittest.SkipTest('node is not installed')
-    completed = subprocess.run(
-        [binary, '-e', code],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=20,
-    )
-    if completed.returncode != 0:
-        raise AssertionError(completed.stderr or completed.stdout)
+    # Windows 上把带换行和中文的脚本放进 node -e 时，标准输出可能是空的。
+    # 写到临时文件，并按 UTF-8 读回，和依赖弧线的检查一样。
+    with tempfile.TemporaryDirectory(prefix='task-acceptance-') as directory:
+        program = Path(directory) / 'accept-check.js'
+        program.write_text(code, encoding='utf-8')
+        completed = subprocess.run(
+            [binary, str(program)],
+            check=False,
+            capture_output=True,
+            encoding='utf-8',
+            timeout=20,
+        )
+    if completed.returncode != 0 or not completed.stdout:
+        raise AssertionError(completed.stderr or completed.stdout or 'node produced no output')
     return json.loads(completed.stdout)
 
 
