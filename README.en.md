@@ -49,6 +49,8 @@ python tools/demo_board.py --port 7790
 
 Open <http://127.0.0.1:7790/>. See [the demo guide](docs/DEMO.md). The page includes a read-only official task board with pending, in progress and completed columns. Click a card, or press Enter, to open the read-only detail. Hover links a card to a stage member only when `owner` is that exact name. Alt-click, or the「钉」control, pins the highlight. The synthetic cast includes a passing test, a failing test and an unknown one. A failed card turns red. The badge jumps to that row in the activity feed.
 
+To skip Python, open [`docs/site/index.html`](docs/site/index.html) in a browser. The same synthetic snapshot is embedded in the file and works offline. The GitHub Pages URL is <https://another-bbzj.github.io/claude-agent-team/>. If that URL 404s, a maintainer sets Settings → Pages → Build and deployment → Source to GitHub Actions once.
+
 ![Read-only synthetic board for synthetic-example. Costs, durations and tool labels come from the repository fixture, not a usage benchmark. This animation draws the four subagent members. The official task columns are in the schematic below](docs/img/demo-synthetic.svg)
 
 ![Synthetic official task board: three columns, a read-only detail, and exact-name highlight. Fields come from examples/board-demo.synthetic.json. The drawing does not respond to the pointer](docs/img/task-board.svg)

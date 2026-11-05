@@ -1,0 +1,2566 @@
+{
+  "demo": true,
+  "generatedAt": 1767261740,
+  "version": "demo-synthetic",
+  "update": {
+    "hasUpdate": false
+  },
+  "session": {
+    "id": "synthetic-session",
+    "project": "synthetic-example",
+    "lastActivity": 1767261740,
+    "branch": "main",
+    "worktree": "",
+    "theaterId": "wt-syntheticrepo"
+  },
+  "sessions": [
+    {
+      "id": "synthetic-session",
+      "project": "synthetic-example",
+      "mtime": 1767261740,
+      "count": 4,
+      "branch": "main",
+      "worktree": "",
+      "theaterId": "wt-syntheticrepo"
+    },
+    {
+      "id": "synthetic-session-wt",
+      "project": "synthetic-worktree",
+      "mtime": 1767261680,
+      "count": 2,
+      "branch": "worktree-feature-board",
+      "worktree": "feature-board",
+      "theaterId": "wt-syntheticrepo"
+    }
+  ],
+  "theaters": [
+    {
+      "id": "wt-syntheticrepo",
+      "label": "synthetic-repo",
+      "sessions": [
+        {
+          "id": "synthetic-session",
+          "project": "synthetic-example",
+          "branch": "main",
+          "worktree": "",
+          "primary": true,
+          "mtime": 1767261740,
+          "count": 4
+        },
+        {
+          "id": "synthetic-session-wt",
+          "project": "synthetic-worktree",
+          "branch": "worktree-feature-board",
+          "worktree": "feature-board",
+          "primary": false,
+          "mtime": 1767261680,
+          "count": 2
+        }
+      ]
+    }
+  ],
+  "lead": {
+    "name": "演示队长",
+    "avatar": "team-lead",
+    "phase": "coordinating",
+    "running": 2,
+    "done": 3,
+    "total": 6,
+    "dept": "hq",
+    "model": "synthetic-model",
+    "modelFamily": "sonnet",
+    "cost": 0.005,
+    "usage": {
+      "in": 50,
+      "out": 20,
+      "cache_read": 100,
+      "cache_write": 0
+    },
+    "pet": "huhu-plan",
+    "active": true,
+    "current": null,
+    "toolCount": 3,
+    "outputTokens": 20,
+    "timeline": [],
+    "lastUserPrompt": "合成演示：展示团队成员和指标。",
+    "lastActivityAt": 1767261740,
+    "startedAt": 1767261600,
+    "endedAt": null,
+    "totalTokens": 170,
+    "cacheHit": 0.6667
+  },
+  "members": [
+    {
+      "id": "synthetic-member-1",
+      "name": "演示后端",
+      "baseName": "演示后端",
+      "roleTitle": "演示后端",
+      "agentType": "backend-dev",
+      "dept": "dev",
+      "status": "running",
+      "avatar": "server-engineer",
+      "pet": "dada-code",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": null,
+      "lastActivityAt": 1767261700,
+      "toolCount": 2,
+      "thinkingCount": 1,
+      "outputTokens": 400,
+      "totalTokens": 325200,
+      "cacheHit": 0.4926,
+      "usage": {
+        "in": 4800,
+        "out": 400,
+        "cache_read": 160000,
+        "cache_write": 160000
+      },
+      "cost": 0.6684,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261700,
+          "done": false,
+          "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · go test ./...",
+          "ts": 1767261705,
+          "done": true,
+          "error": true,
+          "ms": 180,
+          "toolId": "tool-demo-go-fail",
+          "test": {
+            "framework": "go",
+            "status": "fail",
+            "passed": 2,
+            "failed": 1,
+            "skipped": 0,
+            "errors": null,
+            "exitCode": null,
+            "exitStatus": "nonzero",
+            "truncated": false,
+            "toolId": "tool-demo-go-fail",
+            "ts": 1767261705,
+            "memberId": "synthetic-member-1"
+          }
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "",
+      "current": {
+        "name": "Read",
+        "label": "Read · synthetic example",
+        "done": false
+      },
+      "unread": 0,
+      "hasDef": true,
+      "custom": false,
+      "lastTest": {
+        "framework": "go",
+        "status": "fail",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-go-fail",
+        "ts": 1767261705,
+        "memberId": "synthetic-member-1"
+      }
+    },
+    {
+      "id": "synthetic-member-2",
+      "name": "演示前端",
+      "baseName": "演示前端",
+      "roleTitle": "演示前端",
+      "agentType": "frontend-dev",
+      "dept": "dev",
+      "status": "completed",
+      "avatar": "ui-designer",
+      "pet": "pip",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": 1767261710,
+      "lastActivityAt": 1767261710,
+      "toolCount": 3,
+      "thinkingCount": 1,
+      "outputTokens": 240,
+      "totalTokens": 154740,
+      "cacheHit": 0.0,
+      "usage": {
+        "in": 4500,
+        "out": 240,
+        "cache_read": 0,
+        "cache_write": 150000
+      },
+      "cost": 0.7084,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261710,
+          "done": true,
+          "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · npm test",
+          "ts": 1767261712,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-npm-unknown",
+          "test": {
+            "framework": "npm",
+            "status": "unknown",
+            "passed": null,
+            "failed": null,
+            "skipped": null,
+            "errors": null,
+            "exitCode": null,
+            "exitStatus": "unknown",
+            "truncated": true,
+            "toolId": "tool-demo-npm-unknown",
+            "ts": 1767261712,
+            "memberId": "synthetic-member-2"
+          }
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "合成任务已交付。",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false,
+      "lastTest": {
+        "framework": "npm",
+        "status": "unknown",
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "unknown",
+        "truncated": true,
+        "toolId": "tool-demo-npm-unknown",
+        "ts": 1767261712,
+        "memberId": "synthetic-member-2"
+      }
+    },
+    {
+      "id": "synthetic-member-3",
+      "name": "演示测试",
+      "baseName": "演示测试",
+      "roleTitle": "演示测试",
+      "agentType": "qa-tester",
+      "dept": "qa",
+      "status": "completed",
+      "avatar": "qa-engineer",
+      "pet": "bubu-fix",
+      "description": "合成演示任务；不代表真实项目活动",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767261600,
+      "endedAt": 1767261720,
+      "lastActivityAt": 1767261720,
+      "toolCount": 4,
+      "thinkingCount": 1,
+      "outputTokens": 200,
+      "totalTokens": 165000,
+      "cacheHit": 0.0,
+      "usage": {
+        "in": 4800,
+        "out": 200,
+        "cache_read": 0,
+        "cache_write": 160000
+      },
+      "cost": 0.6174,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767261720,
+          "done": true,
+          "ms": 10
+        },
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · pytest -q",
+          "ts": 1767261722,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-pytest-pass",
+          "test": {
+            "framework": "pytest",
+            "status": "pass",
+            "passed": 4,
+            "failed": 0,
+            "skipped": 1,
+            "errors": 0,
+            "exitCode": 0,
+            "exitStatus": "zero",
+            "truncated": false,
+            "toolId": "tool-demo-pytest-pass",
+            "ts": 1767261722,
+            "memberId": "synthetic-member-3",
+            "ticket": "03-check.md"
+          }
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "合成任务已交付。",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false,
+      "lastTest": {
+        "framework": "pytest",
+        "status": "pass",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 1,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-pass",
+        "ts": 1767261722,
+        "memberId": "synthetic-member-3",
+        "ticket": "03-check.md"
+      }
+    },
+    {
+      "id": "synthetic-member-4",
+      "name": "演示文档",
+      "baseName": "演示文档",
+      "roleTitle": "演示文档",
+      "agentType": "docs-writer",
+      "dept": "docs",
+      "status": "stalled",
+      "avatar": "docs-coordinator",
+      "pet": "huhu-plan",
+      "description": "合成演示：读完示例后已停住，用来触发停滞提醒",
+      "prompt": "合成示例：检查界面和团队协作流程。",
+      "startedAt": 1767260710,
+      "endedAt": null,
+      "lastActivityAt": 1767260840,
+      "toolCount": 5,
+      "thinkingCount": 1,
+      "outputTokens": 200,
+      "totalTokens": 1440,
+      "cacheHit": 0.6452,
+      "usage": {
+        "in": 400,
+        "out": 200,
+        "cache_read": 800,
+        "cache_write": 40
+      },
+      "cost": 0.04,
+      "model": "synthetic-model",
+      "modelFamily": "sonnet",
+      "effort": "medium",
+      "timeline": [
+        {
+          "kind": "tool",
+          "label": "Read · synthetic example",
+          "ts": 1767260840,
+          "done": true,
+          "ms": 10
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false
+    },
+    {
+      "id": "synthetic-official-researcher",
+      "name": "合成研究员",
+      "baseName": "合成研究员",
+      "roleTitle": "研究分析员",
+      "agentType": "researcher",
+      "officialTeam": true,
+      "dept": "rnd",
+      "status": "running",
+      "avatar": "data-analyst",
+      "pet": "kit",
+      "description": "Survey the synthetic module",
+      "prompt": "官方 Agent Team 合成演示",
+      "startedAt": 1767261600,
+      "endedAt": null,
+      "lastActivityAt": 1767261736,
+      "toolCount": 0,
+      "thinkingCount": 0,
+      "outputTokens": 0,
+      "totalTokens": 0,
+      "cacheHit": 0,
+      "usage": {
+        "in": 0,
+        "out": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost": 0,
+      "model": "",
+      "modelFamily": "",
+      "effort": "",
+      "timeline": [
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · pytest -q",
+          "ts": 1767261730,
+          "done": true,
+          "error": true,
+          "ms": 180,
+          "toolId": "tool-demo-pytest-fail",
+          "test": {
+            "framework": "pytest",
+            "status": "fail",
+            "passed": 1,
+            "failed": 2,
+            "skipped": 0,
+            "errors": 1,
+            "exitCode": 1,
+            "exitStatus": "nonzero",
+            "truncated": false,
+            "toolId": "tool-demo-pytest-fail",
+            "ts": 1767261730,
+            "memberId": "synthetic-official-researcher"
+          }
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "",
+      "current": null,
+      "unread": 0,
+      "hasDef": true,
+      "custom": false,
+      "lastTest": {
+        "framework": "pytest",
+        "status": "fail",
+        "passed": 1,
+        "failed": 2,
+        "skipped": 0,
+        "errors": 1,
+        "exitCode": 1,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-fail",
+        "ts": 1767261730,
+        "memberId": "synthetic-official-researcher"
+      }
+    },
+    {
+      "id": "synthetic-official-writer",
+      "name": "合成写手",
+      "baseName": "合成写手",
+      "roleTitle": "文档",
+      "agentType": "writer",
+      "officialTeam": true,
+      "dept": "rnd",
+      "status": "completed",
+      "avatar": "docs-coordinator",
+      "pet": "spark",
+      "description": "Draft synthetic notes",
+      "prompt": "官方 Agent Team 合成演示",
+      "startedAt": 1767261600,
+      "endedAt": 1767261725,
+      "lastActivityAt": 1767261725,
+      "toolCount": 0,
+      "thinkingCount": 0,
+      "outputTokens": 0,
+      "totalTokens": 0,
+      "cacheHit": 0,
+      "usage": {
+        "in": 0,
+        "out": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost": 0,
+      "model": "",
+      "modelFamily": "",
+      "effort": "",
+      "timeline": [
+        {
+          "kind": "tool",
+          "name": "Bash",
+          "label": "Bash · cargo test",
+          "ts": 1767261724,
+          "done": true,
+          "error": false,
+          "ms": 180,
+          "toolId": "tool-demo-cargo-pass",
+          "test": {
+            "framework": "cargo",
+            "status": "pass",
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0,
+            "errors": 0,
+            "exitCode": 0,
+            "exitStatus": "zero",
+            "truncated": false,
+            "toolId": "tool-demo-cargo-pass",
+            "ts": 1767261724,
+            "memberId": "synthetic-official-writer"
+          }
+        }
+      ],
+      "writes": [],
+      "reads": [],
+      "messages": [],
+      "lastText": "合成任务已交付。",
+      "current": null,
+      "unread": 0,
+      "hasDef": false,
+      "custom": false,
+      "lastTest": {
+        "framework": "cargo",
+        "status": "pass",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-cargo-pass",
+        "ts": 1767261724,
+        "memberId": "synthetic-official-writer"
+      }
+    }
+  ],
+  "departments": [
+    {
+      "id": "hq",
+      "name": "指挥部",
+      "icon": "🎯",
+      "required": "optional",
+      "members": [],
+      "status": "running",
+      "needed": true,
+      "missing": false,
+      "cost": 0,
+      "unpriced": 0,
+      "running": 0,
+      "done": 0,
+      "failed": 0,
+      "tools": 0,
+      "tokens": 0,
+      "outTokens": 0,
+      "cacheHit": 0,
+      "seconds": 0,
+      "models": []
+    },
+    {
+      "id": "dev",
+      "name": "研发部",
+      "icon": "🛠",
+      "required": "optional",
+      "members": [
+        "synthetic-member-1",
+        "synthetic-member-2"
+      ],
+      "status": "running",
+      "needed": true,
+      "missing": false,
+      "cost": 1.3768,
+      "unpriced": 0,
+      "running": 1,
+      "done": 1,
+      "failed": 0,
+      "tools": 5,
+      "tokens": 479940,
+      "outTokens": 640,
+      "cacheHit": 0.3338,
+      "seconds": 210,
+      "models": [
+        "sonnet"
+      ]
+    },
+    {
+      "id": "qa",
+      "name": "质量部",
+      "icon": "🔍",
+      "required": "optional",
+      "members": [
+        "synthetic-member-3"
+      ],
+      "status": "completed",
+      "needed": true,
+      "missing": false,
+      "cost": 0.6174,
+      "unpriced": 0,
+      "running": 0,
+      "done": 1,
+      "failed": 0,
+      "tools": 4,
+      "tokens": 165000,
+      "outTokens": 200,
+      "cacheHit": 0.0,
+      "seconds": 120,
+      "models": [
+        "sonnet"
+      ]
+    },
+    {
+      "id": "docs",
+      "name": "文档部",
+      "icon": "📄",
+      "required": "optional",
+      "members": [
+        "synthetic-member-4"
+      ],
+      "status": "stalled",
+      "needed": true,
+      "missing": false,
+      "cost": 0.04,
+      "unpriced": 0,
+      "running": 0,
+      "done": 0,
+      "failed": 1,
+      "tools": 5,
+      "tokens": 1440,
+      "outTokens": 200,
+      "cacheHit": 0.6452,
+      "seconds": 130,
+      "models": [
+        "sonnet"
+      ]
+    },
+    {
+      "id": "rnd",
+      "name": "研究部",
+      "icon": "🔭",
+      "required": "optional",
+      "members": [
+        "synthetic-official-researcher",
+        "synthetic-official-writer"
+      ],
+      "status": "running",
+      "needed": true,
+      "missing": false,
+      "cost": 0,
+      "unpriced": 0,
+      "running": 1,
+      "done": 1,
+      "failed": 0,
+      "tools": 0,
+      "tokens": 0,
+      "outTokens": 0,
+      "cacheHit": 0,
+      "seconds": 261,
+      "models": []
+    }
+  ],
+  "totals": {
+    "cost": 2.0392,
+    "membersCost": 2.0342,
+    "unpriced": 0,
+    "unpricedModels": [],
+    "modelMix": {
+      "sonnet": 4
+    },
+    "tokens": 1040,
+    "usage": {
+      "in": 14500,
+      "out": 1040,
+      "cache_read": 160800,
+      "cache_write": 470040,
+      "total": 646380,
+      "cacheHit": 0.2492
+    },
+    "leadUsage": {
+      "in": 50,
+      "out": 20,
+      "cache_read": 100,
+      "cache_write": 0,
+      "total": 170,
+      "cacheHit": 0.6667
+    },
+    "allUsage": {
+      "in": 14550,
+      "out": 1060,
+      "cache_read": 160900,
+      "cache_write": 470040,
+      "total": 646550,
+      "cacheHit": 0.2493
+    }
+  },
+  "roster": [
+    {
+      "name": "backend-dev",
+      "display": "演示后端",
+      "description": "合成演示成员",
+      "dept": "dev",
+      "avatar": "server-engineer",
+      "role": "演示后端",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "dada-code"
+    },
+    {
+      "name": "frontend-dev",
+      "display": "演示前端",
+      "description": "合成演示成员",
+      "dept": "dev",
+      "avatar": "ui-designer",
+      "role": "演示前端",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "pip"
+    },
+    {
+      "name": "qa-tester",
+      "display": "演示测试",
+      "description": "合成演示成员",
+      "dept": "qa",
+      "avatar": "qa-engineer",
+      "role": "演示测试",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "bubu-fix"
+    },
+    {
+      "name": "docs-writer",
+      "display": "演示文档",
+      "description": "合成演示成员",
+      "dept": "docs",
+      "avatar": "docs-coordinator",
+      "role": "演示文档",
+      "model": "sonnet",
+      "effort": "medium",
+      "builtin": true,
+      "custom": false,
+      "pet": "huhu-plan"
+    }
+  ],
+  "feed": [
+    {
+      "ts": 1767261730,
+      "memberId": "synthetic-official-researcher",
+      "name": "合成研究员",
+      "avatar": "data-analyst",
+      "label": "Bash · pytest -q",
+      "done": true,
+      "error": true,
+      "toolId": "tool-demo-pytest-fail",
+      "test": {
+        "framework": "pytest",
+        "status": "fail",
+        "passed": 1,
+        "failed": 2,
+        "skipped": 0,
+        "errors": 1,
+        "exitCode": 1,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-fail",
+        "ts": 1767261730,
+        "memberId": "synthetic-official-researcher"
+      }
+    },
+    {
+      "ts": 1767261724,
+      "memberId": "synthetic-official-writer",
+      "name": "合成写手",
+      "avatar": "docs-coordinator",
+      "label": "Bash · cargo test",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-cargo-pass",
+      "test": {
+        "framework": "cargo",
+        "status": "pass",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-cargo-pass",
+        "ts": 1767261724,
+        "memberId": "synthetic-official-writer"
+      }
+    },
+    {
+      "ts": 1767261722,
+      "memberId": "synthetic-member-3",
+      "name": "演示测试",
+      "avatar": "qa-engineer",
+      "label": "Bash · pytest -q",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-pytest-pass",
+      "test": {
+        "framework": "pytest",
+        "status": "pass",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 1,
+        "errors": 0,
+        "exitCode": 0,
+        "exitStatus": "zero",
+        "truncated": false,
+        "toolId": "tool-demo-pytest-pass",
+        "ts": 1767261722,
+        "memberId": "synthetic-member-3",
+        "ticket": "03-check.md"
+      }
+    },
+    {
+      "ts": 1767261712,
+      "memberId": "synthetic-member-2",
+      "name": "演示前端",
+      "avatar": "ui-designer",
+      "label": "Bash · npm test",
+      "done": true,
+      "error": false,
+      "toolId": "tool-demo-npm-unknown",
+      "test": {
+        "framework": "npm",
+        "status": "unknown",
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "unknown",
+        "truncated": true,
+        "toolId": "tool-demo-npm-unknown",
+        "ts": 1767261712,
+        "memberId": "synthetic-member-2"
+      }
+    },
+    {
+      "ts": 1767261705,
+      "memberId": "synthetic-member-1",
+      "name": "演示后端",
+      "avatar": "server-engineer",
+      "label": "Bash · go test ./...",
+      "done": true,
+      "error": true,
+      "toolId": "tool-demo-go-fail",
+      "test": {
+        "framework": "go",
+        "status": "fail",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0,
+        "errors": null,
+        "exitCode": null,
+        "exitStatus": "nonzero",
+        "truncated": false,
+        "toolId": "tool-demo-go-fail",
+        "ts": 1767261705,
+        "memberId": "synthetic-member-1"
+      }
+    },
+    {
+      "ts": 1767261700,
+      "memberId": "synthetic-member-1",
+      "name": "演示后端",
+      "avatar": "server-engineer",
+      "label": "Read · synthetic example",
+      "done": false,
+      "error": false
+    },
+    {
+      "ts": 1767261710,
+      "memberId": "synthetic-member-2",
+      "name": "演示前端",
+      "avatar": "ui-designer",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    },
+    {
+      "ts": 1767261720,
+      "memberId": "synthetic-member-3",
+      "name": "演示测试",
+      "avatar": "qa-engineer",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    },
+    {
+      "ts": 1767260840,
+      "memberId": "synthetic-member-4",
+      "name": "演示文档",
+      "avatar": "docs-coordinator",
+      "label": "Read · synthetic example",
+      "done": true,
+      "error": false
+    }
+  ],
+  "live": {
+    "v": 1,
+    "source": "claude-hook",
+    "merged": false,
+    "correlate": "tool_use_id",
+    "available": true,
+    "freshSeconds": 20,
+    "fresh": false,
+    "retained": 2,
+    "limit": 200,
+    "events": [
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 1,
+        "session_id": "synthetic-session",
+        "event": "PreToolUse",
+        "tool_name": "Read",
+        "tool_use_id": "toolu_synthetic_read",
+        "agent_id": "synthetic-member-1",
+        "agent_type": "backend-dev",
+        "ts": 1767261740
+      },
+      {
+        "v": 1,
+        "source": "claude-hook",
+        "seq": 2,
+        "session_id": "synthetic-session",
+        "event": "Stop",
+        "stop_hook_active": false,
+        "ts": 1767261738
+      }
+    ]
+  },
+  "comms": [
+    {
+      "ts": 1767261725,
+      "kind": "report",
+      "from": "synthetic-member-3",
+      "fromName": "演示测试",
+      "fromAvatar": "qa-engineer",
+      "to": "__lead",
+      "toName": "演示队长",
+      "toAvatar": "team-lead",
+      "text": "【合成演示】示例验收记录已回报；UI 集成仍需在实际项目独立执行。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261700,
+      "kind": "handoff",
+      "from": "synthetic-member-2",
+      "fromName": "演示前端",
+      "fromAvatar": "ui-designer",
+      "to": "synthetic-member-3",
+      "toName": "演示测试",
+      "toAvatar": "qa-engineer",
+      "text": "【合成演示】筛选交互已交接。请核对空结果、清空筛选和状态与负责人组合的边界。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261665,
+      "kind": "peer",
+      "from": "synthetic-member-1",
+      "fromName": "演示后端",
+      "fromAvatar": "server-engineer",
+      "to": "synthetic-member-2",
+      "toName": "演示前端",
+      "toAvatar": "ui-designer",
+      "text": "【合成演示】签名已冻结：filter_issues(issues, status=None, assignee=None)。两个条件按 AND 组合。",
+      "synthetic": true
+    },
+    {
+      "ts": 1767261640,
+      "kind": "assign",
+      "from": "__lead",
+      "fromName": "演示队长",
+      "fromAvatar": "team-lead",
+      "to": "synthetic-member-1",
+      "toName": "演示后端",
+      "toAvatar": "server-engineer",
+      "text": "【合成演示】实现过滤接口；只修改工单指定文件，导出签名先与前端对齐。",
+      "synthetic": true
+    }
+  ],
+  "bus": {
+    "count": 0,
+    "unreadLead": 0,
+    "unreadUser": 0
+  },
+  "officialTeam": {
+    "available": true,
+    "readOnly": true,
+    "teamName": "session-syntheti",
+    "lead": "演示队长",
+    "warnings": [],
+    "tasks": [
+      {
+        "id": "1",
+        "subject": "Survey the synthetic module",
+        "description": "Synthetic task in progress. Official files have no status clock.",
+        "status": "in_progress",
+        "normalizedStatus": "in_progress",
+        "owner": "合成研究员",
+        "ownerMatch": "合成研究员",
+        "estimate": {
+          "cost": 0.018,
+          "tokens": {
+            "in": 3000,
+            "out": 600,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "status": "known",
+          "partial": false,
+          "unpriced": false,
+          "basis": "transcript"
+        },
+        "blockedBy": [],
+        "blocks": [
+          "3"
+        ],
+        "blocked": false,
+        "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [
+          {
+            "id": "3",
+            "subject": "Wait for the synthetic survey",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
+        ],
+        "flags": [],
+        "notices": [],
+        "stateSince": 1767261600,
+        "stateSinceKind": "observed",
+        "stateSeconds": 140,
+        "lastTest": {
+          "framework": "pytest",
+          "status": "fail",
+          "passed": 1,
+          "failed": 2,
+          "skipped": 0,
+          "errors": 1,
+          "exitCode": 1,
+          "exitStatus": "nonzero",
+          "truncated": false,
+          "toolId": "tool-demo-pytest-fail",
+          "ts": 1767261730,
+          "memberId": "synthetic-official-researcher"
+        }
+      },
+      {
+        "id": "2",
+        "subject": "Draft synthetic notes",
+        "description": "Synthetic completed task owned by the writer teammate.",
+        "status": "completed",
+        "normalizedStatus": "completed",
+        "owner": "合成写手",
+        "ownerMatch": "合成写手",
+        "estimate": {
+          "cost": null,
+          "tokens": {
+            "in": 100,
+            "out": 40,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "status": "partial",
+          "partial": true,
+          "unpriced": true,
+          "basis": "transcript"
+        },
+        "blockedBy": [],
+        "blocks": [
+          "4"
+        ],
+        "blocked": false,
+        "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [
+          {
+            "id": "4",
+            "subject": "Ask the synthetic lead",
+            "resolved": true,
+            "normalizedStatus": "pending"
+          }
+        ],
+        "flags": [],
+        "notices": [],
+        "stateSince": 1767261000,
+        "stateSinceKind": "file",
+        "stateSeconds": 740,
+        "lastTest": {
+          "framework": "cargo",
+          "status": "pass",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "errors": 0,
+          "exitCode": 0,
+          "exitStatus": "zero",
+          "truncated": false,
+          "toolId": "tool-demo-cargo-pass",
+          "ts": 1767261724,
+          "memberId": "synthetic-official-writer"
+        }
+      },
+      {
+        "id": "3",
+        "subject": "Wait for the synthetic survey",
+        "description": "合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。",
+        "status": "pending",
+        "normalizedStatus": "pending",
+        "owner": null,
+        "ownerMatch": null,
+        "blockedBy": [
+          "1",
+          "9"
+        ],
+        "blocks": [],
+        "blocked": true,
+        "waitingOn": [
+          "1",
+          "9"
+        ],
+        "blockedByDetail": [
+          {
+            "id": "1",
+            "subject": "Survey the synthetic module",
+            "resolved": true,
+            "normalizedStatus": "in_progress"
+          },
+          {
+            "id": "9",
+            "subject": null,
+            "resolved": false,
+            "normalizedStatus": null
+          }
+        ],
+        "blocksDetail": [],
+        "flags": [
+          "blocked",
+          "approximate"
+        ],
+        "notices": [],
+        "stateSince": 1767261700,
+        "stateSinceKind": "file-shared",
+        "stateSeconds": 40,
+        "acceptance": {
+          "items": [
+            {
+              "text": "The detail lists this criterion",
+              "checked": true
+            },
+            {
+              "text": "An open criterion stays unchecked",
+              "checked": false
+            }
+          ],
+          "checklist": {
+            "done": 1,
+            "total": 2
+          }
+        }
+      },
+      {
+        "id": "4",
+        "subject": "Ask the synthetic lead",
+        "description": "Owner is the lead name, not the stage label 队长 · Claude.",
+        "status": "pending",
+        "normalizedStatus": "pending",
+        "owner": "演示队长",
+        "ownerMatch": "演示队长",
+        "blockedBy": [
+          "2"
+        ],
+        "blocks": [],
+        "blocked": false,
+        "waitingOn": [],
+        "blockedByDetail": [
+          {
+            "id": "2",
+            "subject": "Draft synthetic notes",
+            "resolved": true,
+            "normalizedStatus": "completed"
+          }
+        ],
+        "blocksDetail": [],
+        "flags": [],
+        "notices": [],
+        "stateSince": 1767261680,
+        "stateSinceKind": "observed",
+        "stateSeconds": 60,
+        "acceptance": {
+          "items": [
+            {
+              "text": "The owner is the lead name",
+              "checked": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "5",
+        "subject": "Near-miss owner",
+        "description": "Trailing space, so this owner does not match 合成研究员.",
+        "status": "pending",
+        "normalizedStatus": "pending",
+        "owner": "合成研究员 ",
+        "ownerMatch": null,
+        "blockedBy": [],
+        "blocks": [],
+        "blocked": false,
+        "waitingOn": [],
+        "blockedByDetail": [],
+        "blocksDetail": [],
+        "flags": [],
+        "notices": [],
+        "stateSince": 1767261690,
+        "stateSinceKind": "observed",
+        "stateSeconds": 50
+      }
+    ]
+  },
+  "backdrop": {
+    "enabled": false,
+    "file": "",
+    "url": ""
+  },
+  "pets": [
+    "huhu-plan",
+    "dada-code",
+    "bubu-fix",
+    "huihui-build",
+    "pip",
+    "cubo",
+    "drip",
+    "mush",
+    "kit",
+    "spark",
+    "bolt",
+    "puff",
+    "tank",
+    "aurelia-engineer",
+    "lyra-designer"
+  ],
+  "petInfo": {
+    "huhu-plan": {
+      "file": "huhu-plan.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "dada-code": {
+      "file": "dada-code.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "bubu-fix": {
+      "file": "bubu-fix.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "huihui-build": {
+      "file": "huihui-build.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "pip": {
+      "file": "pip.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "cubo": {
+      "file": "cubo.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "drip": {
+      "file": "drip.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "mush": {
+      "file": "mush.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "kit": {
+      "file": "kit.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "spark": {
+      "file": "spark.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "bolt": {
+      "file": "bolt.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "puff": {
+      "file": "puff.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "tank": {
+      "file": "tank.webp",
+      "w": 1536,
+      "h": 1872,
+      "cw": 192,
+      "ch": 208,
+      "rows": 9,
+      "shipped": true,
+      "fitRows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "aurelia-engineer": {
+      "displayName": "星澜 · 战术工程师",
+      "description": "原创战术小队角色；待机、跑步、挥手、跳跃与工作状态动画。",
+      "source": "Original artwork generated for claude-agent-team using imagegen",
+      "credit": "claude-agent-team · imagegen",
+      "license": "MIT",
+      "fit": 1,
+      "frameRects": [
+        [
+          [
+            0,
+            0,
+            128,
+            151
+          ],
+          [
+            128,
+            0,
+            129,
+            151
+          ],
+          [
+            257,
+            0,
+            129,
+            151
+          ],
+          [
+            386,
+            0,
+            128,
+            151
+          ],
+          [
+            514,
+            0,
+            128,
+            151
+          ],
+          [
+            642,
+            0,
+            129,
+            151
+          ],
+          [
+            771,
+            0,
+            129,
+            151
+          ],
+          [
+            900,
+            0,
+            128,
+            151
+          ]
+        ],
+        [
+          [
+            0,
+            151,
+            128,
+            137
+          ],
+          [
+            128,
+            151,
+            129,
+            137
+          ],
+          [
+            257,
+            151,
+            129,
+            137
+          ],
+          [
+            386,
+            151,
+            128,
+            137
+          ],
+          [
+            514,
+            151,
+            128,
+            137
+          ],
+          [
+            642,
+            151,
+            129,
+            137
+          ],
+          [
+            771,
+            151,
+            129,
+            137
+          ],
+          [
+            900,
+            151,
+            128,
+            137
+          ]
+        ],
+        [
+          [
+            0,
+            288,
+            128,
+            139
+          ],
+          [
+            128,
+            288,
+            129,
+            139
+          ],
+          [
+            257,
+            288,
+            129,
+            139
+          ],
+          [
+            386,
+            288,
+            128,
+            139
+          ],
+          [
+            514,
+            288,
+            128,
+            139
+          ],
+          [
+            642,
+            288,
+            129,
+            139
+          ],
+          [
+            771,
+            288,
+            129,
+            139
+          ],
+          [
+            900,
+            288,
+            128,
+            139
+          ]
+        ],
+        [
+          [
+            0,
+            427,
+            128,
+            145
+          ],
+          [
+            128,
+            427,
+            129,
+            145
+          ],
+          [
+            257,
+            427,
+            129,
+            145
+          ],
+          [
+            386,
+            427,
+            128,
+            145
+          ],
+          [
+            514,
+            427,
+            128,
+            145
+          ],
+          [
+            642,
+            427,
+            129,
+            145
+          ],
+          [
+            771,
+            427,
+            129,
+            145
+          ],
+          [
+            900,
+            427,
+            128,
+            145
+          ]
+        ],
+        [
+          [
+            0,
+            572,
+            128,
+            152
+          ],
+          [
+            128,
+            572,
+            129,
+            152
+          ],
+          [
+            257,
+            572,
+            129,
+            152
+          ],
+          [
+            386,
+            572,
+            128,
+            152
+          ],
+          [
+            514,
+            572,
+            128,
+            152
+          ],
+          [
+            642,
+            572,
+            129,
+            152
+          ],
+          [
+            771,
+            572,
+            129,
+            152
+          ],
+          [
+            900,
+            572,
+            128,
+            152
+          ]
+        ],
+        [
+          [
+            0,
+            724,
+            128,
+            154
+          ],
+          [
+            128,
+            724,
+            129,
+            154
+          ],
+          [
+            257,
+            724,
+            129,
+            154
+          ],
+          [
+            386,
+            724,
+            128,
+            154
+          ],
+          [
+            514,
+            724,
+            128,
+            154
+          ],
+          [
+            642,
+            724,
+            129,
+            154
+          ],
+          [
+            771,
+            724,
+            129,
+            154
+          ],
+          [
+            900,
+            724,
+            128,
+            154
+          ]
+        ],
+        [
+          [
+            0,
+            0,
+            128,
+            151
+          ],
+          [
+            128,
+            0,
+            129,
+            151
+          ],
+          [
+            257,
+            0,
+            129,
+            151
+          ],
+          [
+            386,
+            0,
+            128,
+            151
+          ],
+          [
+            514,
+            0,
+            128,
+            151
+          ],
+          [
+            642,
+            0,
+            129,
+            151
+          ],
+          [
+            771,
+            0,
+            129,
+            151
+          ],
+          [
+            900,
+            0,
+            128,
+            151
+          ]
+        ],
+        [
+          [
+            0,
+            878,
+            128,
+            147
+          ],
+          [
+            128,
+            878,
+            129,
+            147
+          ],
+          [
+            257,
+            878,
+            129,
+            147
+          ],
+          [
+            386,
+            878,
+            128,
+            147
+          ],
+          [
+            514,
+            878,
+            128,
+            147
+          ],
+          [
+            642,
+            878,
+            129,
+            147
+          ],
+          [
+            771,
+            878,
+            129,
+            147
+          ],
+          [
+            900,
+            878,
+            128,
+            147
+          ]
+        ],
+        [
+          [
+            0,
+            1025,
+            128,
+            156
+          ],
+          [
+            128,
+            1025,
+            129,
+            156
+          ],
+          [
+            257,
+            1025,
+            129,
+            156
+          ],
+          [
+            386,
+            1025,
+            128,
+            156
+          ],
+          [
+            514,
+            1025,
+            128,
+            156
+          ],
+          [
+            642,
+            1025,
+            129,
+            156
+          ],
+          [
+            771,
+            1025,
+            129,
+            156
+          ],
+          [
+            900,
+            1025,
+            128,
+            156
+          ]
+        ]
+      ],
+      "file": "aurelia-engineer.png",
+      "w": 1028,
+      "h": 1530,
+      "shipped": true
+    },
+    "lyra-designer": {
+      "displayName": "绮星 · 界面设计师",
+      "description": "原创战术小队角色；待机、跑步、挥手、跳跃与工作状态动画。",
+      "source": "Original artwork generated for claude-agent-team using imagegen",
+      "credit": "claude-agent-team · imagegen",
+      "license": "MIT",
+      "fit": 1,
+      "frameRects": [
+        [
+          [
+            0,
+            0,
+            142,
+            153
+          ],
+          [
+            142,
+            0,
+            142,
+            153
+          ],
+          [
+            284,
+            0,
+            142,
+            153
+          ],
+          [
+            426,
+            0,
+            142,
+            153
+          ],
+          [
+            568,
+            0,
+            142,
+            153
+          ],
+          [
+            710,
+            0,
+            142,
+            153
+          ],
+          [
+            852,
+            0,
+            142,
+            153
+          ],
+          [
+            994,
+            0,
+            142,
+            153
+          ]
+        ],
+        [
+          [
+            0,
+            153,
+            142,
+            152
+          ],
+          [
+            142,
+            153,
+            142,
+            152
+          ],
+          [
+            284,
+            153,
+            142,
+            152
+          ],
+          [
+            426,
+            153,
+            142,
+            152
+          ],
+          [
+            568,
+            153,
+            142,
+            152
+          ],
+          [
+            710,
+            153,
+            142,
+            152
+          ],
+          [
+            852,
+            153,
+            142,
+            152
+          ],
+          [
+            994,
+            153,
+            142,
+            152
+          ]
+        ],
+        [
+          [
+            0,
+            305,
+            142,
+            151
+          ],
+          [
+            142,
+            305,
+            142,
+            151
+          ],
+          [
+            284,
+            305,
+            142,
+            151
+          ],
+          [
+            426,
+            305,
+            142,
+            151
+          ],
+          [
+            568,
+            305,
+            142,
+            151
+          ],
+          [
+            710,
+            305,
+            142,
+            151
+          ],
+          [
+            852,
+            305,
+            142,
+            151
+          ],
+          [
+            994,
+            305,
+            142,
+            151
+          ]
+        ],
+        [
+          [
+            0,
+            456,
+            142,
+            151
+          ],
+          [
+            142,
+            456,
+            142,
+            151
+          ],
+          [
+            284,
+            456,
+            142,
+            151
+          ],
+          [
+            426,
+            456,
+            142,
+            151
+          ],
+          [
+            568,
+            456,
+            142,
+            151
+          ],
+          [
+            710,
+            456,
+            142,
+            151
+          ],
+          [
+            852,
+            456,
+            142,
+            151
+          ],
+          [
+            994,
+            456,
+            142,
+            151
+          ]
+        ],
+        [
+          [
+            0,
+            607,
+            142,
+            152
+          ],
+          [
+            142,
+            607,
+            142,
+            152
+          ],
+          [
+            284,
+            607,
+            142,
+            152
+          ],
+          [
+            426,
+            607,
+            142,
+            152
+          ],
+          [
+            568,
+            607,
+            142,
+            152
+          ],
+          [
+            710,
+            607,
+            142,
+            152
+          ],
+          [
+            852,
+            607,
+            142,
+            152
+          ],
+          [
+            994,
+            607,
+            142,
+            152
+          ]
+        ],
+        [
+          [
+            0,
+            759,
+            142,
+            152
+          ],
+          [
+            142,
+            759,
+            142,
+            152
+          ],
+          [
+            284,
+            759,
+            142,
+            152
+          ],
+          [
+            426,
+            759,
+            142,
+            152
+          ],
+          [
+            568,
+            759,
+            142,
+            152
+          ],
+          [
+            710,
+            759,
+            142,
+            152
+          ],
+          [
+            852,
+            759,
+            142,
+            152
+          ],
+          [
+            994,
+            759,
+            142,
+            152
+          ]
+        ],
+        [
+          [
+            0,
+            911,
+            142,
+            153
+          ],
+          [
+            142,
+            911,
+            142,
+            153
+          ],
+          [
+            284,
+            911,
+            142,
+            153
+          ],
+          [
+            426,
+            911,
+            142,
+            153
+          ],
+          [
+            568,
+            911,
+            142,
+            153
+          ],
+          [
+            710,
+            911,
+            142,
+            153
+          ],
+          [
+            852,
+            911,
+            142,
+            153
+          ],
+          [
+            994,
+            911,
+            142,
+            153
+          ]
+        ],
+        [
+          [
+            0,
+            1064,
+            142,
+            153
+          ],
+          [
+            142,
+            1064,
+            142,
+            153
+          ],
+          [
+            284,
+            1064,
+            142,
+            153
+          ],
+          [
+            426,
+            1064,
+            142,
+            153
+          ],
+          [
+            568,
+            1064,
+            142,
+            153
+          ],
+          [
+            710,
+            1064,
+            142,
+            153
+          ],
+          [
+            852,
+            1064,
+            142,
+            153
+          ],
+          [
+            994,
+            1064,
+            142,
+            153
+          ]
+        ],
+        [
+          [
+            0,
+            1217,
+            142,
+            168
+          ],
+          [
+            142,
+            1217,
+            142,
+            168
+          ],
+          [
+            284,
+            1217,
+            142,
+            168
+          ],
+          [
+            426,
+            1217,
+            142,
+            168
+          ],
+          [
+            568,
+            1217,
+            142,
+            168
+          ],
+          [
+            710,
+            1217,
+            142,
+            168
+          ],
+          [
+            852,
+            1217,
+            142,
+            168
+          ],
+          [
+            994,
+            1217,
+            142,
+            168
+          ]
+        ]
+      ],
+      "file": "lyra-designer.png",
+      "w": 1136,
+      "h": 1385,
+      "shipped": true
+    }
+  },
+  "stallAlerts": {
+    "thresholdSec": 600,
+    "defaultThresholdSec": 600,
+    "candidates": [
+      {
+        "id": "synthetic-member-4",
+        "name": "演示文档",
+        "status": "stalled",
+        "idleSeconds": 900,
+        "basis": "lastActivityAt",
+        "anchor": 1767260840.0,
+        "errorReason": ""
+      }
+    ]
+  },
+  "cacheAdvice": {
+    "enabled": true,
+    "status": "advice",
+    "error": "",
+    "hitRatio": 0.5,
+    "ttlSeconds": 300,
+    "sessionHit": 0.2484,
+    "sessionContext": 644100,
+    "suggestions": [
+      {
+        "id": "cache-model",
+        "scope": "member",
+        "actor": "synthetic-member-2",
+        "name": "演示前端",
+        "hit": 0.0,
+        "context": 154500,
+        "cacheRead": 0,
+        "cacheWrite": 150000,
+        "action": "演示前端 的缓存命中率 0%（读取 0 / 上下文 154,500）。3 次请求里有 2 次换模型后缓存读取为 0、写入合计 100,000。序列：claude-sonnet-4-5 → claude-opus-4-5 → claude-sonnet-4-5。换模型后同一前缀不能接着读，后续请求固定一个模型。估算可省 $0.46（估算，按各请求命中的价格行（opus、sonnet）计算 cache_write 与 cache_read 的差价（USD/百万 token），不是账单）。",
+        "savingsUsd": 0.46,
+        "priceKeys": [
+          "opus",
+          "sonnet"
+        ],
+        "estimate": true
+      },
+      {
+        "id": "cache-rebuild",
+        "scope": "member",
+        "actor": "synthetic-member-3",
+        "name": "演示测试",
+        "hit": 0.0,
+        "context": 164800,
+        "cacheRead": 0,
+        "cacheWrite": 160000,
+        "action": "演示测试 的缓存命中率 0%（读取 0 / 上下文 164,800）。4 次请求里有 3 次写入缓存时读取为 0，写入合计 160,000。模型没有变，系统提示指纹都是 9c22abea10a3，工具列表没有变，相邻间隔都没有超过 300 秒。排除换模型、系统提示或工具列表变化、以及过长间隔之后，仍有 3 次共 120,000 token 对不上这些原因，缓存前缀在被反复重建。保持系统提示、工具列表和模型不变，并让相邻请求落在 TTL 内。估算可省 $0.414（估算，按价格行 sonnet 的 cache_write 3.75 与 cache_read 0.30（USD/百万 token），不是账单）。",
+        "savingsUsd": 0.414,
+        "priceKeys": [
+          "sonnet"
+        ],
+        "estimate": true
+      },
+      {
+        "id": "cache-ttl",
+        "scope": "member",
+        "actor": "synthetic-member-1",
+        "name": "演示后端",
+        "hit": 0.4926,
+        "context": 324800,
+        "cacheRead": 160000,
+        "cacheWrite": 160000,
+        "action": "演示后端 的缓存命中率 49.3%（读取 160,000 / 上下文 324,800）。相邻请求有 1 次间隔超过缓存 TTL 300 秒（最长 840 秒）。这 1 次之后的请求缓存读取为 0、写入合计 80,000。把间隔压进 300 秒，这些写入有机会按缓存读取计价。估算可省 $0.276（估算，按价格行 sonnet 的 cache_write 3.75 与 cache_read 0.30（USD/百万 token），不是账单）。",
+        "savingsUsd": 0.276,
+        "priceKeys": [
+          "sonnet"
+        ],
+        "estimate": true
+      }
+    ],
+    "note": "估算按 team.json 的公开单价，不是服务商账单。同一段 token 只归一条原因，这些数字也不能加总当账单。"
+  },
+  "budget": {
+    "enabled": false,
+    "status": "off",
+    "error": "",
+    "warnRatio": 0.8,
+    "lowerBound": false,
+    "lowerBoundLabel": "",
+    "unpriced": 0,
+    "unpricedModels": [],
+    "spent": null,
+    "limit": null,
+    "ratio": null,
+    "currency": "USD",
+    "scopes": [],
+    "topSpender": null,
+    "suggestions": []
+  }
+}

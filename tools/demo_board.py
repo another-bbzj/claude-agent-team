@@ -196,19 +196,28 @@ class DemoHandler(BaseHTTPRequestHandler):
     do_DELETE = read_only
 
 
+def load_fixture_snapshot():
+    """Synthetic fixture plus the two shipped original pets.
+
+    Does not read a home directory, bind a socket, or import team_board.
+    """
+    snapshot = json.loads(FIXTURE.read_text(encoding='utf-8'))
+    snapshot.setdefault('petInfo', {})
+    snapshot.setdefault('pets', [])
+    for pet in ORIGINAL_PETS:
+        info = json.loads((BOARD / 'sprites' / (pet + '.json')).read_text(encoding='utf-8'))
+        width, height = (1028, 1530) if pet == 'aurelia-engineer' else (1136, 1385)
+        snapshot['petInfo'][pet] = dict(info, file=pet + '.png', w=width, h=height, shipped=True)
+        if pet not in snapshot['pets']:
+            snapshot['pets'].append(pet)
+    return snapshot
+
+
 class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, port=7790, budget_alert=False):
-        self.snapshot = json.loads(FIXTURE.read_text(encoding='utf-8'))
-        self.snapshot.setdefault('petInfo', {})
-        self.snapshot.setdefault('pets', [])
-        for pet in ORIGINAL_PETS:
-            info = json.loads((BOARD / 'sprites' / (pet + '.json')).read_text(encoding='utf-8'))
-            width, height = (1028, 1530) if pet == 'aurelia-engineer' else (1136, 1385)
-            self.snapshot['petInfo'][pet] = dict(info, file=pet + '.png', w=width, h=height, shipped=True)
-            if pet not in self.snapshot['pets']:
-                self.snapshot['pets'].append(pet)
+        self.snapshot = load_fixture_snapshot()
         self.budget_alert = bool(budget_alert)
         super().__init__(('127.0.0.1', port), DemoHandler)
 

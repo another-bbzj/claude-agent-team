@@ -1,0 +1,58 @@
+# Publish docs/site on GitHub Pages.
+#
+# The site is static synthetic data. This workflow does not enable Pages.
+# One-time maintainer step, if the site URL 404s:
+#   Settings → Pages → Build and deployment → Source: GitHub Actions
+# Then re-run this workflow (Actions → pages → Run workflow).
+# Until that switch is on, the deploy step warns and the rest of CI still passes.
+# Open docs/site/index.html locally either way.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check the committed static site
+        run: python tools/build_pages_site.py --check
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/site
+          # .nojekyll is hidden. Actions Pages does not run Jekyll; the file
+          # is there so a branch deploy would not drop the directory either.
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+      - name: Pages source is not GitHub Actions yet
+        if: steps.deployment.outcome != 'success'
+        run: |
+          echo "::warning title=GitHub Pages did not publish::Settings → Pages → Build and deployment → Source: GitHub Actions. Then re-run this workflow. docs/site/index.html still opens locally. URL once enabled: https://another-bbzj.github.io/claude-agent-team/"
