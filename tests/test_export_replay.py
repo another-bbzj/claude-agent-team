@@ -30,6 +30,7 @@ PLANTED = (
     'TRANSCRIPT_BODY_SHOULD_NOT_LEAK',
     'READS_ONLY_MARKER',
     'DESCRIPTION_ONLY_MARKER',
+    'ACCEPTANCE_ONLY_MARKER',
     'RAW_SNAPSHOT_MARKER',
     'SECRET_NAME',
     'TAILSHOULDNOTREMAIN9',
@@ -232,6 +233,13 @@ class ReplayPrivacyTest(unittest.TestCase):
                 'id': '1',
                 'subject': 'Ship api_key=synthetic tomorrow',
                 'description': 'DESCRIPTION_ONLY_MARKER sk-ant-api03-TAILSHOULDNOTREMAIN9',
+                'acceptance': {
+                    'items': [{
+                        'text': 'ACCEPTANCE_ONLY_MARKER sk-ant-api03-TAILSHOULDNOTREMAIN9',
+                        'checked': False,
+                    }],
+                    'checklist': {'done': 0, 'total': 1},
+                },
                 'normalizedStatus': 'pending',
             }]},
             'budget': {'enabled': True, 'ratio': 0.4, 'suggestions': [{'name': 'SECRET_NAME'}]},
