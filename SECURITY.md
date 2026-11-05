@@ -30,7 +30,10 @@ Reports about unsafe local file access, cross-origin API requests, private-data
 exposure, imported files and install/update behavior are relevant. The optional
 hook endpoint (`POST /api/hooks/event`) is in that set: it is loopback-only,
 requires a matching Origin, caps the body, and is documented as storing
-identifiers rather than tool input or output. See [docs/HOOKS.md](docs/HOOKS.md). Test only on
+identifiers rather than tool input or output. See [docs/HOOKS.md](docs/HOOKS.md).
+`GET /events` (and `/api/events`) is also loopback-only. A present `Origin`
+must match this server; the event body is a revision plus session selectors,
+not a second copy of the transcript. Polling `GET /snapshot.json` remains. Test only on
 systems and data you control. The repository currently has no published schedule
 for security backports or a separately maintained release line; identify the
 exact commit in reports and check current `main` when validating a fix.
