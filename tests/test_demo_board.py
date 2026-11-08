@@ -187,7 +187,9 @@ class DemoHttpTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(head_body, b'')
         self.assertEqual(head_headers['Content-Length'], headers['Content-Length'])
-        for asset in ('/sprites/dada-code.webp', '/sprites/aurelia-engineer.png', '/sprites/lyra-designer.png', '/favicon.png', '/favicon.ico'):
+        for asset in ('/sprites/dada-code.webp', '/sprites/aurelia-engineer.png', '/sprites/lyra-designer.png',
+                      '/sprites/nova-strategist.png', '/sprites/rune-analyst.png', '/sprites/mika-operator.png',
+                      '/favicon.png', '/favicon.ico'):
             self.assertEqual(self.request('GET', asset)[0], 200)
         self.assertIn('官方 Team'.encode('utf-8'), body)
         self.assertIn(b'id="task-board"', body)
@@ -206,6 +208,9 @@ class DemoHttpTest(unittest.TestCase):
         for pet in demo.ORIGINAL_PETS:
             self.assertIn(pet, served['pets'])
             self.assertEqual(len(served['petInfo'][pet]['frameRects']), 9)
+            image = (ROOT / 'team-board' / 'sprites' / (pet + '.png')).read_bytes()
+            self.assertEqual(served['petInfo'][pet]['w'], int.from_bytes(image[16:20], 'big'))
+            self.assertEqual(served['petInfo'][pet]['h'], int.from_bytes(image[20:24], 'big'))
         self.assertEqual(len(served['officialTeam']['tasks']), 5)
         pending = next(task for task in served['officialTeam']['tasks'] if task['id'] == '3')
         self.assertIn('完整说明', pending['description'])

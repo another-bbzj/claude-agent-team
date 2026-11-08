@@ -24,7 +24,8 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/favicon.ico': ('favicon.ico', 'image/x-icon')}
 STATIC.update({'/sprites/' + pet + '.webp': ('sprites/' + pet + '.webp', 'image/webp')
                for pet in SHIPPED_PETS})
-ORIGINAL_PETS = ('aurelia-engineer', 'lyra-designer')
+ORIGINAL_PETS = ('aurelia-engineer', 'lyra-designer', 'nova-strategist',
+                 'rune-analyst', 'mika-operator')
 STATIC.update({'/sprites/' + pet + '.png': ('sprites/' + pet + '.png', 'image/png')
                for pet in ORIGINAL_PETS})
 TIMESTAMPS = {'generatedAt', 'startedAt', 'endedAt', 'lastActivityAt', 'lastActivity', 'mtime', 'ts', 'stateSince'}
@@ -197,7 +198,7 @@ class DemoHandler(BaseHTTPRequestHandler):
 
 
 def load_fixture_snapshot():
-    """Synthetic fixture plus the two shipped original pets.
+    """Synthetic fixture plus the shipped original pets.
 
     Does not read a home directory, bind a socket, or import team_board.
     """
@@ -206,7 +207,14 @@ def load_fixture_snapshot():
     snapshot.setdefault('pets', [])
     for pet in ORIGINAL_PETS:
         info = json.loads((BOARD / 'sprites' / (pet + '.json')).read_text(encoding='utf-8'))
-        width, height = (1028, 1530) if pet == 'aurelia-engineer' else (1136, 1385)
+        with (BOARD / 'sprites' / (pet + '.png')).open('rb') as image:
+            header = image.read(24)
+        if len(header) != 24 or header[:8] != b'\x89PNG\r\n\x1a\n' or header[12:16] != b'IHDR':
+            raise ValueError('invalid shipped PNG: ' + pet)
+        width = int.from_bytes(header[16:20], 'big')
+        height = int.from_bytes(header[20:24], 'big')
+        if width <= 0 or height <= 0:
+            raise ValueError('invalid shipped PNG dimensions: ' + pet)
         snapshot['petInfo'][pet] = dict(info, file=pet + '.png', w=width, h=height, shipped=True)
         if pet not in snapshot['pets']:
             snapshot['pets'].append(pet)

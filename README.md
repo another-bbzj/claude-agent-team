@@ -2,49 +2,47 @@
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/img/readme-cover-light.svg">
-  <img src="docs/img/readme-cover.svg" width="100%" alt="claude-agent-team · Claude Code 部门制 Agent 团队与本机实时看板">
+  <img src="docs/img/readme-cover.svg" width="100%" alt="Claude Agent Team — 让协作有迹可循">
 </picture>
 
-**让 Claude Code 像一家小公司一样干活，而且你能看见它在干活。**
+**把正在工作的 Agent，变成一支看得见的团队。**
 
-常驻的分部门 Agent、写在项目里的办公协议，加上只绑定本机回环地址的实时看板。子代理派出去之后，不再是一个等到最后才响的黑盒。
+部门分工 · 实时活动 · 角色动画 · 用量与估算成本
+
+[快速开始](#start) · [认识小队](#characters) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
 
 [![test](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml/badge.svg)](https://github.com/another-bbzj/claude-agent-team/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-1.4.3-8A2BE2)
-![python](https://img.shields.io/badge/python-3.8%2B-blue)
-![deps](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
-![license](https://img.shields.io/badge/license-MIT-green)
-[![XERJ Corpus Hub](https://img.shields.io/badge/XERJ_Corpus_Hub-indexed-7C3AED)](https://hub.xerj.org/contributors/another-bbzj)
-
-[30 秒开始](#start) · [对照](#compare) · [为什么](#why) · [图文手册](docs/GUIDE.md) · [English](README.en.md)
-
-[参与贡献](CONTRIBUTING.md) · [集成](docs/INTEGRATIONS.md) · [用 Codex 维护](docs/CODEX.md) · [路线图](docs/ROADMAP.md) · [安全反馈](SECURITY.md)
+[![MIT](https://img.shields.io/badge/license-MIT-6b7280)](LICENSE)
 
 </div>
 
-<a id="compare"></a>
+Claude Agent Team 为 Claude Code 提供部门制成员、项目协作协议和本机实时看板，也能只读查看 Codex 会话。你可以看到谁在工作、正在调用什么工具、测试是否通过，以及这次协作的用量和估算成本。
 
-## 对照
+运行时仅需 **Python 3.8+ 标准库**，支持 Windows、macOS 和 Linux。看板绑定本机回环地址，不调用模型 API。
 
-下面只写 2026-11-05 在公开页面上对得上的事实。
+<a id="characters"></a>
 
-| 工具 | 定位 | 安装 / 运行时 | 可视化 | 开源？ |
-|---|---|---|---|---|
-| **[claude-agent-team](https://github.com/another-bbzj/claude-agent-team)** | 本机零依赖看板。按成员和部门看估算成本，读转录和可选钩子，并导出战报卡与离线回放 | Python 3.8+ 标准库。看板只绑 `127.0.0.1`，不调用模型 API | 浏览器里的部门、当前工具、token 和估算成本；SVG 战报卡；单文件 HTML 回放 | [MIT](LICENSE) |
-| **[官方 Agent Teams](https://code.claude.com/docs/en/agent-teams)** | 实验功能。一个 lead 协调多名各自独立的会话，共享任务并互相发消息 | 默认关闭，要设 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`。[一个会话只有一个团队，任务状态可能滞后](https://code.claude.com/docs/en/agent-teams)。[队友不进各自的 git worktree](https://code.claude.com/docs/en/agents) | lead 终端里的 agent 面板；也可以用 tmux 或 iTerm2 分屏 | 否。Claude Code 仓库的 [LICENSE.md](https://github.com/anthropics/claude-code/blob/main/LICENSE.md) 写明 All rights reserved |
-| **[Claude Squad](https://github.com/smtg-ai/claude-squad)** | 一个终端里并行管理多路本地 agent，包括 Claude Code、Codex、Gemini 和 Aider | Homebrew 或仓库里的安装脚本，命令是 `cs`。前置条件是 tmux 和 gh。每个任务一个 git worktree | 单窗口 TUI，可在预览和 diff 之间切换 | [AGPL-3.0](https://github.com/smtg-ai/claude-squad/blob/main/LICENSE.md) |
-| **[Conductor](https://www.conductor.build/docs)** | macOS 应用。并行跑 Claude Code、Codex、Cursor 和 OpenCode。每个任务一个 workspace | [只提供 macOS 安装包](https://www.conductor.build/docs/installation)。新建 workspace 时[创建 git worktree 并检出分支](https://www.conductor.build/docs/concepts/git-worktrees)。站点另有[云端隔离 sandbox](https://www.conductor.build/) | 应用里看[聊天和 diff](https://www.conductor.build/docs/concepts/git-worktrees)，再[审阅、开 pull request、合并](https://www.conductor.build/docs) | 专有平台（条款写 proprietary）。客户端可能带开源组件，清单需向 Conductor 索取。[条款](https://www.conductor.build/terms) |
+## 认识你的小队
 
-这个仓库叠在 Claude Code 的团队和子代理上面，提供本机的可视化、估算成本和验收；它不是另一套框架，也不是会话复用器。
+![从左至右：曜宁、星澜、绮星、墨巡、橙羽](docs/img/character-roster.png)
+
+| 角色 | 形象与定位 |
+|---|---|
+| **星澜 · 战术工程师** | 工程装备与工具，负责研发现场的视觉形象 |
+| **绮星 · 界面设计师** | 粉发、贝雷帽与画板，偏爱界面和细节 |
+| **曜宁 · 策略领航员** | 银发与青绿配色，梳理方向和任务 |
+| **墨巡 · 数据分析员** | 深发与琥珀配色，观察、研究与核对 |
+| **橙羽 · 发布工程师** | 橙发与工作服，陪伴构建和交付 |
+
+角色会随待机、移动、工作、审阅等状态切换动画。点开成员抽屉即可换装，既可以只改当前成员，也可以保存为岗位形象。已有的手动分配优先保留；角色形象只影响看板展示，不改变 Agent 的能力或模型。
+
+五位原创角色随仓库提供，也可以导入自己的精灵图或兼容的桌宠包。[形象格式与导入说明 →](docs/GUIDE.md#pets)
 
 <a id="start"></a>
 
-## 30 秒开始
+## 快速开始
 
-运行时只要 **Python 3.8+ 标准库**。看板读本机 `~/.claude/projects/` 的转录，不调用模型 API。检查更新和下载形象都要你自己触发。
-
-**先看合成数据**（不安装，不读你的会话）：
+### 先看看它如何工作
 
 ```bash
 git clone https://github.com/another-bbzj/claude-agent-team.git
@@ -52,96 +50,91 @@ cd claude-agent-team
 python tools/demo_board.py --port 7790
 ```
 
-打开 <http://127.0.0.1:7790/>。数据来自仓库里的合成快照，见 [演示说明](docs/DEMO.md)。页面上有一行只读官方任务看板：待处理、进行中、已完成。点卡片或按 Enter 打开只读详情；`owner` 与成员名字完全一致时，悬停会互相点亮，Alt+点击或卡片上的「钉」可以钉住。合成成员里有通过、失败和未知三种测试徽章；失败的卡是红的，点徽章会跳到动作流里的那一条。
+打开 [本机演示](http://127.0.0.1:7790/)。这是一份**只读合成数据**演示，不安装，也不读取你的真实会话。
 
-不想启动 Python 时，用浏览器打开 [`docs/site/index.html`](docs/site/index.html)。同一份合成快照嵌在页面里，离线也能点。GitHub Pages 地址是 <https://another-bbzj.github.io/claude-agent-team/>。若还是 404，维护者把 Settings → Pages → Build and deployment → Source 设为 GitHub Actions，只做这一次。
+还可以访问 [在线演示](https://another-bbzj.github.io/claude-agent-team/)，或下载仓库后直接用浏览器打开 [`docs/site/index.html`](docs/site/index.html)。若在线页面尚未启用，维护者可在仓库 Settings → Pages 中将发布来源设为 **GitHub Actions**。详情见 [演示说明](docs/DEMO.md)。
 
-> 演示使用合成数据，不读取你的 `~/.claude/tasks/`，也不是用量基准。[成员动画](docs/img/demo-synthetic.svg) · [官方任务看板示意图](docs/img/task-board.svg) · [演示说明](docs/DEMO.md)
+### 接入自己的 Claude Code
 
-同一份快照可以画成一张能贴进 README 或社交平台的战报卡，仍然不读你的会话：
-
-```bash
-python tools/battle_card.py --input examples/snapshot.synthetic.json --static
-```
-
-![战报卡。数字来自 examples/snapshot.synthetic.json：2 名成员、估算成本、合计 token 和缓存命中。这份快照没有名字、部门和任务，卡片上也就不画](docs/img/battle-card.svg)
-
-深浅色跟随系统。去掉 `--static` 会多一条很慢的细线。名字、部门、用时和已完成任务只在快照里真有这些字段时出现；有未定价模型时，成本标「部分」。本机看板可以用 `--session` 或 `--project` 选会话，规则与 `export_snapshot.py` 相同。快照里已有停滞提醒、作战区或实时事件条数时会写上，没有就不画。不写本机路径、会话 id、邮箱、提示词或工具参数。看板上的「导出战报卡」在浏览器里下载同一张图，不上传。
-
-同一份快照还可以收成一个单独的 HTML 回放。浏览器直接打开，不需要看板进程，也不加载外部脚本。嵌进去的是脱敏后的成员、动作和关键消息；聚合数字只在快照里本来就有可核对的 `totals` 时出现。
-
-```bash
-python tools/export_replay.py --demo -o replay.html
-```
-
-合成演示来自 `examples/board-demo.synthetic.json`。真实会话导出前先打开文件看一眼。用法见 [集成指南](docs/INTEGRATIONS.md)。
-
-离线复盘：`python tools/retro_report.py --demo` 把这份合成快照写成 Markdown，只保留已有的时间线、估算成本和阻塞；缺的段落不写，未定价标成部分或未知。
-
-**装进自己的 Claude Code：**
+在仓库目录运行：
 
 ```bash
 python install.py
 ```
 
-新开一个会话。SessionStart 钩子会把看板留在后台：<http://127.0.0.1:7788/>。然后说「用 agent team」，让它做一件至少拆得开的事。安装写到哪、怎么更新、怎么卸载，见 [安装与更新](docs/GUIDE.md#install)。
+新开 Claude Code 会话后，SessionStart 钩子会启动 [本机看板](http://127.0.0.1:7788/)。给它一项适合拆分的任务，例如：
 
-想在转录写盘之前就看到工具调用，可以加上可选的实时钩子：`python install.py --hooks`。看板没开时脚本立刻退出，不改变 Claude Code 的决定。字段、卸载方式和「还没和转录合并」写在 [实时钩子](docs/HOOKS.md)。不加这个参数时，安装行为和以前一样。
+> 用 agent team 做这个功能，先明确接口，再分头实现和测试。
 
-<a id="why"></a>
+安装会复制成员与技能，并合并 Claude Code 配置。安装位置、更新和卸载方式见 [安装指南](docs/GUIDE.md#install)。需要更及时的工具活动时，可选运行 `python install.py --hooks`，见 [实时钩子](docs/HOOKS.md)。
 
-## 为什么需要它
+### 查看 Codex 会话
 
-Claude Code 自己会派子代理。派出去之后，谁在调用什么工具、两个人有没有对上接口、这次大概花了多少，都要等到最后一句「完成了」。这个仓库把三件事固定下来：
+也可以从仓库直接启动看板：
 
-| | |
+```bash
+python team-board/team_board.py --source all --port 7788
+```
+
+顶栏可切换 Claude Code 和 Codex 来源。Codex 适配读取本机日志，展示实际模型、成员、工具活动和可见对话；它不启动 Codex、不向聊天发送消息，也不修改 Codex 配置。[支持范围与限制 →](docs/CODEX_SESSIONS.md)
+
+## 从派工到交付，都有线索
+
+| 你关心的事 | 看板提供什么 |
 |---|---|
-| **分工** | 8 位常驻成员，各带名字、职责和模型档位。说「用 agent team」（「团队」「多代理」「分头做」「并行开发」也行）就按技能上岗。 |
-| **协作** | 契约、工单、收件箱、交接单写在项目的 `.team/`。即时的话走 `msg.py`；看板没开时，退回追加收件箱文件。你也可以在看板上直接发话。 |
-| **可见** | 浏览器里看部门、当前工具、进度、token 和估算成本。成员跑过的测试会在成员卡和任务卡上标成通过、失败或未知；认不出或输出被截断时不猜。失败的卡变红，点徽章跳到动作流。当前会话对得上 `~/.claude/tasks/` 时，部门表下还有只读官方任务看板，点开可看说明和依赖；任务负责人名字完全一致时，同一条测试也挂在那张任务卡上。单价在 `team-board/team.json`，**是估算，不是服务商账单**。要封顶就在同一文件写 `budget`，或启动时加 `--budget`；不写就不显示。接近变黄、超出变红，并指出该降到哪一档。成员或队长的缓存命中率低于 `cacheAdvice.hitRatio`（默认 0.5）时，成本排行下面给出缓存诊断：间隔超过 TTL、模型来回换、前缀反复重建、系统提示或工具列表中途变化、一次性子代理冷启动。每条写明 token 数和估算可省金额。转录里看不到的原因不写。 |
-
-和「每次临时描述角色」的逐项对照、第一次任务从定规模到验收的走法，在 [开工之前](docs/GUIDE.md#why) 和 [第一次使用](docs/GUIDE.md#first-run)。
+| **谁负责什么** | 按部门排列成员，显示当前状态、任务与工具活动；项目内的 `.team/` 保存契约、工单、收件箱与交接单 |
+| **任务推进到哪了** | 与当前 Claude 会话匹配的官方任务看板，包含负责人、依赖和阻塞；任务详情只读 |
+| **结果是否可信** | 测试通过、失败或未知徽章；可以定位到对应动作，不把缺失或截断的输出当作成功 |
+| **花了多少** | 成员与部门的 token、缓存命中和估算成本；可配置预算提示，缺少定价时明确标记 |
+| **如何复盘** | 导出 SVG 战报卡、单文件 HTML 回放或 Markdown 复盘，便于离线查看与分享 |
 
 <details>
-<summary>查看真实看板界面与操作说明</summary>
+<summary>查看看板界面</summary>
 
 ![看板总览](docs/img/01-overview.png)
 
-队长在上，各部门分组；飞线表示派工、回报、留言和交接。截图用于说明实际界面，图中示例用量不代表基准。[查看图文手册](docs/GUIDE.md#ui)。
-
-总览截图拍的是舞台和部门。官方任务看板在部门汇总下面另起一行，只读。下面这张图用合成快照里的五张卡画出三列和只读详情；可点击的互亮、钉住和详情在 `python tools/demo_board.py`。
-
-![合成官方任务看板：三列、只读详情、按完全相同的名字互亮](docs/img/task-board.svg)
+截图用于说明界面结构，展示的数据不代表用量基准。角色阵容与当前版本可能不同。[完整界面指南 →](docs/GUIDE.md#ui)
 
 </details>
 
-## 接着读
+例如，把仓库的合成数据导出为离线回放：
 
-| 你想做的 | 去哪 |
+```bash
+python tools/export_replay.py --demo -o replay.html
+```
+
+用浏览器打开生成的文件即可。更多导出方式见 [集成指南](docs/INTEGRATIONS.md)。
+
+## 按自己的习惯配置
+
+成员、部门、价格表与缓存诊断设置在 `team-board/team.json`。看板支持添加成员、调整角色形象和导入壁纸；更新时保留用户自定义配置与素材。具体操作见 [成员管理](docs/GUIDE.md#members) 和 [壁纸导入](docs/WALLPAPER_IMPORT.md)。
+
+**成本是估算，不是服务商账单。** 价格由本地配置决定。真实看板包含对话和本机元数据，请在分享前检查导出内容；不要公开原始转录或快照。社区桌宠只下载到自己的机器，仓库不代为分发未获授权的素材。
+
+## 深入了解
+
+| 想做什么 | 从这里开始 |
 |---|---|
-| 看运行时怎么接在一起 | [运行时结构](docs/GUIDE.md#arch) |
-| 看懂顶栏、舞台、通讯、抽屉、外观 | [界面](docs/GUIDE.md#ui) |
-| 走完一次团队任务 | [第一次使用](docs/GUIDE.md#first-run) |
-| 从 JSON 计划生成工单、收件箱与依赖波次 | [离线工作区生成器](docs/WORKSPACE.md) |
-| 看成员怎么互相发消息 | [消息总线](docs/GUIDE.md#msg) |
-| 加部门、换模型、换桌宠 | [成员](docs/GUIDE.md#members) · [形象](docs/GUIDE.md#pets) |
-| 第三方网关和估价 | [第三方 API](docs/GUIDE.md#providers) |
-| 看板打不开、部门空着、数字对不上 | [常见问题](docs/GUIDE.md#faq) |
-| 发布记录和按主题整理的问答 | [CHANGELOG](CHANGELOG.md) · [FAQ](docs/FAQ.md) |
-| 只读导出指定会话或项目、战报卡、离线回放、Codex exec 离线指标 | [集成](docs/INTEGRATIONS.md) · [路线图](docs/ROADMAP.md) |
-| 把指定会话或项目的用量和估算成本接入 Prometheus / Grafana | [Prometheus 文本指标与 node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
-| 可选的实时钩子 | [实时钩子](docs/HOOKS.md) |
-| 改这个仓库 | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex 维护](docs/CODEX.md) |
+| 走完第一次团队任务 | [图文手册](docs/GUIDE.md) · [常见问题](docs/FAQ.md) |
+| 从计划生成工单与依赖波次 | [离线工作区生成器](docs/WORKSPACE.md) |
+| 对接导出、回放或监控 | [集成指南](docs/INTEGRATIONS.md) · [实时钩子](docs/HOOKS.md) |
+| 理解 Codex 适配 | [Codex 会话](docs/CODEX_SESSIONS.md) · [用 Codex 维护](docs/CODEX.md) |
+| 了解版本与后续方向 | [变更记录](CHANGELOG.md) · [路线图](docs/ROADMAP.md) |
 
-看板现在可同时发现 **Claude Code 和 Codex** 会话，在顶栏切换来源，查看实际模型、成员、工具活动和只读对话。见 [Codex 会话适配](docs/CODEX_SESSIONS.md)。原有 `tools/codex_metrics.py` 仍是独立的离线 exec 指标工具。
+## 参与开发
 
-外观设置支持导入图片、MP4/WebM 视频和 Wallpaper Engine 工程目录，见 [壁纸导入](docs/WALLPAPER_IMPORT.md)。
+`agents/` 定义常驻成员，`skills/` 存放协作协议，`team-board/` 是看板运行时，`tools/` 提供演示与导出，`tests/` 使用合成数据和临时目录验证行为。
 
-## 参与
+```bash
+python -m unittest discover -s tests -v
+```
 
-缺陷请用 [缺陷表单](https://github.com/another-bbzj/claude-agent-team/issues/new?template=bug_report.yml)，功能请用 [建议表单](https://github.com/another-bbzj/claude-agent-team/issues/new?template=feature_request.yml)。不要附真实转录、密钥、本机路径或下载的形象。安全问题走 [SECURITY.md](SECURITY.md)。
+修改前阅读 [贡献指南](CONTRIBUTING.md) 与 [AGENTS.md](AGENTS.md)。缺陷与建议可通过 [Issues](https://github.com/another-bbzj/claude-agent-team/issues) 提交，安全问题请遵循 [SECURITY.md](SECURITY.md)。
 
-思路借鉴 [cc-haha](https://github.com/NanmiCoder/cc-haha) 的 Agent Teams 工作台；省 token 的写法借鉴 [ponytail](https://github.com/DietrichGebert/ponytail) 与 [mattpocock/skills](https://github.com/mattpocock/skills)。桌宠格式与 Codex、[petdex](https://petdex.dev) 兼容，感谢社区作者们的形象。
+看板通过 Python 服务读取本机转录，整理为快照，再由浏览器绘制成员、任务和活动；可选钩子补充实时事件。团队协作协议写在项目文件中，与可视化层分开。[运行时结构 →](docs/GUIDE.md#arch)
 
-## 许可证
+## 致谢与许可
+
+团队工作台思路参考 [cc-haha](https://github.com/NanmiCoder/cc-haha)，协作提示写法参考 [ponytail](https://github.com/DietrichGebert/ponytail) 与 [mattpocock/skills](https://github.com/mattpocock/skills)。感谢桌宠社区作者的创作。
+
 [MIT](LICENSE) © [another-bbzj](https://github.com/another-bbzj)

@@ -207,7 +207,8 @@ def read_agent(name: str):
 # 也接受等比缩放过的），.webp 或 .png。每只可有同名 .json 边车记录名字、简介与出处（导入时自动写）。
 SHIPPED_PETS = {'huhu-plan', 'dada-code', 'bubu-fix', 'huihui-build',                       # cc-haha（MIT）
                 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank',     # make_pets.py（MIT）
-                'aurelia-engineer', 'lyra-designer'}                                  # 原创战术角色（MIT）
+                'aurelia-engineer', 'lyra-designer', 'nova-strategist',
+                'rune-analyst', 'mika-operator'}                                      # 原创战术角色（MIT）
 PET_ID_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}$')
 PET_EXTS = ('webp', 'png')
 PET_MAX_BYTES = 12 * 1024 * 1024

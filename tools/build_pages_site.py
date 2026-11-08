@@ -33,6 +33,9 @@ GENERATED = (
     'favicon.ico',
     'sprites/aurelia-engineer.png',
     'sprites/lyra-designer.png',
+    'sprites/nova-strategist.png',
+    'sprites/rune-analyst.png',
+    'sprites/mika-operator.png',
     '.nojekyll',
 )
 HAND_WRITTEN = ('README.md',)

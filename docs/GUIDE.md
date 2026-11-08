@@ -289,17 +289,17 @@ skills:
 
 ## 8. 形象素材
 
-- 仓库自带 15 只：4 只机器人（cc-haha，MIT）、9 只程序化绘制的角色（`make_pets.py`，MIT），以及 2 款用 imagegen 生成的原创战术角色「星澜」「绮星」（MIT）。研发岗位默认使用新角色，用户已有的角色分配优先。程序化角色可编辑 `make_pets.py` 里的 `CHARS` 后重新生成；原创角色通过同名 JSON 的 `frameRects` 描述动画帧，保留原始图片。
+- 仓库自带 18 只：4 只机器人（cc-haha，MIT）、9 只程序化绘制的角色（`make_pets.py`，MIT），以及 5 款用 imagegen 生成的原创战术角色「星澜」「绮星」「曜宁」「墨巡」「橙羽」（MIT）。默认选择原创小队，旧版 13 只素材保留但不进入默认选择列表；用户已有的角色分配优先。程序化角色可编辑 `make_pets.py` 里的 `CHARS` 后重新生成；原创角色通过同名 JSON 的 `frameRects` 描述动画帧，保留原始图片。
 - 可选，装了 Codex 桌面版的机器：`python ~/.claude/team-board/import_codex_pets.py` 从你本机安装文件里提取 9 只 Codex 宠物，并顺带导入 `~/.codex/pets/`（Codex 里创建 / 领养的）与 `~/.petdex/pets/` 里的桌宠（`install.py` 会自动尝试）。素材归各自作者，只留本机。
 - 从 petdex 画廊下载：`python ~/.claude/team-board/fetch_petdex.py --starter`（16 只）；`--list --search 关键词` 搜；按 slug 点名下载。作者与来源写进 `sprites/<id>.json`。
 - 看板里导入：成员编辑框 → 形象旁「导入形象…」→ 选 zip（pet.json + spritesheet）、.webp 或 .png。格式：8 列、每帧 192:208、9 行或 11 行（1536×1872 / 1536×2288，等比缩放也行）。行序：idle / 跑右 / 跑左 / 挥手 / 跳 / 失败 / 等待 / 工作 / 审阅。
 - 手动放：把雪碧图直接丢进 `team-board/sprites/`，刷新页面即可选到。
 
-每位出场成员独占一只不重复的形象：本岗位专属 → 同类别备选 → 任意空闲 → 全占满才换色。
+手动选择优先于自动分配；未指定时按岗位默认形象或原创小队回退。多位成员可以使用同一形象。
 
 ### 换装、导入，以及为什么仓库不附带社区形象
 
-普通角色导入兼容 Codex 桌宠和 [petdex](https://petdex.dev) 画廊的标准雪碧图：8 列 × 9 或 11 行，每帧 192×208，webp / png，通常打包成 `pet.json + spritesheet.webp` 的 zip。仓库不代为分发社区角色。自带的两款原创角色使用内置帧坐标播放。
+普通角色导入兼容 Codex 桌宠和 [petdex](https://petdex.dev) 画廊的标准雪碧图：8 列 × 9 或 11 行，每帧 192×208，webp / png，通常打包成 `pet.json + spritesheet.webp` 的 zip。仓库不代为分发社区角色。自带的五款原创角色使用内置帧坐标播放。
 
 | 想要 | 怎么做 |
 |---|---|
@@ -330,7 +330,7 @@ python ~/.claude/team-board/update.py                 # 检查更新；--apply -
 
 会话来源和只读对话放在顶栏的会话编号按钮里，点击即可展开；部门、统计和通讯频道保持原来的布局。导入的角色和岗位分配仍然优先于默认角色。
 
-停滞提醒默认收起，从会话窗口里的提醒按钮展开。未分配角色的成员使用两款原创战术角色，旧机器人与方块角色退出页面选择和自动分配；自选的下载角色继续保留。部门人数超出单排时均衡分行，最后一排居中，避免一排挤满、下一排只剩一人的空白。
+停滞提醒默认收起，从会话窗口里的提醒按钮展开。未分配角色的成员使用五款原创战术角色，旧机器人与方块角色退出页面选择和自动分配；自选的下载角色继续保留。部门人数超出单排时均衡分行，最后一排居中，避免一排挤满、下一排只剩一人的空白。
 
 需要在开发预览中使用独立配置时，可将 `TEAM_BOARD_CONFIG` 环境变量设为本机配置 JSON 的路径。读取、保存和自动重载都会使用这份文件，默认仍为看板目录下的 `team.json`。角色图片仍从当前看板的 `sprites/` 读取。
 
@@ -383,7 +383,7 @@ python install.py
 |---|---|
 | `~/.claude/agents/` | 8 位常驻成员（Claude Code 原生 subagent 格式） |
 | `~/.claude/skills/agent-team/` | 团队协议技能（步骤、部门表、办公目录规范、省 token 规则） |
-| `~/.claude/team-board/` | 看板服务、15 只自带形象、导入 / 下载 / 更新脚本 |
+| `~/.claude/team-board/` | 看板服务、18 只自带形象、导入 / 下载 / 更新脚本 |
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
 | `~/.claude/settings.json` | 追加一个 SessionStart 钩子让看板随会话常驻（原文件先备份）。`--hooks` 时再合并实时事件钩子 |
 
@@ -689,7 +689,7 @@ team-board/        看板及后端服务
   make_pets.py               程序化绘制自带形象
   bus/                       消息总线数据（gitignore）
   backdrops/                 背景图与背景板配置（gitignore）
-  sprites/                   形象（仓库只带 15 只自带的；导入的留在本机）
+  sprites/                   形象（仓库只带 18 只自带的；导入的留在本机）
 agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式）
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
