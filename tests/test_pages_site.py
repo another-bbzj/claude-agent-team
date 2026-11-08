@@ -73,13 +73,16 @@ class PagesSiteTest(unittest.TestCase):
         stalled = next(member for member in snap['members'] if member['id'] == 'synthetic-member-4')
         self.assertEqual(stalled['name'], '演示文档')
         self.assertEqual(snap['generatedAt'] - stalled['lastActivityAt'], 900)
-        for pet in ('aurelia-engineer', 'lyra-designer'):
+        for pet in ('aurelia-engineer', 'lyra-designer', 'nova-strategist', 'rune-analyst', 'mika-operator'):
             self.assertIn(pet, snap['pets'])
             self.assertTrue((SITE / 'sprites' / (pet + '.png')).is_file())
             self.assertEqual(
                 (SITE / 'sprites' / (pet + '.png')).read_bytes(),
                 (ROOT / 'team-board' / 'sprites' / (pet + '.png')).read_bytes(),
             )
+            metadata = json.loads((ROOT / 'team-board' / 'sprites' / (pet + '.json')).read_text(encoding='utf-8'))
+            self.assertEqual(snap['petInfo'][pet]['frameRects'], metadata['frameRects'])
+            self.assertTrue(snap['petInfo'][pet]['shipped'])
         self.assertIn(builder.BANNER, html)
         self.assertIn(builder.DEMO_REPLACEMENT, html)
         self.assertNotIn(builder.DEMO_FLAG, html)

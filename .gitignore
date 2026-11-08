@@ -24,6 +24,12 @@ team-board/sprites/*
 !team-board/sprites/aurelia-engineer.json
 !team-board/sprites/lyra-designer.png
 !team-board/sprites/lyra-designer.json
+!team-board/sprites/nova-strategist.png
+!team-board/sprites/nova-strategist.json
+!team-board/sprites/rune-analyst.png
+!team-board/sprites/rune-analyst.json
+!team-board/sprites/mika-operator.png
+!team-board/sprites/mika-operator.json
 # petdex 清单缓存
 team-board/.petdex-manifest.json
 

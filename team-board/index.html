@@ -1269,8 +1269,8 @@ const ANIM = {
 };
 /* 岗位默认形象；用户导入和手动分配的角色优先。 */
 const PET_BY_TYPE = {
-  '__lead': 'pip', 'team-architect': 'huhu-plan', 'backend-dev': 'aurelia-engineer', 'frontend-dev': 'lyra-designer',
-  'researcher': 'drip', 'qa-tester': 'bubu-fix', 'code-reviewer': 'kit', 'docs-writer': 'mush', 'release-ops': 'huihui-build',
+  '__lead': 'nova-strategist', 'team-architect': 'nova-strategist', 'backend-dev': 'aurelia-engineer', 'frontend-dev': 'lyra-designer',
+  'researcher': 'rune-analyst', 'qa-tester': 'rune-analyst', 'code-reviewer': 'rune-analyst', 'docs-writer': 'lyra-designer', 'release-ops': 'mika-operator',
 };
 /* 未用常驻角色派出的成员（general-purpose 等）按形象类别回退，同类第 2、3 人换色以示区分 */
 const PET_BY_AVATAR = {
@@ -1278,7 +1278,7 @@ const PET_BY_AVATAR = {
   'security-reviewer': 'bsod', 'data-analyst': 'dewey', 'docs-coordinator': 'stacky', 'release-engineer': 'huihui-build',
 };
 /* 手动角色优先；未分配的成员使用原创小队，人数增加时复用形象。 */
-const PREFERRED_PETS = ['aurelia-engineer', 'lyra-designer'];
+const PREFERRED_PETS = ['aurelia-engineer', 'lyra-designer', 'nova-strategist', 'rune-analyst', 'mika-operator'];
 const RETIRED_PETS = new Set(['codex', 'huhu-plan', 'dada-code', 'seedy', 'dewey', 'bubu-fix', 'bsod', 'null-signal', 'rocky', 'fireball', 'hoots', 'stacky', 'huihui-build', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank']);
 const visiblePets = pets => PREFERRED_PETS.filter(p => pets.includes(p)).concat(pets.filter(p => !RETIRED_PETS.has(p) && !PREFERRED_PETS.includes(p)));
 let PET_INFO = {};  // snapshot.petInfo：{id: {file, w, h, cw, ch, rows, displayName, credit, shipped}}
@@ -1300,7 +1300,7 @@ const PET_FAMILY = {
 const petAssign = new Map();   // memberId -> { pet, hue }
 function assignPets(members, wantLead = '') {
   const have = new Set(ALL_PETS);
-  const leadPet = have.has(wantLead) ? wantLead : (PREFERRED_PETS.find(x => have.has(x)) || ALL_PETS[0]);
+  const leadPet = have.has(wantLead) ? wantLead : (have.has(PET_BY_TYPE.__lead) ? PET_BY_TYPE.__lead : (PREFERRED_PETS.find(x => have.has(x)) || ALL_PETS[0]));
   petAssign.clear(); petAssign.set('__lead', { pet: leadPet, hue: 0 });
   const ordered = members.slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
   const originals = PREFERRED_PETS.filter(x => have.has(x));

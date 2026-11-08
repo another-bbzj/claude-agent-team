@@ -57,6 +57,27 @@ assert.match(box.wallpaperFileError({ name: 'bg.png', size: 15 * 1024 * 1024 + 1
 assert.match(box.wallpaperFileError({ name: 'project.html', type: 'text/html', size: 10 }), /只支持/);
 console.log('Codex UI helpers: source isolation, model identity, dialogue escaping and wallpaper limits passed');
 
+// Assignment is pure: test imported/manual selections without opening a real home.
+const petStart = script.indexOf('const PET_BY_TYPE =');
+const petEnd = script.indexOf('const frames =', petStart);
+assert(petStart >= 0 && petEnd > petStart);
+const petsBox = vm.createContext({});
+vm.runInContext(script.slice(petStart, petEnd), petsBox);
+const assignment = vm.runInContext(`(() => {
+  const originals = ['aurelia-engineer','lyra-designer','nova-strategist','rune-analyst','mika-operator'];
+  ALL_PETS = visiblePets([...originals, 'custom-pet']);
+  const members = [
+    {id:'manual',agentType:'backend-dev',pet:'custom-pet',startedAt:1},
+    ...originals.map((_,i)=>({id:'automatic-'+i,agentType:'general-purpose',startedAt:i+2}))
+  ];
+  assignPets(members, 'custom-pet');
+  return JSON.stringify({manual:petOf(members[0]),lead:petAssign.get('__lead').pet,automatic:members.slice(1).map(petOf)});
+})()`, petsBox);
+const assigned = JSON.parse(assignment);
+assert.equal(assigned.manual, 'custom-pet');
+assert.equal(assigned.lead, 'custom-pet');
+assert.equal(new Set(assigned.automatic).size, 5);
+
 // Optional real-browser mode: node tests/check_codex_ui.js <pageUrl> <debugPort> [shotDir]
 // The caller owns the isolated browser/profile and local page server lifecycle.
 if (process.argv[2] && process.argv[3]) {
@@ -88,9 +109,11 @@ if (process.argv[2] && process.argv[3]) {
     base.source = 'codex'; base.session = { id: 'synthetic-codex', source: 'codex', project: 'synthetic-project', lastActivity: Date.now() / 1000 };
     base.petInfo = base.petInfo || {};
     base.pets = base.pets || [];
-    for (const id of ['aurelia-engineer', 'lyra-designer']) {
+    const originalPets = ['aurelia-engineer', 'lyra-designer', 'nova-strategist', 'rune-analyst', 'mika-operator'];
+    for (const id of originalPets) {
       const meta = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'team-board', 'sprites', id + '.json'), 'utf8'));
-      const dimensions = id === 'aurelia-engineer' ? [1028, 1530] : [1136, 1385];
+      const image = fs.readFileSync(path.join(__dirname, '..', 'team-board', 'sprites', id + '.png'));
+      const dimensions = [image.readUInt32BE(16), image.readUInt32BE(20)];
       base.petInfo[id] = {...meta,file:id+'.png',w:dimensions[0],h:dimensions[1]};
       base.pets.push(id);
     }
@@ -117,7 +140,8 @@ if (process.argv[2] && process.argv[3]) {
       layout(saved);prev=saved;return result;
     })()`);
     assert.deepEqual(compact.rows,[4,3]);
-    assert(compact.pets.every(p=>['aurelia-engineer','lyra-designer'].includes(p)));
+    assert(compact.pets.every(p=>originalPets.includes(p)));
+    assert.equal(new Set(compact.pets).size, 5);
     assert.equal(compact.collapsed,true);
     assert(compact.heights.every(h=>h<=256), JSON.stringify(compact));
     await evaluate(`document.querySelector('#source-filter').value='claude';document.querySelector('#source-filter').dispatchEvent(new Event('change',{bubbles:true}));`);
