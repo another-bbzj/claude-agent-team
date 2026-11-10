@@ -78,6 +78,14 @@ python team-board/team_board.py --source all --port 7788
 
 顶栏可切换 Claude Code 和 Codex 来源。Codex 适配读取本机日志，展示实际模型、成员、工具活动和可见对话；它不启动 Codex、不向聊天发送消息，也不修改 Codex 配置。[支持范围与限制 →](docs/CODEX_SESSIONS.md)
 
+### 转录兼容
+
+| 来源 | 读哪里 | 映射到看板上 | 不读 |
+|---|---|---|---|
+| Claude Code 转录 | `~/.claude/projects` | 成员、工具调用、token、估算成本、官方任务 | 模型 API |
+| Codex CLI rollout | `~/.codex/sessions` 下的 JSONL | 成员、计划或待办、工具调用、累计 token；价格表能对上模型时还有估算成本 | `.jsonl.zst`、归档会话、推理正文、工具原文、订阅账单 |
+| `codex exec` JSONL | 只处理你传入的文件 | 离线汇总，不进看板 | 交互会话 |
+
 ## 从派工到交付，都有线索
 
 | 你关心的事 | 看板提供什么 |

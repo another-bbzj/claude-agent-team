@@ -3,11 +3,13 @@ import argparse
 import base64
 import json
 import os
+import shutil
 import threading
 import unittest
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest import mock
 
 from test_board import BoardEnv, jl, png_sheet
@@ -159,6 +161,63 @@ class CodexBoardTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.board.write_backdrop({'path': str(folder), 'fit': 'bad'})
         self.assertEqual(before, (self.board.BACKDROPS / 'backdrop.json').read_bytes())
+
+    def test_variant_rollout_fills_task_board_without_private_tool_text(self):
+        source = Path(__file__).resolve().parents[1] / 'examples/codex-sessions.synthetic/variants'
+        for path in source.glob('*.jsonl'):
+            shutil.copy2(str(path), str(self.sessions / path.name))
+        self.args.source = 'codex'
+        self.args.session = 'variant-root'
+        result = self.board.build_snapshot(self.args)
+        self.assertEqual(result['session']['id'], 'variant-root')
+        official = result['officialTeam']
+        self.assertTrue(official['available'])
+        self.assertEqual(official['teamName'], 'codex')
+        self.assertEqual(official['lead'], 'Codex')
+        self.assertIn('不是 Claude 官方任务目录', ' '.join(official['warnings']))
+        self.assertEqual([task['subject'] for task in official['tasks']], [
+            'Record the synthetic plan', 'Map the synthetic tool',
+            'Check the synthetic plan', 'Leave the synthetic note',
+        ])
+        self.assertIsNone(official['tasks'][0].get('owner'))
+        self.assertEqual(official['tasks'][2]['ownerMatch'], 'Synthetic Checker')
+        tool_names = [row['name'] for row in result['lead']['timeline'] if row.get('kind') == 'tool']
+        self.assertEqual(tool_names, ['update_plan', 'shell', 'exec_command', 'apply_patch', 'web_search', 'docs/search'])
+        labels = [row['label'] for row in result['feed']]
+        self.assertEqual(labels.count('python --version'), 2)
+        self.assertIn('update_plan', labels)
+        self.assertIn('docs/search', labels)
+        self.assertTrue(any(label.startswith('apply_patch') for label in labels))
+        self.assertIsNone(result['lead']['cost'])
+        blob = json.dumps(result)
+        for marker in ('SHELL_OUTPUT_SHOULD_NOT_SURFACE', 'DIFF_SHOULD_NOT_SURFACE',
+                       'ARG_SHOULD_NOT_SURFACE', 'gAAAAA-synthetic-ciphertext'):
+            self.assertNotIn(marker, blob)
+        self.args.source = 'claude'
+        self.args.session = None
+        claude = self.board.build_snapshot(self.args)
+        self.assertEqual(claude['lead']['name'], 'Claude')
+        self.assertNotEqual(claude['officialTeam'].get('teamName'), 'codex')
+
+    def test_priced_codex_model_estimates_cost(self):
+        self.board.TEAM_CFG['pricing_usd_per_mtok'] = {
+            'gpt-5': {'in': 1.25, 'out': 10, 'cache_read': 0.125, 'cache_write': 1.25},
+        }
+        identity = '00000000-0000-4000-8000-0000000000aa'
+        usage = {'input_tokens': 800000, 'cached_input_tokens': 0, 'output_tokens': 0}
+        path = self.sessions / ('rollout-' + identity + '.jsonl')
+        path.write_text(jl(
+            row('session_meta', {'id': identity, 'cwd': 'demo-project', 'source': 'cli'}),
+            row('turn_context', {'model': 'gpt-5'}),
+            row('token_usage_record', {'thread_token_usage': usage}),
+        ), encoding='utf-8')
+        self.args.source = 'codex'
+        self.args.session = identity
+        result = self.board.build_snapshot(self.args)
+        self.assertEqual(result['lead']['model'], 'gpt-5')
+        self.assertEqual(result['lead']['usage']['in'], 800000)
+        self.assertEqual(result['lead']['cost'], 1.0)
+        self.assertFalse(result['officialTeam']['available'])
 
 
 if __name__ == '__main__':

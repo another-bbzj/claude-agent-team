@@ -46,10 +46,42 @@ board.
 ## Format and limits
 
 This adapter targets the locally observed `session_meta`, `turn_context`,
-`response_item`, `event_msg` and `token_usage_record` rollout records, including
-native item-completed records. Rollout storage is implementation data, not the
-same event stream as `codex exec --json`. The existing offline exporter remains
-separate and compatible.
+`response_item`, `event_msg`, `token_usage_record` and plain
+`inter_agent_communication` rollout records. A sub-agent file keeps its own
+`id`; `session_id` is the root of the tree and does not merge the child into
+the parent. `item.completed` is read the same way as `item_completed`.
+Assistant text blocks may use `text` or `Text`.
+
+Plan tasks come from `update_plan`, a `Plan` item, or a `TodoList`. The latest
+of those replaces the earlier step list. A todo item only says whether it is
+completed, so an in-progress step stays pending unless `update_plan` recorded
+`in_progress`. Steps are shown on the existing read-only task board. They are
+not Claude Agent Teams tasks and are not written back to disk.
+
+Tool rows include function calls, local shell calls, command items, and the
+older `exec_command_*`, `patch_apply_end`, `web_search_end`,
+`mcp_tool_call_end` and `image_generation_end` events. A begin and end pair
+with the same call id is one row. Patch diffs, command output, MCP arguments
+and image bytes stay out of the row.
+
+Token totals prefer `thread_token_usage` or `token_count.total_token_usage`.
+Those snapshots replace each other, so a repeated total is not added twice.
+`last_token_usage` is not a session total. When no thread total is present,
+per-response `usage` is summed, and the same `response_id` replaces its
+previous contribution. A per-response record after a thread total is ignored.
+`turn_token_usage` by itself is not a session total, because it resets every
+turn. Field names may be `input_tokens` or `inputTokens`. Cached tokens stay
+inside input. Cost is estimated only when that model is in the local price
+table; otherwise the cost stays empty. This is not a subscription bill.
+
+A broken, non-object or non-UTF-8 line is skipped. The lines around it are
+still read. One warning covers every broken line in that file.
+
+Rollout storage is implementation data, not the same event stream as
+`codex exec --json`. The existing offline exporter remains separate and
+compatible. Compressed `.jsonl.zst` files and `archived_sessions` are not
+scanned. Encrypted inter-agent text (`gAAAAA…`) is not shown. Reasoning text
+and raw tool output are not conversation.
 
 Discovery selects at most 500 recent files. Parsing reads complete appended
 lines incrementally, caches unchanged files and bounds large initial reads to

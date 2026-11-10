@@ -1,0 +1,25 @@
+{"timestamp":"2026-01-02T00:00:00Z","type":"session_meta","payload":{"id":"variant-root","session_id":"variant-root","cwd":"demo-project","source":"cli","git":{"branch":"synthetic-main"}}}
+{"timestamp":"2026-01-02T00:00:01Z","type":"turn_context","payload":{"model":"gpt-demo-plan","cwd":"demo-project"}}
+{"timestamp":"2026-01-02T00:00:02Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-01-02T00:00:03Z","type":"event_msg","payload":{"type":"user_message","message":"Review the synthetic plan."}}
+
+{not-json}
+[]
+{"timestamp":"2026-01-02T00:00:04Z","type":"event_msg","payload":{"type":"item.completed","item":{"type":"AgentMessage","id":"msg-variant","content":[{"type":"Text","text":"The synthetic plan is recorded."}]}}}
+{"timestamp":"2026-01-02T00:00:05Z","type":"response_item","payload":{"type":"function_call","name":"update_plan","call_id":"plan-call","arguments":{"plan":[{"step":"Record the synthetic plan","status":"completed"},{"step":"Map the synthetic tool","status":"in_progress"}]}}}
+{"timestamp":"2026-01-02T00:00:06Z","type":"response_item","payload":{"type":"local_shell_call","call_id":"shell-1","status":"completed","action":{"type":"exec","command":["python","--version"]}}}
+{"timestamp":"2026-01-02T00:00:07Z","type":"response_item","payload":{"type":"local_shell_call_output","call_id":"shell-1","output":"SHELL_OUTPUT_SHOULD_NOT_SURFACE"}}
+{"timestamp":"2026-01-02T00:00:08Z","type":"event_msg","payload":{"type":"exec_command_begin","call_id":"exec-1","command":["python","--version"]}}
+{"timestamp":"2026-01-02T00:00:10Z","type":"event_msg","payload":{"type":"exec_command_end","call_id":"exec-1","exit_code":0,"stdout":"SHELL_OUTPUT_SHOULD_NOT_SURFACE"}}
+{"timestamp":"2026-01-02T00:00:11Z","type":"event_msg","payload":{"type":"patch_apply_end","call_id":"patch-1","success":true,"status":"completed","stdout":"DIFF_SHOULD_NOT_SURFACE","changes":{"demo.txt":{"type":"update","unified_diff":"DIFF_SHOULD_NOT_SURFACE"}}}}
+{"timestamp":"2026-01-02T00:00:12Z","type":"event_msg","payload":{"type":"web_search_end","call_id":"web-1","query":"synthetic codex rollout"}}
+{"timestamp":"2026-01-02T00:00:13Z","type":"event_msg","payload":{"type":"mcp_tool_call_end","call_id":"mcp-1","invocation":{"server":"docs","tool":"search","arguments":{"q":"ARG_SHOULD_NOT_SURFACE"}},"result":{"Ok":{"content":[{"type":"text","text":"ARG_SHOULD_NOT_SURFACE"}]}}}}
+{"timestamp":"2026-01-02T00:00:14Z","type":"inter_agent_communication","payload":{"author":"/demo","recipient":"/demo/checker","content":"","encrypted_content":"gAAAAA-synthetic-ciphertext"}}
+{"timestamp":"2026-01-02T00:00:15Z","type":"inter_agent_communication","payload":{"author":"/demo","recipient":"/demo/checker","content":"Synthetic handoff note","trigger_turn":false}}
+{"timestamp":"2026-01-02T00:00:16Z","type":"token_usage_record","payload":{"response_id":"resp-a","usage":{"input_tokens":10,"output_tokens":2}}}
+{"timestamp":"2026-01-02T00:00:17Z","type":"token_usage_record","payload":{"response_id":"resp-a","usage":{"input_tokens":10,"output_tokens":2}}}
+{"timestamp":"2026-01-02T00:00:18Z","type":"token_usage_record","payload":{"response_id":"resp-b","usage":{"input_tokens":30,"cached_input_tokens":10,"output_tokens":4}}}
+{"timestamp":"2026-01-02T00:00:19Z","type":"token_usage_record","payload":{"response_id":"resp-thread","thread_token_usage":{"input_tokens":80,"cached_input_tokens":20,"cache_write_input_tokens":5,"output_tokens":9}}}
+{"timestamp":"2026-01-02T00:00:20Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":80,"cached_input_tokens":20,"cache_write_input_tokens":5,"output_tokens":9},"last_token_usage":{"input_tokens":999,"output_tokens":999}}}}
+{"timestamp":"2026-01-02T00:00:21Z","type":"token_usage_record","payload":{"response_id":"resp-c","usage":{"input_tokens":999,"output_tokens":999}}}
+{"timestamp":"2026-01-02T00:00:22Z","type":"event_msg","payload":{"type":"task_complete"}}
