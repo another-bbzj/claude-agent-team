@@ -59,7 +59,7 @@ information and a proposed acceptance test. Do not assign labels, close issues
 or post a reply. Do not infer adoption or severity without evidence.
 ```
 
-For a release check, ask for a comparison of `VERSION`, the diff since the intended base and CI results. Have Codex draft release notes only for verified changes; publishing is a separate maintainer action.
+For a release check, ask for a comparison of `VERSION`, the diff since the intended base and CI results. Have Codex draft release notes only for verified changes; publishing is a separate maintainer action. Run `python tools/release_check.py` for the repeatable file checks in [the release checklist](RELEASE_CHECKLIST.md). That command does not tag or publish.
 
 ## Configuration and boundaries
 

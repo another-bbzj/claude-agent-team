@@ -28,6 +28,14 @@ checkout, run the existing tests without installing into your personal home:
 python -m unittest discover -s tests -v
 ```
 
+Before a release, the same checkout can be checked without tagging or publishing:
+
+```sh
+python tools/release_check.py
+```
+
+The command, the interpreter and OS matrix, and the user-configuration checks are in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md). CI runs it as a separate job in `.github/workflows/test.yml` and does not make the test matrix wait on it.
+
 The integration tests start temporary local HTTP servers. Installer tests use
 temporary `HOME` and `USERPROFILE` directories and disable automatic restart with
 `TEAM_BOARD_NO_RESTART=1`; follow that pattern in `tests/test_install.py` when adding

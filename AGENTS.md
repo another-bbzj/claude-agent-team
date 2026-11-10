@@ -21,6 +21,7 @@ This repository provides a local team board for Claude Code and Codex rollout tr
 - `tools/export_replay.py`: one offline HTML file with an embedded desensitized snapshot. It does not start the board.
 - `tools/retro_report.py`: Markdown retrospective from an offline snapshot, `--demo`, or the loopback board. It copies present fields only.
 - `tools/export_otel.py`: OTLP/JSON trace file from an offline snapshot, `--demo`, or the loopback board. It copies present fields only and does not upload the file.
+- `tools/release_check.py`: pre-release evidence for `VERSION`, the changelog, README script paths, the static site, and test discovery. It does not tag or publish. See `docs/RELEASE_CHECKLIST.md`.
 
 ## Change and test
 
