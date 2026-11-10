@@ -3097,11 +3097,13 @@ def _drop_task_cost_trace(members, lead_data):
         lead_data.pop('taskMarks', None)
 
 
-def _snapshot_official_team(view, members, now, lead=None, lead_data=None):
-    """公开快照上的官方团队。ownerMatch 和 estimate 只在这里写，不写回任务目录。
+def _snapshot_official_team(view, members, now, lead=None, lead_data=None, session=None):
+    """公开快照上的官方团队。ownerMatch、estimate 和 diff 只在这里写，不写回任务目录。
 
     成员最近一次测试在 owner 与名字完全一致时抄到任务上。队长用官方 lead 名字，不用舞台上的「队长 · Claude」。
     estimate 只统计这个名字在任务进行中的转录用量。对不上就不写金额。
+    diff 按任务时间或当前检出的分支统计本地 git，失败时 status 为 unavailable。
+    工单列表挂在返回值的 tickets 上，build_snapshot 再把它挪到快照顶层。
     """
     public = _public_official_team(view, now)
     annotate_owner_matches(
@@ -3119,6 +3121,8 @@ def _snapshot_official_team(view, members, now, lead=None, lead_data=None):
     _test_results.attach_last_tests(public.get('tasks') or [], people)
     sources, marks = _task_cost_inputs(members, lead_data, public.get('lead') or '')
     _task_cost.attach_estimates(public.get('tasks') or [], sources, marks, now, estimate_cost)
+    public['tickets'] = _task_diff.annotate(
+        public.get('tasks') or [], marks, now, session if isinstance(session, dict) else {})
     _drop_task_cost_trace(members, lead_data)
     return public
 
@@ -3141,8 +3145,18 @@ def _load_task_cost():
     return module
 
 
+def _load_task_diff():
+    """本目录的 task_diff.py。按文件加载，测试换了看板副本时不会串到别的路径。"""
+    path = HERE / 'task_diff.py'
+    spec = importlib.util.spec_from_file_location('task_diff_for_team_board', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 _budget_mod = _load_budget()
 _task_cost = _load_task_cost()
+_task_diff = _load_task_diff()
 
 
 class HookEventLog(object):
@@ -4003,6 +4017,14 @@ def build_snapshot(args, merge=True):
                    'pet': TEAM_CFG['agents'][k].get('pet', '')} if k in TEAM_CFG['agents'] else {})}
               for k, v in agent_defs.items()]
 
+    official = _snapshot_official_team(
+        official_view, members, now, lead, lead_data, session_info if isinstance(session_info, dict) else {})
+    tickets = []
+    if isinstance(official, dict):
+        found = official.pop('tickets', [])
+        if isinstance(found, list):
+            tickets = found
+
     snapshot = {
         'pets': pet_list(), 'petInfo': pet_info(),
         'generatedAt': now, 'version': VERSION, 'update': _update_state['result'],
@@ -4020,7 +4042,8 @@ def build_snapshot(args, merge=True):
         '_activityIndex': activity_index,
         'comms': comms[:80],
         'bus': bus_info,
-        'officialTeam': _snapshot_official_team(official_view, members, now, lead, lead_data),
+        'officialTeam': official,
+        'tickets': tickets,
         'backdrop': backdrop_state(presets=False),
         'live': hook_live_view(session_info['id'] if session_info and provider == 'claude' else '', now),
     }
@@ -4161,8 +4184,62 @@ def snapshot_revision(view):
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:20]
 
 
+def _sse_count(value):
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def _sse_task_id(value):
+    if not isinstance(value, str) or len(value) > 80:
+        return ''
+    if any(ch in value for ch in '\n\r\x00'):
+        return ''
+    return value
+
+
+def _sse_task_diff(view):
+    """SSE 上的改动量。只有计数和归属，没有路径、文件名或说明。"""
+    rows = []
+    if not isinstance(view, dict):
+        return rows
+
+    def add(items, kind):
+        if not isinstance(items, list):
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            diff = item.get('diff')
+            if not isinstance(diff, dict):
+                continue
+            status = diff.get('status') if diff.get('status') in ('known', 'partial', 'unavailable') else 'unavailable'
+            basis = diff.get('basis') if diff.get('basis') in ('window', 'branch', 'worktree', 'ticket', 'none') else 'none'
+            rows.append({
+                'id': _sse_task_id(item.get('id')),
+                'kind': kind,
+                'files': _sse_count(diff.get('files')),
+                'insertions': _sse_count(diff.get('insertions')),
+                'deletions': _sse_count(diff.get('deletions')),
+                'status': status,
+                'basis': basis,
+                'partial': bool(diff.get('partial')),
+            })
+
+    team = view.get('officialTeam')
+    tasks = team.get('tasks') if isinstance(team, dict) else None
+    add(tasks, 'task')
+    add(view.get('tickets'), 'ticket')
+    return rows
+
+
 def sse_notice(view, rev):
-    """推给浏览器的正文：修订号和定位字段。消息、提示词和本机路径留在 /snapshot.json。"""
+    """推给浏览器的正文：修订号、定位字段，以及任务/工单的改动计数。
+
+    消息、提示词、文件名和本机路径留在 /snapshot.json。
+    """
     source, session_id, generated = '', '', None
     if isinstance(view, dict):
         if isinstance(view.get('source'), str):
@@ -4171,7 +4248,13 @@ def sse_notice(view, rev):
         if isinstance(session, dict) and isinstance(session.get('id'), str):
             session_id = session['id']
         generated = _sse_number(view.get('generatedAt'))
-    return {'rev': rev, 'source': source, 'session': session_id, 'generatedAt': generated}
+    return {
+        'rev': rev,
+        'source': source,
+        'session': session_id,
+        'generatedAt': generated,
+        'taskDiff': _sse_task_diff(view),
+    }
 
 
 def format_sse_event(name, data, retry_ms=None):

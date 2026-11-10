@@ -38,5 +38,5 @@
 - 没有子代理转录的会话，看板本来就不会列出。作战区也看不见它们。
 - 同一工作区里的两个会话只是会话列表里的两行，不组成作战区。
 - 启动目录在主工作区、后来才 `cd` 进另一个 worktree 的会话，仍算主工作区。并行的 `--worktree` 会话各自在自己的目录里启动，不受这条影响。
-- 看板不创建、不删除 worktree，也不改分支。
+- 看板不创建、不删除 worktree，也不改分支。作战区的分组仍然不调用 git。任务和工单上的改动统计是另一条只读路径：它会调用 `git log` / `git diff`，但关掉钩子目录、可选索引锁和外部 diff，不写仓库。
 - 只读演示 [`examples/board-demo.synthetic.json`](../examples/board-demo.synthetic.json) 里有一个合成作战区（`main` 和 `worktree-feature-board`）。点另一支分支只会改标签，成员卡片仍是那一组合成数据。可复制的 git 元数据在 [`examples/worktrees.synthetic/`](../examples/worktrees.synthetic/README.md)，测试复制到临时目录后再用。

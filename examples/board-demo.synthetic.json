@@ -1045,6 +1045,14 @@
           "unpriced": false,
           "basis": "transcript"
         },
+        "diff": {
+          "files": 2,
+          "insertions": 18,
+          "deletions": 3,
+          "status": "known",
+          "partial": false,
+          "basis": "window"
+        },
         "blockedBy": [],
         "blocks": [
           "3"
@@ -1096,6 +1104,14 @@
           "unpriced": true,
           "basis": "transcript"
         },
+        "diff": {
+          "files": 1,
+          "insertions": 4,
+          "deletions": 1,
+          "status": "partial",
+          "partial": true,
+          "basis": "window"
+        },
         "blockedBy": [],
         "blocks": [
           "4"
@@ -1139,6 +1155,14 @@
         "normalizedStatus": "pending",
         "owner": null,
         "ownerMatch": null,
+        "diff": {
+          "files": null,
+          "insertions": null,
+          "deletions": null,
+          "status": "unavailable",
+          "partial": false,
+          "basis": "none"
+        },
         "blockedBy": [
           "1",
           "9"
@@ -1236,6 +1260,21 @@
       }
     ]
   },
+  "tickets": [
+    {
+      "id": "01-synthetic",
+      "title": "Synthetic ticket",
+      "status": "doing",
+      "diff": {
+        "files": 1,
+        "insertions": 6,
+        "deletions": 0,
+        "status": "known",
+        "partial": false,
+        "basis": "ticket"
+      }
+    }
+  ],
   "backdrop": {
     "enabled": false,
     "file": "",
