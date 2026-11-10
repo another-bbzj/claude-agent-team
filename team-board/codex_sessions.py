@@ -1,7 +1,10 @@
 """Read-only Codex rollout discovery and bounded incremental session parsing.
 
-Only visible messages, tool summaries, metadata and measured cumulative usage
-are exposed. Reasoning content and tool output never enter conversation rows.
+Only visible messages, tool summaries, plan tasks, metadata and measured usage
+are exposed. Reasoning content, tool output and encrypted agent text never
+enter conversation rows. Token totals prefer a cumulative thread snapshot;
+per-response records are summed only until that snapshot arrives, and a
+repeated response id replaces its previous contribution.
 """
 import copy
 import hashlib
@@ -74,7 +77,24 @@ def _source_meta(payload):
         for key in ('parent_thread_id', 'agent_nickname', 'agent_role', 'agent_path'):
             if not result.get(key) and isinstance(spawn.get(key), str):
                 result[key] = _short(spawn[key], 1024)
+    git = payload.get('git')
+    if isinstance(git, dict):
+        branch = _branch(git.get('branch'))
+        if branch:
+            result['git'] = {'branch': branch}
     return result
+
+
+def _branch(value):
+    """A branch name only. Commit hashes and repository URLs stay out of the snapshot."""
+    if not isinstance(value, str):
+        return ''
+    text = value.strip()
+    if not text or len(text) > 200 or '..' in text or '/' in text or '\\' in text:
+        return ''
+    if '\n' in text or '\r' in text:
+        return ''
+    return text
 
 
 def _item_type(item):
@@ -84,8 +104,10 @@ def _item_type(item):
 def _record_link(state, item):
     child = item.get('agent_thread_id') or item.get('agent_id')
     if isinstance(child, str) and child and len(child) <= 256:
+        nickname = item.get('agent_nickname')
         data = {'id': child, 'agent_path': _short(item.get('agent_path'), 256),
                 'agent_role': _short(item.get('agent_type') or item.get('agent_role'), 80),
+                'agent_nickname': _short(nickname, 80) if isinstance(nickname, str) else '',
                 'model': _short(item.get('model'), 160)}
         prior = state['links'].get(child, {})
         state['links'][child] = {key: value or prior.get(key, '') for key, value in data.items()}
@@ -95,6 +117,7 @@ def _record_link(state, item):
 
 def _new_state():
     return {'meta': {}, 'model': '', 'usage': {'in': 0, 'out': 0, 'cache_read': 0, 'cache_write': 0},
+            'usage_mode': '', 'response_usage': OrderedDict(), 'usage_seq': 0, 'tasks': [],
             'timeline': deque(maxlen=80), 'conversation': deque(maxlen=120), 'communications': deque(maxlen=80), 'pending': OrderedDict(),
             'seen': OrderedDict(), 'message_copies': OrderedDict(), 'links': {}, 'warnings': [],
             'tool_count': 0, 'thinking_count': 0, 'first': 0.0, 'last': 0.0, 'last_user': '',
@@ -116,8 +139,23 @@ def _visible_text(content):
         return content
     if not isinstance(content, list):
         return ''
-    return '\n'.join(item['text'] for item in content if isinstance(item, dict)
-                     and item.get('type') in ('text', 'input_text', 'output_text') and isinstance(item.get('text'), str))
+    parts = []
+    for item in content:
+        if not isinstance(item, dict) or not isinstance(item.get('text'), str):
+            continue
+        if str(item.get('type') or '').lower() in ('text', 'input_text', 'output_text'):
+            parts.append(item['text'])
+    return '\n'.join(parts)
+
+
+def _plain_message(value):
+    """Visible inter-agent text. Fernet payloads (gAAAAA…) are not conversation."""
+    if not isinstance(value, str):
+        return ''
+    text = value.strip()
+    if not text or text.startswith('gAAAAA'):
+        return ''
+    return text
 
 
 def _message(state, role, text, ts, representation, item_id=''):
@@ -143,21 +181,78 @@ def _message(state, role, text, ts, representation, item_id=''):
         state['timeline'].append({'ts': ts, 'kind': 'text', 'label': _short(text)})
 
 
-def _usage(state, value):
+def _int_field(value, keys):
+    """Return (present, number). A present but invalid field is (True, None)."""
+    for key in keys:
+        if key not in value:
+            continue
+        number = value.get(key)
+        if type(number) is not int or number < 0:
+            return True, None
+        return True, number
+    return False, 0
+
+
+def _usage_parts(state, value):
     if not isinstance(value, dict):
-        return
-    keys = ('input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens')
-    if 'input_tokens' not in value or 'output_tokens' not in value:
-        return
-    values = [value.get(key, 0) for key in keys]
-    if any(type(number) is not int or number < 0 for number in values):
+        return None
+    has_in, inputs = _int_field(value, ('input_tokens', 'inputTokens'))
+    has_out, outputs = _int_field(value, ('output_tokens', 'outputTokens'))
+    if not has_in or not has_out or inputs is None or outputs is None:
+        if has_in or has_out:
+            _warn(state, 'Invalid token snapshot ignored.')
+        return None
+    _, cached = _int_field(value, (
+        'cached_input_tokens', 'cachedInputTokens', 'cache_read_input_tokens', 'cacheReadInputTokens'))
+    _, written = _int_field(value, (
+        'cache_write_input_tokens', 'cacheWriteInputTokens', 'cache_creation_input_tokens', 'cacheCreationInputTokens'))
+    if cached is None or written is None:
         _warn(state, 'Invalid token snapshot ignored.')
-        return
-    inputs, cached, written, outputs = values
+        return None
     if cached + written > inputs:
         _warn(state, 'Cached token counts exceed input; uncached input was clamped.')
+    return inputs, cached, written, outputs
+
+
+def _store_usage(state, parts):
+    inputs, cached, written, outputs = parts
     state['usage'] = {'in': max(0, inputs - cached - written), 'out': outputs,
                       'cache_read': cached, 'cache_write': written}
+
+
+def _usage(state, value):
+    """Replace totals with one cumulative thread snapshot. Cached tokens stay inside input."""
+    parts = _usage_parts(state, value)
+    if not parts:
+        return
+    state['usage_mode'] = 'cumulative'
+    state['response_usage'].clear()
+    _store_usage(state, parts)
+
+
+def _add_response_usage(state, value, response_id):
+    """Sum per-response usage until a cumulative snapshot exists. Same response id replaces."""
+    if state.get('usage_mode') == 'cumulative':
+        return
+    parts = _usage_parts(state, value)
+    if not parts:
+        return
+    state['usage_mode'] = 'summed'
+    key = response_id if isinstance(response_id, str) and response_id else ''
+    if not key:
+        state['usage_seq'] += 1
+        key = 'anon-%d' % state['usage_seq']
+    elif len(key) > 256:
+        key = key[:256]
+    state['response_usage'][key] = parts
+    state['response_usage'].move_to_end(key)
+    while len(state['response_usage']) > 512:
+        state['response_usage'].popitem(last=False)
+    totals = [0, 0, 0, 0]
+    for item in state['response_usage'].values():
+        for index, number in enumerate(item):
+            totals[index] += number
+    _store_usage(state, totals)
 
 
 def _arguments(value):
@@ -168,34 +263,142 @@ def _arguments(value):
     return {}
 
 
+def _norm_status(value):
+    return re.sub(r'[_\-.\s]', '', str(value or '')).lower()
+
+
+def _tool_flags(item, completed):
+    status = _norm_status(item.get('status'))
+    exit_code = item.get('exit_code', 0)
+    error = status in ('failed', 'error', 'declined', 'interrupted') or exit_code not in (None, 0)
+    if item.get('success') is False:
+        error = True
+    if status == 'inprogress':
+        done = False
+    elif completed or status in ('completed', 'success', 'failed', 'error', 'declined', 'interrupted'):
+        done = True
+    else:
+        done = False
+    return done, error
+
+
+def _command_text(command):
+    if isinstance(command, list):
+        parts = [str(part) for part in command if isinstance(part, (str, int)) and not isinstance(part, bool)]
+        return _short(' '.join(parts), 160)
+    if isinstance(command, str):
+        return _short(command, 160)
+    return ''
+
+
+def _task_status(value, completed=None):
+    if isinstance(completed, bool):
+        return 'completed' if completed else 'pending'
+    mapped = {
+        'pending': 'pending', 'todo': 'pending',
+        'inprogress': 'in_progress', 'active': 'in_progress',
+        'completed': 'completed', 'complete': 'completed', 'done': 'completed',
+    }
+    return mapped.get(_norm_status(value), 'pending')
+
+
+def _task_subject(text):
+    if not isinstance(text, str):
+        return ''
+    return _short(' '.join(text.split()), 160)
+
+
+def _replace_tasks(state, rows):
+    """The latest plan or todo list is the task list. Earlier steps are replaced."""
+    cleaned = []
+    for index, row in enumerate(rows[:40]):
+        if not isinstance(row, dict):
+            continue
+        subject = _task_subject(row.get('subject'))
+        if not subject:
+            continue
+        status = row.get('status') if row.get('status') in ('pending', 'in_progress', 'completed') else 'pending'
+        ident = row.get('id') if isinstance(row.get('id'), str) and row['id'] else str(index + 1)
+        cleaned.append({
+            'id': _short(ident, 80), 'subject': subject, 'description': '',
+            'status': status, 'normalizedStatus': status,
+            'owner': row.get('owner') if isinstance(row.get('owner'), str) and row.get('owner') else None,
+            'blockedBy': [], 'blocks': [],
+        })
+    if len(rows) > 40:
+        _warn(state, 'Plan longer than 40 steps was truncated.')
+    state['tasks'] = cleaned
+
+
+def _tasks_from_lines(state, text):
+    steps = []
+    if isinstance(text, str):
+        for line in text.splitlines():
+            line = re.sub(r'^(?:[-*]|\d+[.)])\s+', '', line.strip())
+            if line:
+                steps.append(line)
+        if not steps and text.strip():
+            steps.append(text.strip())
+    _replace_tasks(state, [{'subject': step, 'status': 'pending'} for step in steps])
+
+
+def _tasks_from_items(state, items):
+    rows = []
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if isinstance(item, str):
+            rows.append({'subject': item, 'status': 'pending'})
+            continue
+        if not isinstance(item, dict):
+            continue
+        subject = item.get('step') or item.get('text') or item.get('subject') or item.get('content')
+        if isinstance(item.get('completed'), bool):
+            status = _task_status(None, item.get('completed'))
+        else:
+            status = _task_status(item.get('status'))
+        rows.append({'subject': subject, 'status': status})
+    _replace_tasks(state, rows)
+
+
+def _maybe_plan_call(state, name, arguments):
+    if not isinstance(name, str) or name.split('.')[-1] != 'update_plan':
+        return
+    if isinstance(arguments, dict) and isinstance(arguments.get('plan'), list):
+        _tasks_from_items(state, arguments.get('plan'))
+
+
 def _tool(state, item, ts, completed=False):
     kind = _item_type(item)
     name = _short(item.get('name') or item.get('tool') or item.get('type') or 'tool', 100)
     item_id = _short(item.get('call_id') or item.get('id'), 256)
+    done, error = _tool_flags(item, completed)
     if item_id:
         existing = state['pending'].get(item_id)
         if existing:
-            if completed:
-                existing['row']['done'] = True
-                existing['row']['error'] = item.get('status') in ('failed', 'error') or item.get('exit_code', 0) not in (None, 0)
+            if completed or done:
+                existing['row']['done'] = done
+                existing['row']['error'] = error
+                if ts and existing['row'].get('ts'):
+                    existing['row']['ms'] = max(0, int((ts - existing['row']['ts']) * 1000))
             return
-    arguments = _arguments(item.get('arguments'))
+    arguments = _arguments(item.get('arguments')) or _arguments(item.get('input'))
+    _maybe_plan_call(state, name, arguments)
     label = name
-    if kind in ('commandexecution', 'commandexecutionitem'):
-        command = item.get('command')
-        label = _short(' '.join(str(part) for part in command), 160) if isinstance(command, list) else _short(command) or name
+    if kind in ('commandexecution', 'commandexecutionitem', 'localshellcall'):
+        label = _command_text(item.get('command')) or name
     elif arguments:
-        label = _short(arguments.get('cmd') or arguments.get('command') or arguments.get('description')) or name
-    row = {'ts': ts, 'kind': 'tool', 'name': name, 'label': label, 'done': completed,
-           'error': item.get('status') in ('failed', 'error') or item.get('exit_code', 0) not in (None, 0)}
+        command = arguments.get('cmd') or arguments.get('command') or arguments.get('description')
+        label = _command_text(command) or _short(command) or name
+    row = {'ts': ts, 'kind': 'tool', 'name': name, 'label': label, 'done': done, 'error': error}
     state['timeline'].append(row)
     state['tool_count'] += 1
     # Only recorded send calls are communication evidence; ordinary assistant
     # text and tool outputs are never guessed to be messages to another agent.
     if name.split('.')[-1] in ('send_input', 'send_message', 'followup_task', 'send_message_to_thread'):
         recipient = arguments.get('target') or arguments.get('id') or arguments.get('thread_id')
-        message = arguments.get('message') or arguments.get('text') or arguments.get('prompt')
-        if isinstance(recipient, str) and isinstance(message, str) and message.strip():
+        message = _plain_message(arguments.get('message') or arguments.get('text') or arguments.get('prompt'))
+        if isinstance(recipient, str) and message:
             state['communications'].append({'ts': ts, 'to': _short(recipient, 256),
                                             'text': _short(message, 6000), 'callId': item_id})
     if item_id:
@@ -222,6 +425,90 @@ def _tool_result(state, item, ts):
             _record_link(state, {'agent_id': child, **pending['args']})
 
 
+def _event_type(payload):
+    return str(payload.get('type') or '').replace('.', '_').replace('-', '_')
+
+
+def _note_communication(state, recipient, text, ts, call_id):
+    text = _plain_message(text)
+    if not isinstance(recipient, str) or not recipient.strip() or not text:
+        return
+    state['communications'].append({'ts': ts, 'to': _short(recipient, 256),
+                                    'text': _short(text, 6000), 'callId': _short(call_id, 256)})
+
+
+def _collab(state, item, ts):
+    name = _short(item.get('tool') or 'collab', 80)
+    _tool(state, {'id': item.get('id'), 'name': name, 'status': item.get('status'), 'type': name}, ts, True)
+    agents = item.get('receiver_agents') if isinstance(item.get('receiver_agents'), list) else []
+    by_id = {}
+    for agent in agents:
+        if isinstance(agent, dict) and isinstance(agent.get('thread_id'), str):
+            by_id[agent['thread_id']] = agent
+    receivers = item.get('receiver_thread_ids') if isinstance(item.get('receiver_thread_ids'), list) else []
+    linked = []
+    for child in receivers:
+        if isinstance(child, str) and child and child not in linked:
+            linked.append(child)
+    for child in linked:
+        agent = by_id.get(child, {})
+        _record_link(state, {
+            'agent_id': child, 'agent_path': agent.get('agent_path') or '',
+            'agent_role': agent.get('agent_role') or '',
+            'agent_nickname': agent.get('agent_nickname') or '',
+            'model': item.get('model') or '',
+        })
+    if name.split('.')[-1] in ('send_input', 'send_message', 'followup_task', 'send_message_to_thread') and len(linked) == 1:
+        _note_communication(state, linked[0], item.get('prompt') or item.get('message'), ts, item.get('id'))
+
+
+def _legacy_event(state, payload, ts):
+    """Older rollout progress events that are not item_completed records."""
+    typ = _event_type(payload)
+    call_id = payload.get('call_id') or payload.get('id')
+    if typ in ('exec_command_begin', 'exec_command_end'):
+        exit_code = payload.get('exit_code')
+        _tool(state, {
+            'call_id': call_id, 'name': 'exec_command', 'type': 'command_execution',
+            'command': payload.get('command'),
+            'exit_code': exit_code if type(exit_code) is int else 0,
+            'status': 'completed' if typ == 'exec_command_end' else '',
+        }, ts, typ == 'exec_command_end')
+        return True
+    if typ == 'patch_apply_end':
+        changes = payload.get('changes')
+        count = len(changes) if isinstance(changes, dict) else 0
+        status = payload.get('status') or ('completed' if payload.get('success') is not False else 'failed')
+        _tool(state, {'call_id': call_id, 'name': 'apply_patch', 'status': status,
+                      'arguments': {'description': 'apply_patch' + (' · %d files' % count if count else '')}}, ts, True)
+        return True
+    if typ == 'web_search_end':
+        query = payload.get('query') if isinstance(payload.get('query'), str) else 'web_search'
+        _tool(state, {'call_id': call_id, 'name': 'web_search', 'status': 'completed',
+                      'arguments': {'description': query}}, ts, True)
+        return True
+    if typ == 'mcp_tool_call_end':
+        invocation = _dict(payload.get('invocation'))
+        server = _short(invocation.get('server'), 40)
+        tool_name = _short(invocation.get('tool'), 60)
+        name = (server + '/' + tool_name) if server and tool_name else (tool_name or server or 'mcp')
+        failed = isinstance(payload.get('result'), dict) and 'Err' in payload.get('result')
+        _tool(state, {'call_id': call_id, 'name': name, 'status': 'failed' if failed else 'completed'}, ts, True)
+        return True
+    if typ == 'image_generation_end':
+        failed = isinstance(payload.get('failure'), dict) or payload.get('status') in ('failed', 'error')
+        _tool(state, {'call_id': call_id, 'name': 'image_generation',
+                      'status': 'failed' if failed else 'completed'}, ts, True)
+        return True
+    if typ == 'sub_agent_activity':
+        _record_link(state, payload)
+        interrupted = payload.get('kind') == 'interrupted'
+        _tool(state, {'id': payload.get('event_id'), 'name': 'SubAgentActivity', 'type': 'SubAgentActivity',
+                      'status': 'interrupted' if interrupted else ''}, ts, payload.get('kind') != 'started')
+        return True
+    return False
+
+
 def _process(state, event):
     kind = event.get('type')
     payload = _dict(event.get('payload'))
@@ -242,7 +529,16 @@ def _process(state, event):
         if isinstance(payload.get('cwd'), str):
             state['meta']['cwd'] = _short(payload['cwd'], 1024)
     elif kind == 'token_usage_record':
-        _usage(state, payload.get('thread_token_usage') or event.get('thread_token_usage'))
+        thread = payload.get('thread_token_usage')
+        if not isinstance(thread, dict):
+            thread = event.get('thread_token_usage') if isinstance(event.get('thread_token_usage'), dict) else None
+        if isinstance(thread, dict) and ('input_tokens' in thread or 'inputTokens' in thread):
+            _usage(state, thread)
+        else:
+            per = payload.get('usage') if isinstance(payload.get('usage'), dict) else None
+            _add_response_usage(state, per, payload.get('response_id') or event.get('response_id') or '')
+    elif kind == 'inter_agent_communication':
+        _note_communication(state, payload.get('recipient'), payload.get('content'), ts, payload.get('id'))
     elif kind == 'response_item':
         typ = _item_type(payload)
         if typ == 'message':
@@ -251,41 +547,81 @@ def _process(state, event):
             _message(state, 'assistant', payload.get('text') or _visible_text(payload.get('content')), ts, 'response', _short(payload.get('id'), 256))
         elif typ in ('functioncall', 'customtoolcall'):
             _tool(state, payload, ts)
-        elif typ in ('functioncalloutput', 'customtoolcalloutput'):
+        elif typ in ('functioncalloutput', 'customtoolcalloutput', 'localshellcalloutput'):
             _tool_result(state, payload, ts)
+        elif typ in ('localshellcall', 'websearchcall', 'imagegenerationcall'):
+            action = _dict(payload.get('action'))
+            item = dict(payload)
+            if typ == 'localshellcall':
+                if item.get('command') is None and action.get('command') is not None:
+                    item['command'] = action.get('command')
+                item['name'] = item.get('name') or 'shell'
+            elif typ == 'websearchcall':
+                query = action.get('query') if isinstance(action.get('query'), str) else payload.get('query')
+                item['name'] = item.get('name') or 'web_search'
+                item['arguments'] = {'description': query if isinstance(query, str) else 'web_search'}
+            else:
+                item['name'] = item.get('name') or 'image_generation'
+            _tool(state, item, ts, _norm_status(item.get('status')) in ('completed', 'failed', 'incomplete', 'declined'))
         elif typ == 'reasoning':
             state['thinking_count'] += 1
     elif kind == 'event_msg':
-        typ = payload.get('type')
+        typ = _event_type(payload)
         if typ == 'token_count':
-            _usage(state, _dict(payload.get('info')).get('total_token_usage'))
+            info = payload.get('info')
+            if isinstance(info, dict):
+                _usage(state, info.get('total_token_usage'))
         elif typ in ('task_started', 'turn_started'):
             state['ended'], state['error'] = None, False
             state['message_copies'].clear()
         elif typ in ('task_complete', 'task_completed', 'turn_complete', 'turn_completed'):
             state['ended'] = ts or state['last']
-        elif typ in ('turn_aborted', 'error', 'task_failed'):
+        elif typ in ('turn_aborted', 'error', 'task_failed', 'stream_error'):
             state['error'] = True
             state['ended'] = ts or state['last']
         elif typ in ('user_message', 'agent_message'):
             role = 'user' if typ == 'user_message' else 'assistant'
-            _message(state, role, payload.get('message') or _visible_text(payload.get('content')), ts, 'event', _short(payload.get('id'), 256))
+            _message(state, role, _plain_message(payload.get('message')) or _visible_text(payload.get('content')), ts, 'event', _short(payload.get('id'), 256))
         elif typ == 'item_completed':
-            item = _dict(payload.get('item'))
-            itype = _item_type(item)
-            iid = _short(item.get('id'), 256)
-            if itype in ('usermessage', 'agentmessage'):
-                role = 'user' if itype == 'usermessage' else 'assistant'
-                _message(state, role, _visible_text(item.get('content')) or item.get('text'), ts, 'completed', iid)
-            elif itype == 'subagentactivity':
-                _record_link(state, item)
-                if iid and not _remember(state, ('activity', iid)):
-                    return
-                _tool(state, {'id': iid, 'name': 'SubAgentActivity', 'type': 'SubAgentActivity'}, ts, True)
-            elif itype in ('commandexecution', 'mcpToolCall'.lower(), 'filechange', 'websearch', 'extension', 'imageview'):
-                _tool(state, item, ts, True)
-            elif itype == 'reasoning' and (not iid or _remember(state, ('reasoning', iid))):
-                state['thinking_count'] += 1
+            _completed_item(state, payload, ts)
+        elif _legacy_event(state, payload, ts):
+            pass
+
+
+def _completed_item(state, payload, ts):
+    item = _dict(payload.get('item'))
+    itype = _item_type(item)
+    iid = _short(item.get('id'), 256)
+    if itype in ('usermessage', 'agentmessage'):
+        role = 'user' if itype == 'usermessage' else 'assistant'
+        _message(state, role, _visible_text(item.get('content')) or _plain_message(item.get('text')), ts, 'completed', iid)
+    elif itype == 'plan':
+        _tasks_from_lines(state, item.get('text'))
+    elif itype == 'todolist':
+        _tasks_from_items(state, item.get('items') if isinstance(item.get('items'), list) else item.get('plan'))
+    elif itype == 'subagentactivity':
+        _record_link(state, item)
+        if iid and not _remember(state, ('activity', iid)):
+            return
+        _tool(state, {'id': iid, 'name': 'SubAgentActivity', 'type': 'SubAgentActivity', 'status': item.get('status')}, ts, True)
+    elif itype == 'collabagenttoolcall':
+        _collab(state, item, ts)
+    elif itype == 'functioncalloutput':
+        _tool_result(state, item, ts)
+    elif itype == 'dynamictoolcall':
+        copied = dict(item)
+        copied['name'] = copied.get('name') or copied.get('tool') or 'dynamic_tool'
+        _tool(state, copied, ts, True)
+    elif itype == 'websearch':
+        copied = dict(item)
+        copied['name'] = copied.get('name') or 'web_search'
+        if not copied.get('arguments') and isinstance(copied.get('query'), str):
+            copied['arguments'] = {'description': copied['query']}
+        _tool(state, copied, ts, True)
+    elif itype in ('commandexecution', 'mcptoolcall', 'filechange', 'extension', 'imageview', 'imagegeneration'):
+        _tool(state, item, ts, True)
+    elif itype == 'reasoning' and (not iid or _remember(state, ('reasoning', iid))):
+        state['thinking_count'] += 1
 
 
 def _fingerprint(stream, offset):
@@ -538,6 +874,20 @@ def _member(state, descriptor, now, stale):
             'current': lead['current'], 'lastText': state['last_text'], 'timeline': lead['timeline'], 'lastTest': None}
 
 
+def _scoped_tasks(state, owner, scope):
+    rows = []
+    for task in state.get('tasks') or []:
+        if not isinstance(task, dict):
+            continue
+        row = dict(task)
+        if scope:
+            row['id'] = _short(str(scope), 80) + ':' + str(row.get('id') or '')
+        if owner and not row.get('owner'):
+            row['owner'] = owner
+        rows.append(row)
+    return rows
+
+
 def parse_session(chosen, now, stale):
     """Parse one root and verified descendants; all returned data is independent."""
     with _lock:
@@ -550,6 +900,7 @@ def parse_session(chosen, now, stale):
             _warn(state, 'Selected rollout could not be read.')
         warnings.extend(state['warnings'])
         lead = _lead(state, chosen, now, stale)
+        tasks = _scoped_tasks(state, None, '')
         actors.append((chosen, state, '__lead'))
         conversation.extend(state['conversation'])
         queue = list(chosen.get('children', []))
@@ -581,7 +932,9 @@ def parse_session(chosen, now, stale):
             except OSError:
                 warnings.append('A linked subagent rollout could not be read.')
                 continue
-            members.append(_member(child_state, descriptor, now, stale))
+            member = _member(child_state, descriptor, now, stale)
+            members.append(member)
+            tasks.extend(_scoped_tasks(child_state, member.get('baseName'), sid))
             actors.append((descriptor, child_state, sid))
             conversation.extend({**row, 'agentId': sid} for row in child_state['conversation'])
             warnings.extend(child_state['warnings'])
@@ -622,6 +975,7 @@ def parse_session(chosen, now, stale):
                               'toName': target.get('name') or target.get('baseName'), 'toAvatar': target['avatar'],
                               'text': ('发送失败：' if failed else '发送调用：') + message['text'],
                               'source': 'codex', 'delivery': 'failed' if failed else 'unconfirmed'})
-        return copy.deepcopy({'lead': lead, 'members': members, 'comms': sorted(comms, key=lambda row: row['ts'])[-80:],
+        return copy.deepcopy({'lead': lead, 'members': members, 'tasks': tasks,
+                              'comms': sorted(comms, key=lambda row: row['ts'])[-80:],
                               'conversation': sorted(conversation, key=lambda row: row['ts'])[-120:],
                               'warnings': list(dict.fromkeys(warnings))})

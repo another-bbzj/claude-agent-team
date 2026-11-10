@@ -8,6 +8,7 @@
 
 ### 新增
 
+- 看板读取 `~/.codex/sessions` 里 Codex CLI 的 JSONL rollout，映射到现有的成员、计划或待办、工具调用，以及拿得到的 token。模型能对上 `team.json` 价格表时才写出估算成本，对不上就空着，不是订阅账单。子代理用自己的 `id`，不会因为 `session_id` 跟父会话相同就被并进去。`update_plan`、`Plan` 和 `TodoList` 进现有的只读任务板，不写回任务目录。旧的命令、补丁、搜索和 MCP 事件跟现在的工具调用合成一条。同一 `response_id` 的用量不重复加；已经有线程累计值之后，单次响应的用量不再加进去。坏行、非 UTF-8 行会跳过，旁边的记录还在。合成样例在 `examples/codex-sessions.synthetic/variants/`。限制见 [docs/CODEX_SESSIONS.md](docs/CODEX_SESSIONS.md)。
 - `docs/site/` 是同一份合成看板的静态页。浏览器直接打开 `docs/site/index.html` 就能点成员、官方任务和作战区分支，不启动 Python，也不读本机转录。时钟停在快照的 `generatedAt`，所以「演示文档」仍是停了 15 分钟。地址栏加上 `?budget=over` 显示红色预算护栏。`.github/workflows/pages.yml` 在推送到 `main` 时把这个目录交给 GitHub Pages。仓库不会替维护者打开 Pages：需要在 Settings → Pages → Source 选 GitHub Actions，只做一次。公开地址是 `https://another-bbzj.github.io/claude-agent-team/`。
 - 官方任务的只读详情在抽得出验收条目时多一节「验收 / Acceptance」。条目来自标明的段落、清单，或任务上已经写着的 `acceptance` / `acceptanceCriteria` / `acceptance_criteria`（含 `metadata` 里的同名键）。没有这些内容就不显示，也不编造。卡片只在清单真有勾选状态时显示「已勾 / 总数」。不能勾选，也不写回任务目录。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。
 - 官方任务在 `owner` 与成员或 lead 的名字完全一致时，卡片和只读详情带上估算成本。金额只加总这位负责人在任务进行中的转录用量，再乘 `team.json` 的价格表，不是服务商账单。区间对不上写「估算未知」，未定价且没有金额写「部分 · 未知」。没有 owner 的任务不写这个数。字段留在快照的 `officialTeam.tasks[].estimate`，不写回任务目录，也不进 schemaVersion 1 的聚合导出、Prometheus、战报卡或复盘。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。

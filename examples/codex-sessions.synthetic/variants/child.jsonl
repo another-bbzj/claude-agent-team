@@ -1,0 +1,5 @@
+{"timestamp":"2026-01-02T00:00:04Z","type":"session_meta","payload":{"id":"variant-child","session_id":"variant-root","cwd":"demo-project","parent_thread_id":"variant-root","source":{"subagent":{"thread_spawn":{"parent_thread_id":"variant-root","agent_nickname":"Synthetic Checker","agent_role":"qa-tester","agent_path":"/demo/checker"}}}}}
+{"timestamp":"2026-01-02T00:00:05Z","type":"turn_context","payload":{"model":"gpt-demo-check"}}
+{"timestamp":"2026-01-02T00:00:06Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"TodoList","id":"todo-variant","items":[{"text":"Check the synthetic plan","completed":true},{"text":"Leave the synthetic note","completed":false}]}}}
+{"timestamp":"2026-01-02T00:00:07Z","type":"token_usage_record","payload":{"thread_token_usage":{"inputTokens":20,"cachedInputTokens":4,"outputTokens":3}}}
+{"timestamp":"2026-01-02T00:00:08Z","type":"event_msg","payload":{"type":"task_complete"}}

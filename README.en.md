@@ -122,6 +122,12 @@ The overview still is the stage and departments. The read-only official task row
 
 The board discovers **Claude Code and Codex** sessions. Switch provider in the header to see measured models, members, tools and read-only conversation. See [Codex sessions](docs/CODEX_SESSIONS.md) and [wallpaper import](docs/WALLPAPER_IMPORT.md). The existing [exec metrics tool](docs/CODEX_METRICS.md) remains a separate offline adapter.
 
+| Source | Where it is read | What the board maps | Left out |
+|---|---|---|---|
+| Claude Code transcripts | `~/.claude/projects` | Members, tool calls, tokens, estimated cost, official tasks | Model APIs |
+| Codex CLI rollouts | JSONL under `~/.codex/sessions` | Members, plan or todo tasks, tool calls, cumulative tokens, and an estimated cost when the price table knows the model | `.jsonl.zst`, archived sessions, reasoning text, raw tool output, the subscription bill |
+| `codex exec` JSONL | Only a file you pass in | An offline summary, not the live board | Interactive sessions |
+
 ## Release notes and questions
 
 [CHANGELOG.md](CHANGELOG.md) is reconstructed from commits on `main`. This repository has no git tags; [`VERSION`](VERSION) is 1.4.3. [docs/FAQ.md](docs/FAQ.md) restates the questions in the guide’s [FAQ](docs/GUIDE.md#faq). The public issue list had no threads to add.

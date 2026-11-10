@@ -271,6 +271,108 @@ class CodexSessionTest(unittest.TestCase):
         self.assertEqual(result['members'][0]['model'], 'child-model')
         self.assertNotIn('inherited parent question', json.dumps(result['conversation']))
 
+    def copy_variants(self):
+        source = ROOT / 'examples/codex-sessions.synthetic/variants'
+        for path in source.glob('*.jsonl'):
+            shutil.copy2(str(path), str(self.root / path.name))
+
+    def test_variant_fixture_maps_tasks_tools_identity_and_skips_corrupt_lines(self):
+        self.copy_variants()
+        sessions = codex.discover_sessions(self.root)
+        self.assertEqual([item['session'] for item in sessions], ['variant-root'])
+        chosen = sessions[0]
+        self.assertEqual(chosen['meta'].get('git'), {'branch': 'synthetic-main'})
+        self.assertNotIn('commit_hash', chosen['meta'])
+        result = codex.parse_session(chosen, chosen['mtime'], 600)
+        blob = json.dumps(result)
+        self.assertEqual([row['text'] for row in result['conversation'] if row['agentId'] == '__lead'],
+                         ['Review the synthetic plan.', 'The synthetic plan is recorded.'])
+        self.assertEqual([(task['subject'], task['normalizedStatus'], task['owner']) for task in result['tasks']], [
+            ('Record the synthetic plan', 'completed', None),
+            ('Map the synthetic tool', 'in_progress', None),
+            ('Check the synthetic plan', 'completed', 'Synthetic Checker'),
+            ('Leave the synthetic note', 'pending', 'Synthetic Checker'),
+        ])
+        tools = [row for row in result['lead']['timeline'] if row['kind'] == 'tool']
+        self.assertEqual([row['name'] for row in tools],
+                         ['update_plan', 'shell', 'exec_command', 'apply_patch', 'web_search', 'docs/search'])
+        self.assertEqual(result['lead']['toolCount'], 6)
+        exec_row = next(row for row in tools if row['name'] == 'exec_command')
+        self.assertEqual(exec_row['label'], 'python --version')
+        self.assertTrue(exec_row['done'])
+        self.assertFalse(exec_row['error'])
+        self.assertEqual(exec_row['ms'], 2000)
+        self.assertEqual(result['lead']['usage'], {'in': 55, 'cache_read': 20, 'cache_write': 5, 'out': 9})
+        self.assertEqual(result['members'][0]['usage'], {'in': 16, 'cache_read': 4, 'cache_write': 0, 'out': 3})
+        self.assertEqual(result['members'][0]['model'], 'gpt-demo-check')
+        self.assertEqual(result['warnings'].count('Malformed rollout line ignored.'), 1)
+        self.assertEqual(len(result['comms']), 1)
+        self.assertIn('Synthetic handoff note', result['comms'][0]['text'])
+        self.assertEqual(result['comms'][0]['to'], 'variant-child')
+        for marker in ('SHELL_OUTPUT_SHOULD_NOT_SURFACE', 'DIFF_SHOULD_NOT_SURFACE',
+                       'ARG_SHOULD_NOT_SURFACE', 'gAAAAA-synthetic-ciphertext', '999'):
+            self.assertNotIn(marker, blob)
+        self.assertNotIn('not-json', blob)
+
+    def test_session_id_alone_does_not_merge_a_child_and_resume_keeps_newest(self):
+        self.write('older.jsonl', [meta('same-thread'), event('event_msg', {'type': 'user_message', 'message': 'old prompt'})])
+        newer = self.write('newer.jsonl', [meta('same-thread'), event('event_msg', {'type': 'user_message', 'message': 'new prompt'})])
+        os.utime(str(self.root / 'older.jsonl'), (100, 100))
+        os.utime(str(newer), (200, 200))
+        sessions = codex.discover_sessions(self.root)
+        self.assertEqual([item['session'] for item in sessions], ['same-thread'])
+        self.assertEqual(sessions[0]['path'], newer)
+        result = codex.parse_session(sessions[0], newer.stat().st_mtime, 600)
+        self.assertEqual([row['text'] for row in result['conversation']], ['new prompt'])
+        self.assertNotIn('old prompt', json.dumps(result))
+
+    def test_camel_case_usage_error_text_and_binary_line_stay_bounded(self):
+        path = self.write('rollout.jsonl', [
+            meta(),
+            {'timestamp': '2026-01-01T00:00:01Z', 'type': 'token_usage_record', 'payload': {
+                'usage': {'inputTokens': 15, 'cachedInputTokens': 5, 'outputTokens': 4}}},
+            event('event_msg', {'type': 'error', 'message': 'ERROR_SHOULD_NOT_SURFACE'}),
+            event('event_msg', {'type': 'image_generation_end', 'call_id': 'img-1', 'status': 'completed',
+                                'result': 'IMAGE_BYTES_SHOULD_NOT_SURFACE', 'saved_path': 'demo-image.png'}),
+        ])
+        with path.open('ab') as stream:
+            stream.write(b'\xff\xfe not-utf8\n')
+            stream.write((json.dumps(event('event_msg', {'type': 'user_message', 'message': 'still visible'})) + '\n').encode())
+        result = self.parse(path)
+        self.assertEqual(result['lead']['usage'], {'in': 10, 'cache_read': 5, 'cache_write': 0, 'out': 4})
+        self.assertEqual(result['conversation'][0]['text'], 'still visible')
+        self.assertEqual([row['name'] for row in result['lead']['timeline'] if row['kind'] == 'tool'], ['image_generation'])
+        blob = json.dumps(result)
+        self.assertNotIn('ERROR_SHOULD_NOT_SURFACE', blob)
+        self.assertNotIn('IMAGE_BYTES_SHOULD_NOT_SURFACE', blob)
+        self.assertNotIn('demo-image.png', blob)
+        self.assertEqual(result['warnings'].count('Malformed rollout line ignored.'), 1)
+
+    def test_plan_text_and_later_thread_total_replace_partial_usage(self):
+        path = self.write('rollout.jsonl', [
+            meta(),
+            event('event_msg', {'type': 'item_completed', 'item': {'type': 'Plan', 'id': 'p1', 'text': '1. First step\n2. Second step'}}),
+            event('token_usage_record', {'response_id': 'resp-1', 'usage': {'input_tokens': 8, 'output_tokens': 1}}),
+            tokens(40, 10, 6),
+        ])
+        result = self.parse(path)
+        self.assertEqual([task['subject'] for task in result['tasks']], ['First step', 'Second step'])
+        self.assertTrue(all(task['normalizedStatus'] == 'pending' for task in result['tasks']))
+        self.assertEqual(result['lead']['usage'], {'in': 30, 'cache_read': 10, 'cache_write': 0, 'out': 6})
+
+    def test_git_url_and_commit_are_not_session_metadata(self):
+        row = meta()
+        row['payload']['git'] = {
+            'branch': 'synthetic-main',
+            'commit_hash': '0123456789abcdef0123456789abcdef01234567',
+            'repository_url': 'https://example.invalid/demo',
+        }
+        self.write('rollout.jsonl', [row])
+        chosen = codex.discover_sessions(self.root)[0]
+        self.assertEqual(chosen['meta'].get('git'), {'branch': 'synthetic-main'})
+        self.assertNotIn('0123456789abcdef', json.dumps(chosen['meta']))
+        self.assertNotIn('example.invalid', json.dumps(chosen['meta']))
+
 
 if __name__ == '__main__':
     unittest.main()

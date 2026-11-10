@@ -2515,6 +2515,46 @@ def _empty_official_team():
     return {'available': False, 'teamName': '', 'lead': '', 'warnings': [], 'tasks': [], 'members': []}
 
 
+def _codex_plan_view(tasks):
+    """Codex plan / todo rows use the same read-only task shape as official teams.
+
+    They are not Claude Agent Teams tasks and are not written back to disk.
+    """
+    view = _empty_official_team()
+    rows = []
+    for task in tasks or []:
+        if not isinstance(task, dict):
+            continue
+        status = task.get('normalizedStatus')
+        subject = task.get('subject')
+        if status not in ('pending', 'in_progress', 'completed'):
+            continue
+        if not isinstance(subject, str) or not subject.strip():
+            continue
+        owner = task.get('owner')
+        rows.append({
+            'id': task.get('id') if isinstance(task.get('id'), str) else None,
+            'subject': subject,
+            'description': task.get('description') if isinstance(task.get('description'), str) else '',
+            'status': status,
+            'normalizedStatus': status,
+            'owner': owner if isinstance(owner, str) and owner else None,
+            'blockedBy': [],
+            'blocks': [],
+        })
+    if not rows:
+        return view
+    view.update({
+        'available': True,
+        'teamName': 'codex',
+        'lead': 'Codex',
+        'warnings': ['任务来自 Codex 会话里的计划或待办，不是 Claude 官方任务目录'],
+        'tasks': rows,
+        'members': [],
+    })
+    return view
+
+
 def _official_team_view(session_id):
     """按会话 ID 前 8 位读取官方团队。没有目录是正常情况，不产生警告。"""
     view = _empty_official_team()
@@ -3628,6 +3668,7 @@ def build_snapshot(args, merge=True):
     provider = (chosen or {}).get('source', selected_source if selected_source != 'all' else 'claude')
     conversation, source_warnings, codex_comms = [], [], []
     members, session_info, lead_data = [], None, None
+    official_view = _empty_official_team()
     if chosen:
         if provider == 'codex':
             parsed = _codex_adapter().parse_session(chosen, now, args.stale)
@@ -3636,6 +3677,7 @@ def build_snapshot(args, merge=True):
             conversation = parsed.get('conversation') or []
             codex_comms = parsed.get('comms') or []
             source_warnings = parsed.get('warnings') or []
+            official_view = _codex_plan_view(parsed.get('tasks') or [])
             for m in members:
                 m['avatar'] = avatar_key(m.get('agentType', '') + ' ' + m.get('description', ''), m['id'], '')
                 m['baseName'] = m.get('baseName') or AVATAR_NAMES[m['avatar']]
@@ -3678,9 +3720,9 @@ def build_snapshot(args, merge=True):
             lead_data = parse_lead(lead_path, now)
             session_info['cwd'] = (lead_data or {}).get('cwd') or ''
             conversation = claude_conversation(_lead_path_for(chosen))
+            official_view = _official_team_view(session_info['id'] if session_info else '')
         session_info['source'] = provider
     members = [m for m in members if m]
-    official_view = _empty_official_team() if provider == 'codex' else _official_team_view(session_info['id'] if session_info else '')
     _merge_official_members(members, official_view)
 
     # 部门归属 + agent 定义（model/effort 来自 ~/.claude/agents/*.md）
