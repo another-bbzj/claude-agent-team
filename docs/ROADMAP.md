@@ -12,6 +12,8 @@ Implemented extension tools include the [versioned aggregate snapshot export](IN
 
 `tools/export_otel.py` writes one OTLP/JSON trace file from `--demo`, an offline snapshot, or the loopback board. It copies timestamps, estimated cost, token counts, and parsed test fields only when those fields are present. A null cost is omitted. A member with no end time does not get a span. The file is not uploaded. The OTLP subset and the Langfuse / Phoenix import commands are in [INTEGRATIONS.md](INTEGRATIONS.md).
 
+`tools/release_check.py` is the repeatable pre-release check in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). It compares `VERSION` with the latest changelog section, requires notes under the unreleased heading, checks that script files cited from the READMEs exist, runs `tools/build_pages_site.py --check` when that command exists, and checks that `tests/` can be discovered. The report is a pass/fail table; `--json` prints the same result; a failure exits non-zero. The command does not create a tag or a GitHub Release. Supported interpreter and OS combinations remain the matrix in `.github/workflows/test.yml`. User-configuration preservation remains the install and update tests. A compatibility claim still requires those checks to pass. CI runs the script as its own job and does not make the matrix wait on it.
+
 The synthetic tree in [`examples/agent-teams.synthetic/`](../examples/agent-teams.synthetic/README.md) reproduces that command room offline: a blocked dependency chain, the same task id in two files, mixed TaskList and TaskGet shapes, and a teammate whose name matches no task owner. Tests reject credential-like strings, absolute home paths, email-shaped text, and `sk-` / API key patterns under `examples/`. The over-2MB skip uses a temporary file generated during the test. The planned shared collection below still applies that bar to every future fixture family.
 
 ## Planned work
@@ -22,7 +24,6 @@ The synthetic tree in [`examples/agent-teams.synthetic/`](../examples/agent-team
 | 1 | A shared, privacy-safe fixture collection | Every fixture is synthetic or explicitly sanitized; contributors can reproduce the target bug offline; tests reject accidental inclusion of credentials, local identities and private transcript content. |
 | 2 | More extension recipes | Demonstrate a specific consumer using the documented integration surface; document input/output shape and failure behavior; include an offline example and avoid requiring access to a maintainer's machine. |
 | 2 | Maintainer automation using Codex | Start with drafts for triage or review; define trusted inputs, permissions, secret handling, spending limits and human approval before posting, merging or releasing; include regression checks. No such hosted automation is currently configured. |
-| 3 | Compatibility and release evidence | Define a repeatable release checklist with supported interpreter/OS checks, user-configuration preservation and accurate release notes; only publish a compatibility claim after those checks pass. |
 | Ongoing | Feedback from actual use | Reports include version, platform, redacted reproduction and expected outcome; changes link to an acceptance test or manual verification. Publish adoption metrics only when there is a verifiable source. |
 
 ## Propose an extension

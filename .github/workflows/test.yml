@@ -91,3 +91,15 @@ jobs:
           python -m coverage run -m unittest discover -s tests -q
           python -m coverage report
           python -m coverage report --include='*/fetch_petdex.py' --show-missing --fail-under=95
+
+  # 发版证据。与上面的 job 并行：没有 needs，别的 job 也不 needs 它。
+  release-check:
+    name: release checklist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Release evidence
+        run: python tools/release_check.py
