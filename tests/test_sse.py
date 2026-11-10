@@ -137,9 +137,14 @@ class SseBoardTest(unittest.TestCase):
         alerting = deepcopy(base)
         alerting['stallAlerts']['candidates'][0]['idleSeconds'] = 600
 
+        diff = deepcopy(base)
+        diff['officialTeam']['tasks'][0]['diff'] = {
+            'files': 1, 'insertions': 2, 'deletions': 0,
+            'status': 'known', 'partial': False, 'basis': 'window',
+        }
         changed = {
             'status': status, 'cost': cost, 'task': task, 'feed': feed,
-            'live': live, 'stall': alerting,
+            'live': live, 'stall': alerting, 'diff': diff,
         }
         for name, view in changed.items():
             self.assertNotEqual(base_rev, self.revision(view), name)
@@ -149,14 +154,46 @@ class SseBoardTest(unittest.TestCase):
     def test_notice_keeps_transcript_text_off_the_wire(self):
         view = sample_view()
         notice = self.tb.sse_notice(view, self.revision(view))
-        self.assertEqual(set(notice), {'rev', 'source', 'session', 'generatedAt'})
+        self.assertEqual(set(notice), {'rev', 'source', 'session', 'generatedAt', 'taskDiff'})
+        self.assertEqual(notice['taskDiff'], [])
         blob = self.tb.format_sse_event('refresh', notice, self.tb.SSE_RETRY_MS)
         text = blob.decode('utf-8')
         for private in ('secret-project', 'secret prompt', 'secret task', 'secret conversation', 'Read SPEC'):
             self.assertNotIn(private, text)
         self.assertIn('retry: %d' % self.tb.SSE_RETRY_MS, text)
+        self.assertNotIn('Write the notes', text)
         event, payload, retry = parse_sse(blob)
         self.assertEqual((event, retry, payload['session']), ('refresh', 3000, 'sess-1'))
+
+    def test_notice_carries_diff_counts_without_paths_or_subjects(self):
+        view = sample_view()
+        view['officialTeam']['tasks'][0]['diff'] = {
+            'files': 2, 'insertions': 18, 'deletions': 3,
+            'status': 'known', 'partial': False, 'basis': 'window',
+        }
+        view['tickets'] = [{
+            'id': '01-note', 'title': 'secret task body', 'status': 'doing',
+            'diff': {
+                'files': 1, 'insertions': 4, 'deletions': 0,
+                'status': 'known', 'partial': False, 'basis': 'ticket',
+            },
+        }]
+        notice = self.tb.sse_notice(view, self.revision(view))
+        self.assertEqual(notice['taskDiff'], [
+            {
+                'id': 't1', 'kind': 'task', 'files': 2, 'insertions': 18, 'deletions': 3,
+                'status': 'known', 'basis': 'window', 'partial': False,
+            },
+            {
+                'id': '01-note', 'kind': 'ticket', 'files': 1, 'insertions': 4, 'deletions': 0,
+                'status': 'known', 'basis': 'ticket', 'partial': False,
+            },
+        ])
+        blob = json.dumps(notice, ensure_ascii=False)
+        self.assertNotIn('secret', blob)
+        self.assertNotIn('/tmp', blob)
+        self.assertNotIn('Write the notes', blob)
+        self.assertNotIn('beta.txt', blob)
 
     def test_stream_emits_refresh_when_the_snapshot_changes(self):
         mod = self.tb

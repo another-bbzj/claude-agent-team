@@ -8,6 +8,7 @@
 
 ### 新增
 
+- 官方任务卡和 `.team` 工单可以显示这段工作改了多少代码：文件数、增加行、删除行。任务优先用「进行中」的时间窗（转录里的状态变化，或独占文件的修改时间）去对本地 git 提交；对不上时间、但会话在功能分支或 worktree 上时，用相对默认分支的已跟踪差异。工单只统计它写明的文件。git 只读调用，不改仓库；git 不在、目录不是仓库、命令失败或超时时，卡片不显示数字，详情里写「改动未知」，不把缺失当成 0。快照字段是 `officialTeam.tasks[].diff` 和顶层 `tickets[]`。`GET /events` 的 `hello` / `refresh` 多一个 `taskDiff`，只有计数，没有路径和文件名。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。
 - `docs/site/` 是同一份合成看板的静态页。浏览器直接打开 `docs/site/index.html` 就能点成员、官方任务和作战区分支，不启动 Python，也不读本机转录。时钟停在快照的 `generatedAt`，所以「演示文档」仍是停了 15 分钟。地址栏加上 `?budget=over` 显示红色预算护栏。`.github/workflows/pages.yml` 在推送到 `main` 时把这个目录交给 GitHub Pages。仓库不会替维护者打开 Pages：需要在 Settings → Pages → Source 选 GitHub Actions，只做一次。公开地址是 `https://another-bbzj.github.io/claude-agent-team/`。
 - 官方任务的只读详情在抽得出验收条目时多一节「验收 / Acceptance」。条目来自标明的段落、清单，或任务上已经写着的 `acceptance` / `acceptanceCriteria` / `acceptance_criteria`（含 `metadata` 里的同名键）。没有这些内容就不显示，也不编造。卡片只在清单真有勾选状态时显示「已勾 / 总数」。不能勾选，也不写回任务目录。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。
 - 官方任务在 `owner` 与成员或 lead 的名字完全一致时，卡片和只读详情带上估算成本。金额只加总这位负责人在任务进行中的转录用量，再乘 `team.json` 的价格表，不是服务商账单。区间对不上写「估算未知」，未定价且没有金额写「部分 · 未知」。没有 owner 的任务不写这个数。字段留在快照的 `officialTeam.tasks[].estimate`，不写回任务目录，也不进 schemaVersion 1 的聚合导出、Prometheus、战报卡或复盘。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。

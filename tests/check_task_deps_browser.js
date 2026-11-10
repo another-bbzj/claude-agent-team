@@ -304,7 +304,9 @@ function prepare(theme, id) {
     const box = path.getBBox();
     const svg = document.querySelector('#kdeps').getBoundingClientRect();
     const center = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    const end = document.querySelector('#kdeps .kdep-end').getBoundingClientRect();
+    const endEl = document.querySelector('#kdeps .kdep-end');
+    if (endEl && endEl.scrollIntoView) endEl.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const end = endEl.getBoundingClientRect();
     const endHit = document.elementFromPoint(end.left + end.width / 2, end.top + end.height / 2);
     return {
       side: link.getAttribute('data-dep-side'),

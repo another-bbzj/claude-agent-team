@@ -471,16 +471,23 @@
   .kcard.completed { --k: var(--ok); }
   .kcard.blocked { --k: var(--warn); }
   .kcard.test-fail { --k: var(--err); border-color: color-mix(in srgb, var(--err) 70%, var(--line)); background: color-mix(in srgb, var(--err) 8%, var(--card)); }
-  .kcard .ksub { font-size: 13px; font-weight: 650; line-height: 1.4; }
+  .kcard .ksub, .tcard .ksub { font-size: 13px; font-weight: 650; line-height: 1.4; }
   .kcard .kdesc { margin-top: 4px; font-size: 11.5px; color: var(--text-2); line-height: 1.45; max-height: 2.9em; overflow: hidden; }
   .kcard .krow { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 11px; color: var(--text-2); }
   .kcard .kowner { font-family: var(--mono); font-weight: 700; }
   .kcard .kowner.unknown { color: var(--text-3); font-weight: 500; }
   .kcard .kdeps { color: var(--text-2); }
   .kcard.blocked .kdeps { color: var(--warn); }
-  .kcard .kmeta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  .kcard .kmeta, .tcard .kmeta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
   .kcard .kage { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
-  .kcard .kcost { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); }
+  .kcard .kcost, .kcard .kdiff, .tcard .kdiff { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); }
+  .kdiff.muted { color: var(--text-3); }
+  .task-board-filters[hidden] { display: none !important; }
+  .ticket-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 12px; }
+  .ticket-row[hidden] { display: none !important; }
+  .ticket-kicker { grid-column: 1 / -1; margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
+  .ticket-kicker .en { margin-left: auto; font-weight: 400; color: var(--text-3); }
+  .tcard { background: var(--card); border: 1px solid var(--line); padding: 8px 10px; }
   .kcard .kpin { margin-left: auto; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font: 700 11px var(--mono); padding: 0 6px; line-height: 18px; cursor: pointer; }
   .kcard .kpin:hover { border-color: var(--gold); color: var(--gold); }
   .kcard .kpin:focus { outline: none; }
@@ -1074,6 +1081,7 @@
       <div class="kanban" id="kanban"></div>
       <svg class="kdeps" id="kdeps" aria-hidden="true"></svg>
     </div>
+    <div class="ticket-row" id="ticket-row" hidden></div>
   </section>
 
 
@@ -1991,6 +1999,55 @@ function taskEstimateView(task, snap) {
   }
   return { text: text, title: title, showOnCard: !unknown, tokens: bits.join(' · ') };
 }
+/* 改动量只在 git 真算出数字时写到卡片上。读不到不显示 0。 */
+function diffCount(value) {
+  return typeof value === 'number' && isFinite(value) && value >= 0 && Math.floor(value) === value ? value : null;
+}
+function diffLabel(diff) {
+  if (!diff || typeof diff !== 'object' || Array.isArray(diff)) return null;
+  const known = diff.status === 'known' || diff.status === 'partial';
+  const files = diffCount(diff.files), ins = diffCount(diff.insertions), del = diffCount(diff.deletions);
+  const basis = diff.basis === 'worktree' ? '这个 worktree 相对默认分支'
+    : (diff.basis === 'branch' ? '当前分支相对默认分支'
+    : (diff.basis === 'ticket' ? '工单列出的文件'
+    : '任务进行中的这段时间'));
+  if (!known || files == null || ins == null || del == null) {
+    return {
+      text: '改动未知',
+      title: '本地 git 不可用、目录不是仓库，或这段改动对不上。不把缺失当成 0。只读 git，不改仓库。',
+      showOnCard: false,
+    };
+  }
+  const partial = diff.status === 'partial' || diff.partial === true;
+  let text = files + ' 文件 · +' + ins + ' -' + del;
+  if (partial) text += ' · 部分';
+  let title = '只读 git，不改仓库。按' + basis + '统计已跟踪改动，未跟踪的新文件不算。';
+  if (partial) title += '同一段改动对上了多条，或整支分支没有按任务拆开，所以是部分。';
+  return { text: text, title: title, showOnCard: true };
+}
+function ticketList(snap) {
+  const raw = snap && snap.tickets;
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (let i = 0; i < raw.length; i += 1) if (raw[i] && typeof raw[i] === 'object' && !Array.isArray(raw[i])) out.push(raw[i]);
+  return out;
+}
+function renderTicketRow(tickets) {
+  const row = $('#ticket-row');
+  if (!row) return;
+  if (!tickets || !tickets.length) { row.hidden = true; row.innerHTML = ''; return; }
+  row.hidden = false;
+  const cards = tickets.map(ticket => {
+    const diff = diffLabel(ticket.diff);
+    const stat = diff && diff.showOnCard
+      ? `<span class="kdiff" title="${esc(diff.title)}">${esc(diff.text)}</span>`
+      : `<span class="kdiff muted" title="${esc(diff ? diff.title : '改动未知')}">改动未知</span>`;
+    const title = ticket.title || ticket.id || '工单';
+    const status = typeof ticket.status === 'string' ? ticket.status : '';
+    return `<article class="tcard"><div class="ksub">${esc(title)}</div><div class="kmeta"><span class="kowner">${esc(ticket.id || '')}</span>${status ? `<span>${esc(status)}</span>` : ''}${stat}</div></article>`;
+  }).join('');
+  row.innerHTML = `<p class="ticket-kicker">工单 <span class="en">Tickets</span></p>${cards}`;
+}
 const TASK_STATUS_LABEL = { pending: '待处理', in_progress: '进行中', completed: '已完成' };
 const TASK_STATUS_PILL = { pending: 'info', in_progress: 'brand', completed: 'ok' };
 const TASK_FLAG_LABEL = { blocked: '阻塞', approximate: '计时大约' };
@@ -2214,6 +2271,7 @@ function taskDetailHtml(task, snap) {
       ${task.lastTest ? `<dt>测试</dt><dd>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest.memberId, task.lastTest))}<span class="td-note">${esc(testDetailText(task.lastTest))}</span></dd>` : ''}
       <dt>负责人</dt><dd>${esc(owner.text)}${ownerNote}</dd>
       ${estimate ? `<dt>估算</dt><dd>${esc(estimate.text)}<span class="td-note">${esc(estimate.title)}</span>${estimate.tokens ? `<span class="td-note">${esc(estimate.tokens)}</span>` : ''}</dd>` : ''}
+      ${(function () { const diff = diffLabel(task.diff); return diff ? `<dt>改动</dt><dd>${esc(diff.text)}<span class="td-note">${esc(diff.title)}</span></dd>` : ''; })()}
       <dt>停留</dt><dd><span id="td-age">${esc(taskAgeLabel(task))}</span><span class="td-note">${esc(taskAgeTitle(task))}</span></dd>
     </dl>
     <h3>说明</h3>${desc}
@@ -2236,6 +2294,7 @@ function taskDetailSignature(task, snap) {
     owner: owner.text,
     known: owner.known,
     estimate: estimate ? estimate.text + '|' + estimate.tokens : '',
+    diff: (function () { const diff = diffLabel(task.diff); return diff ? diff.text : ''; })(),
     ageTitle: taskAgeTitle(task),
     lastTest: task.lastTest ? testDetailText(task.lastTest) : '',
     view: taskDetailView(task, team.tasks || [], team.warnings || []),
@@ -2394,16 +2453,38 @@ function renderTaskBoard(snap) {
   syncTaskFilter(snap);
   const panel = $('#task-board');
   const team = snap.officialTeam || {};
-  if (!team.available) {
+  const tickets = ticketList(snap);
+  const filters = $('#task-board-filters');
+  const kanbanWrap = $('#kanban-wrap');
+  if (!team.available && !tickets.length) {
     panel.hidden = true;
+    if (filters) filters.hidden = false;
+    if (kanbanWrap) kanbanWrap.hidden = false;
     linkHold = true;
     $('#kanban').innerHTML = '';
     linkHold = false;
+    renderTicketRow([]);
+    if (taskDetailKey) closeTaskDetail(false);
+    else drawDepArcs(snap);
+    return;
+  }
+  if (!team.available) {
+    panel.hidden = false;
+    if (filters) filters.hidden = true;
+    if (kanbanWrap) kanbanWrap.hidden = true;
+    linkHold = true;
+    $('#kanban').innerHTML = '';
+    linkHold = false;
+    $('#task-board-count').textContent = tickets.length + ' 张工单';
+    $('#task-board-note').textContent = '工单来自当前会话目录的 .team/tickets，只读。数字来自本地 git，不改仓库。读不到时显示改动未知，不写成 0。';
+    renderTicketRow(tickets);
     if (taskDetailKey) closeTaskDetail(false);
     else drawDepArcs(snap);
     return;
   }
   panel.hidden = false;
+  if (filters) filters.hidden = false;
+  if (kanbanWrap) kanbanWrap.hidden = false;
   const tasks = team.tasks || [];
   linkPin = linkPinAfterFilter(linkPin, tasks, taskBoardFilter);
   paintTaskFilterButtons(tasks);
@@ -2412,8 +2493,8 @@ function renderTaskBoard(snap) {
   const warns = (team.warnings || []).filter(Boolean);
   const synthetic = snap.demo || team.teamName === 'session-demo0001';
   const sourceNote = synthetic
-    ? '这是合成任务，不读取本机任务目录。'
-    : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。';
+    ? '这是合成任务，不读取本机任务目录。卡片上的改动量也是合成数字。'
+    : '列表来自本机官方任务目录，和整页一起从 /snapshot.json 刷新。能读到本地 git 时，文件数和增删行来自只读 git。';
   $('#task-board-note').textContent = (warns.length ? warns.join(' · ') + '。' : '')
     + `团队 ${team.teamName || '—'} · 只读，不能拖动或修改。点卡片看详情。悬停、聚焦或打开详情时，只画出这张卡在当前筛选后仍在三列里的依赖。` + sourceNote;
   const active = document.activeElement;
@@ -2441,10 +2522,12 @@ function renderTaskBoard(snap) {
       const testFail = task.lastTest && task.lastTest.status === 'fail';
       const estimate = taskEstimateView(task, snap);
       const cost = estimate && estimate.showOnCard ? `<span class="kcost" title="${esc(estimate.title)}">${esc(estimate.text)}</span>` : '';
+      const diffView = diffLabel(task.diff);
+      const diffHtml = diffView && diffView.showOnCard ? `<span class="kdiff" title="${esc(diffView.title)}">${esc(diffView.text)}</span>` : '';
       return `<article class="kcard ${esc(task.normalizedStatus)}${task.blocked ? ' blocked' : ''}${open ? ' open' : ''}${match ? ' linkable' : ''}${testFail ? ' test-fail' : ''}" draggable="false" tabindex="0" data-task-key="${esc(key)}" data-task="${esc(task.id == null ? '' : String(task.id))}" data-owner-match="${esc(match)}" aria-haspopup="dialog" aria-controls="task-detail" aria-expanded="${open ? 'true' : 'false'}" title="${esc(cardTitle)}">
         <div class="ksub">${esc(task.subject || '未命名任务')}</div>${desc}
         <div class="krow"><span class="kowner${owner.known ? '' : ' unknown'}" title="${esc(owner.title)}">${esc(owner.text)}</span><span class="kdeps">${esc(taskDepText(task))}</span>${testBadgeHtml(task.lastTest, testFeedId(task.lastTest && task.lastTest.memberId, task.lastTest))}${acceptanceCardHtml(task)}${pin}</div>
-        <div class="kmeta"><span class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</span>${cost}</div>
+        <div class="kmeta"><span class="kage" title="${esc(taskAgeTitle(task))}">${esc(taskAgeLabel(task))}</span>${cost}${diffHtml}</div>
       </article>`;
     }).join('') || `<div class="kempty">${inColumn.length ? '没有符合筛选的任务' : '空'}</div>`;
     return `<div class="col ${col.key}"><h3>${esc(col.title)}<span class="en">${esc(col.en)}</span></h3>${cards}</div>`;
@@ -2462,6 +2545,7 @@ function renderTaskBoard(snap) {
       break;
     }
   } else if (focusedKey && focusedKey !== taskDetailKey) focusTaskCard(focusedKey);
+  renderTicketRow(tickets);
   if (taskDetailKey) renderTaskDetail(snap);
   drawDepArcs(snap);
 }
@@ -4486,13 +4570,14 @@ function demoAugment(s) {
     if (!demoOfficial) demoOfficial = {
       available: true, readOnly: true, teamName: 'session-demo0001', lead: '队长', warnings: [],
       tasks: [
-        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed', estimate: { cost: 0.018, tokens: { in: 3000, out: 600, cache_read: 0, cache_write: 0 }, status: 'known', partial: false, unpriced: false, basis: 'transcript' } },
-        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file', estimate: { cost: null, tokens: { in: 100, out: 40, cache_read: 0, cache_write: 0 }, status: 'partial', partial: true, unpriced: true, basis: 'transcript' } },
+        { id: '1', subject: 'Survey the synthetic module', description: '合成任务，只读演示。', status: 'in_progress', normalizedStatus: 'in_progress', owner: '合成研究员', ownerMatch: '合成研究员', blockedBy: [], blocks: ['3'], blocked: false, waitingOn: [], stateSince: now - 180, stateSinceKind: 'observed', estimate: { cost: 0.018, tokens: { in: 3000, out: 600, cache_read: 0, cache_write: 0 }, status: 'known', partial: false, unpriced: false, basis: 'transcript' }, diff: { files: 2, insertions: 18, deletions: 3, status: 'known', partial: false, basis: 'window' } },
+        { id: '2', subject: 'Draft synthetic notes', description: '合成任务，只读演示。', status: 'completed', normalizedStatus: 'completed', owner: '合成写手', ownerMatch: '合成写手', blockedBy: [], blocks: ['4'], blocked: false, waitingOn: [], stateSince: now - 900, stateSinceKind: 'file', estimate: { cost: null, tokens: { in: 100, out: 40, cache_read: 0, cache_write: 0 }, status: 'partial', partial: true, unpriced: true, basis: 'transcript' }, diff: { files: 1, insertions: 4, deletions: 1, status: 'partial', partial: true, basis: 'window' } },
         { id: '3', subject: 'Wait for the synthetic survey', description: '合成演示用的完整说明。看板上的卡片只露出开头；点开只读详情可以看到全部文字、当前状态、负责人和依赖。这里没有真实仓库、密钥或本机路径。', status: 'pending', normalizedStatus: 'pending', owner: null, ownerMatch: null, blockedBy: ['1', '9'], blocks: [], blocked: true, waitingOn: ['1', '9'], stateSince: now - 40, stateSinceKind: 'file-shared' },
         { id: '4', subject: 'Ask the synthetic lead', description: '负责人是 lead 的名字，不是舞台上的「队长 · Claude」。', status: 'pending', normalizedStatus: 'pending', owner: '队长', ownerMatch: '队长', blockedBy: ['2'], blocks: [], blocked: false, waitingOn: [], stateSince: now - 20, stateSinceKind: 'observed' },
         { id: '5', subject: 'Near-miss owner', description: '多了一个空格，不算这位成员的任务。', status: 'pending', normalizedStatus: 'pending', owner: '合成研究员 ', ownerMatch: null, blockedBy: [], blocks: [], blocked: false, waitingOn: [], stateSince: now - 15, stateSinceKind: 'observed' },
       ],
     };
+    s.tickets = [{ id: '01-synthetic', title: 'Synthetic ticket', status: 'doing', diff: { files: 1, insertions: 6, deletions: 0, status: 'known', partial: false, basis: 'ticket' } }];
     s.officialTeam = demoOfficial;
   }
   s.members = s.members.concat(fake);
