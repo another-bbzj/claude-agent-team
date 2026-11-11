@@ -1,0 +1,16 @@
+# Example only. Copy examples/grafana/claude-agent-team.dashboard.json into the path below.
+# File provisioning does not open the __inputs import dialog. The dashboard's DS_PROMETHEUS
+# datasource variable binds the panels to a Prometheus datasource when the dashboard is opened.
+apiVersion: 1
+
+providers:
+  - name: claude-agent-team
+    orgId: 1
+    folder: Claude Agent Team
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards/claude-agent-team
+      foldersFromFilesStructure: false
