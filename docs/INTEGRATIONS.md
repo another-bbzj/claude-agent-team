@@ -152,9 +152,53 @@ absent(node_textfile_mtime_seconds{file=~".*claude_agent_team[.]prom"})
 
 The last two expressions catch stale files and missing first exports, respectively. Match the filename and refresh interval to your setup; a working query is not an installed alert rule. The CLI works on Windows too, but this node_exporter recipe is for its supported host platforms. No Windows monitoring-agent integration is claimed here.
 
+An importable Grafana dashboard for these gauges is in [Grafana](#grafana). The freshness expressions above are not panels on that dashboard: `node_textfile_mtime_seconds` comes from node_exporter, not from this exporter.
+
 ### Privacy boundary
 
 Exported JSON and Prometheus samples contain numeric aggregates only; Prometheus labels come from fixed scope/kind enums. The optional budget gauge adds only `scope="session"`. The optional test gauge adds only `status="pass"`, `"fail"` or `"unknown"`. Session IDs, timestamps, local paths, member names, prompts, tool arguments, commands, test output, messages, model names and raw errors are excluded, including unknown nested fields added to `totals`. Aggregate activity and estimated spending may still be sensitive: inspect the metrics before sharing them. Raw snapshots and transcripts remain private and should not be attached to public issues.
+
+## Grafana
+
+Grafana is an optional consumer of the Prometheus text above. This repository does not install Grafana or Prometheus, and it does not add a Python dependency. The dashboard file is a JSON model you import into a Grafana you already run. It only queries the gauges from [Prometheus and node_exporter](#prometheus-and-node_exporter). It does not open the board and does not upload a snapshot.
+
+### Import
+
+1. Publish the textfile and scrape it, as in the node_exporter section. The panels stay empty until Prometheus has those `claude_agent_team_*` series.
+2. In Grafana, open **Dashboards → New → Import**.
+3. Upload [`examples/grafana/claude-agent-team.dashboard.json`](../examples/grafana/claude-agent-team.dashboard.json).
+4. When Grafana asks for **Prometheus**, choose the datasource that scrapes this job. The file declares that input as `__inputs` name `DS_PROMETHEUS` (`pluginId` `prometheus`). Every panel query uses datasource uid `${DS_PROMETHEUS}`. The same name is a `datasource` template variable (`query` `prometheus`), so a copy loaded by Grafana's file provider can bind to a Prometheus datasource without rewriting the queries. File provisioning does not run the import dialog and does not substitute `__inputs` by itself.
+
+The model uses the `timeseries`, `stat`, `row` and `text` panels that ship with Grafana. Budget utilization is a stat, not a gauge clamped at 100%, because the ratio may exceed 1. This checkout does not run Grafana, so this guide has no screenshot of the imported board.
+
+### What the panels query
+
+Every target is one gauge selector copied from the exporter's sample shape. None call `rate()` or `increase()`. Each selector sets at most one `scope` and one `kind`. Scopes overlap (`all` includes lead and members) and token `kind="total"` overlaps the component buckets, so a total is not placed on the same panel as its components, series are not stacked, and the queries do not add the samples together.
+
+| Panel | Selectors |
+| --- | --- |
+| Estimated cost | `claude_agent_team_estimated_cost_usd{scope="all"}` and `{scope="members"}`, as two series |
+| Unpriced entries | `claude_agent_team_unpriced_entries` |
+| Token buckets, scope=all | `claude_agent_team_tokens{scope="all",kind="input"}`, `output`, `cache_read`, `cache_write` |
+| Token total, scope=all | `claude_agent_team_tokens{scope="all",kind="total"}` on its own panel |
+| Cache hit | `claude_agent_team_cache_hit_ratio` for `scope="all"`, `"members"` and `"lead"` |
+| Members | `claude_agent_team_members` |
+| Token buckets, members and lead | the four component kinds with `scope="members"` and `scope="lead"`, on separate panels |
+| Token total, members and lead | `kind="total"` for `scope="members"` and `scope="lead"`, separate from the component panels |
+| Budget utilization | `claude_agent_team_budget_utilization_ratio{scope="session"}` |
+| Test results | `claude_agent_team_test_results{status="pass"}`, `"fail"` and `"unknown"` |
+
+Costs are the board's estimates, not provider invoices. A non-zero unpriced count means the cost is partial. The cost metric has no `scope="lead"` series; lead tokens and cache hit use `scope="lead"`.
+
+`claude_agent_team_budget_utilization_ratio` is missing unless the selected session has a budget cap (`budget.enabled` true and a finite nonnegative `budget.ratio`). The ratio may be greater than 1. The panel turns yellow at 0.8 and red at 1, which matches the board's default colors. That coloring is not an installed alert rule. `claude_agent_team_test_results` is missing unless some member `lastTest.status` is `pass`, `fail` or `unknown`. Those panels stay empty when the exporter omits the family. The dashboard does not fill them with zero.
+
+The textfile has no department label and no per-member name. The member dimension on the dashboard is `claude_agent_team_members` plus the fixed scope `members` (lead is the fixed scope `lead`). The dashboard does not invent a department series.
+
+### Provisioning and refresh examples
+
+[`examples/grafana/provisioning/datasources/prometheus.yaml`](../examples/grafana/provisioning/datasources/prometheus.yaml) is a Prometheus datasource skeleton aimed at `127.0.0.1:9090`. [`examples/grafana/provisioning/dashboards/claude-agent-team.yaml`](../examples/grafana/provisioning/dashboards/claude-agent-team.yaml) is a file provider that reads a directory you choose. Copy the dashboard JSON into that directory yourself. Neither file is installed by `install.py`.
+
+[`examples/grafana/textfile-refresh.example.md`](../examples/grafana/textfile-refresh.example.md) shows a cron line and a systemd timer that re-run the existing exporter once a minute into a node_exporter textfile directory. They are examples. This repository does not install cron jobs, systemd units, node_exporter or Grafana. The board stays on loopback; Prometheus scrapes node_exporter.
 
 ## Battle card
 

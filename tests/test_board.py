@@ -219,7 +219,11 @@ class SnapshotTest(unittest.TestCase):
 
     def test_roster_and_pets(self):
         names = {r['name'] for r in self.snap['roster']}
-        self.assertTrue({'backend-dev', 'frontend-dev', 'qa-tester', 'code-reviewer', 'researcher', 'docs-writer', 'release-ops', 'team-architect'} <= names)
+        self.assertTrue({'backend-dev', 'frontend-dev', 'qa-tester', 'code-reviewer', 'researcher', 'docs-writer', 'release-ops', 'team-architect', 'team-lead'} <= names)
+        lead = next(row for row in self.snap['roster'] if row['name'] == 'team-lead')
+        self.assertTrue(lead['builtin'])
+        self.assertEqual(lead['dept'], 'hq')
+        self.assertEqual(lead['avatar'], 'team-lead')
         self.assertGreaterEqual(len(self.snap['pets']), 13, '仓库应自带 13 只形象')
         self.assertTrue({'dada-code', 'pip', 'cubo', 'drip', 'mush', 'kit', 'spark', 'bolt', 'puff', 'tank'} <= set(self.snap['pets']))
 
@@ -527,7 +531,7 @@ class HttpTest(unittest.TestCase):
         st, _, body = self.get('/snapshot.json'); self.assertEqual(st, 200)
         snap = json.loads(body); self.assertEqual(len(snap['members']), 2)
         st, _, body = self.get('/api/agents'); self.assertEqual(st, 200)
-        self.assertEqual(len(json.loads(body)['agents']), 8)
+        self.assertEqual(len(json.loads(body)['agents']), 9)
         for f in ('/favicon.png', '/sprites/dada-code.webp', '/sprites/pip.webp'):
             self.assertEqual(self.get(f)[0], 200, f)
 

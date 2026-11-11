@@ -4,12 +4,15 @@
 
 | 部门 | 成员 | subagent_type | 模型 · 强度 | 何时出场 |
 |---|---|---|---|---|
-| 指挥部 | 队长（主会话）、阿图·架构师 | `team-architect` | opus · high | L 级任务：出 SPEC 与工单 |
+| 指挥部 | 队长（主会话） | `team-lead` | inherit · high | 主会话执行本模板。有效开关为 `1` 时用官方队友和共享任务；否则 subagent。不要把本类型再派成队友 |
+| 指挥部 | 阿图·架构师 | `team-architect` | opus · high | L 级任务：出 SPEC 与工单 |
 | 研发部 | 阿服·后端 / 小界·前端 | `backend-dev` / `frontend-dev` | sonnet · medium | 任何写代码的任务（任意语言：数据层、算法、脚本、界面） |
 | 质量部 | 测测·测试 / 老审·审查联调 | `qa-tester` / `code-reviewer` | sonnet · medium / opus · high | ≥2 人写了代码：收尾建议派测测 + 老审 |
 | 研究部 | 探探·研究分析 | `researcher` | haiku · low | 调研、读外部代码、查数据手册 |
 | 文档部 | 文文·文档 | `docs-writer` | haiku · low | 交付给他人使用 |
 | 运维部 | 发发·发布 | `release-ops` | sonnet · low | 构建、打包、CI、烧录脚本 |
+
+模式判定、官方限制和任务字段见 [modes.md](modes.md)。
 
 ## 模型分级
 

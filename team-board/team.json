@@ -38,6 +38,12 @@
     }
   ],
   "agents": {
+    "team-lead": {
+      "dept": "hq",
+      "avatar": "team-lead",
+      "name": "队长",
+      "role": "领队"
+    },
     "team-architect": {
       "dept": "hq",
       "avatar": "docs-coordinator",
