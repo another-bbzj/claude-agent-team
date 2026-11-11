@@ -166,8 +166,8 @@ if (process.argv[2] && process.argv[3]) {
       await pause(400);
       if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); fs.writeFileSync(path.join(shotDir, 'codex-conversation-' + width + '-' + theme + '.png'), Buffer.from(shot.data, 'base64')); }
       await evaluate(`document.querySelector('#conversation-close').click();`);
-      await pause(250);
-      assert.equal(await evaluate(`document.querySelector('#conversation-modal').hidden`), true);
+      // closeM 用 200ms 的定时器才把 hidden 设上。固定再等 250ms 在慢的 CI 上会和它抢跑。
+      await evaluate(`new Promise((resolve, reject) => { const begun=Date.now(); const wait=()=>{ if (document.querySelector('#conversation-modal').hidden) resolve(true); else if (Date.now()-begun>2500) reject(new Error('conversation modal stayed open')); else setTimeout(wait, 40); }; wait(); })`);
       await evaluate(`document.querySelector('#look-btn').click();`);
       // cardExpand 的 fill 是 both。animationend 去掉 pop-go 之前，computed clip-path 仍是 circle。
       await evaluate(`new Promise((resolve, reject) => { const begun=Date.now(); const wait=()=>{ const clip=getComputedStyle(document.querySelector('#look-modal .modal-card')).clipPath; if (clip.startsWith('polygon(')) resolve(true); else if (Date.now()-begun>2500) reject(new Error('look modal clip did not settle: '+clip)); else setTimeout(wait, 40); }; wait(); })`);

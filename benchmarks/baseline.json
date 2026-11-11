@@ -1,0 +1,17 @@
+{
+  "calibrateSecondsMedian": 0.07320997199997237,
+  "calibrationLoops": 20000,
+  "corpusSha256": "d440d69f8b155684974bec3cab8e876fa5d4e117b5ae09ca60698ff00d428424",
+  "entry": "team_board.build_snapshot",
+  "events": 10000,
+  "note": "比值 = 解析中位数 / 校准中位数。--check 在比值比该文件慢超过 30% 时退出码为 1。容差在 tools/bench.py 的 DEFAULT_THRESHOLD，不读本文件里的阈值。",
+  "parseSecondsMedian": 0.3573116540000001,
+  "peakBytes": 14620377,
+  "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "ratio": 4.880641861195288,
+  "recordedAt": "2026-11-11T02:34:21Z",
+  "repeats": 5,
+  "schemaVersion": 1,
+  "seed": 29
+}

@@ -131,7 +131,7 @@ The board discovers **Claude Code and Codex** sessions. Switch provider in the h
 
 ## Release notes and questions
 
-[CHANGELOG.md](CHANGELOG.md) is reconstructed from commits on `main`. This repository has no git tags; [`VERSION`](VERSION) is 1.4.3. Before publishing, run `python tools/release_check.py`. It checks that `VERSION` matches the latest changelog section, that the unreleased section has notes, that scripts cited in the READMEs exist, that the static site matches `build_pages_site.py --check`, and that tests can be discovered. It does not create a tag or a GitHub Release. See [the release checklist](docs/RELEASE_CHECKLIST.md). [docs/FAQ.md](docs/FAQ.md) restates the questions in the guide’s [FAQ](docs/GUIDE.md#faq). The public issue list had no threads to add.
+[CHANGELOG.md](CHANGELOG.md) is reconstructed from commits on `main`. This repository has no git tags; [`VERSION`](VERSION) is 1.4.3. Before publishing, run `python tools/release_check.py`. `python tools/bench.py --check` compares a cold synthetic snapshot with `benchmarks/baseline.json` and does not read local transcripts; see [the benchmark note](docs/BENCHMARK.md). It checks that `VERSION` matches the latest changelog section, that the unreleased section has notes, that scripts cited in the READMEs exist, that the static site matches `build_pages_site.py --check`, and that tests can be discovered. It does not create a tag or a GitHub Release. See [the release checklist](docs/RELEASE_CHECKLIST.md). [docs/FAQ.md](docs/FAQ.md) restates the questions in the guide’s [FAQ](docs/GUIDE.md#faq). The public issue list had no threads to add.
 
 ## License
 

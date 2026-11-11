@@ -140,6 +140,15 @@ python tools/export_replay.py --demo -o replay.html
 python -m unittest discover -s tests -v
 ```
 
+解析回退用合成转录，不读本机会话：
+
+```bash
+python tools/bench.py
+python tools/bench.py --check
+```
+
+说明和记录这次数字时的环境见 [解析基准](docs/BENCHMARK.md)。
+
 发版前在同一目录运行 `python tools/release_check.py`。它核对版本号、变更记录、本文引用的脚本、静态站和测试能否被发现；失败时退出码不是 0。不打 tag，也不发布。步骤和兼容性声明的边界见 [发版检查清单](docs/RELEASE_CHECKLIST.md)。
 
 修改前阅读 [贡献指南](CONTRIBUTING.md) 与 [AGENTS.md](AGENTS.md)。缺陷与建议可通过 [Issues](https://github.com/another-bbzj/claude-agent-team/issues) 提交，安全问题请遵循 [SECURITY.md](SECURITY.md)。
