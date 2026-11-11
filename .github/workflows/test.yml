@@ -103,3 +103,16 @@ jobs:
           python-version: '3.12'
       - name: Release evidence
         run: python tools/release_check.py
+
+  # 合成转录上的冷解析比值。比 benchmarks/baseline.json 慢超过 30% 时失败。
+  # 绝对秒数不参与比较。超阈值会不会告警，由 tests/test_bench.py 用假基线证明。
+  bench:
+    name: parse benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Cold snapshot ratio
+        run: python tools/bench.py --check

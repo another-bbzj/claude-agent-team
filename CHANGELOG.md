@@ -8,6 +8,7 @@
 
 ### 新增
 
+- `tools/bench.py` 用固定种子的合成转录测量冷的 `build_snapshot`（默认约 1 万条事件），报告耗时中位数、tracemalloc 峰值，以及相对一段固定纯 Python 校准循环的比值。`--check` 在比值比 `benchmarks/baseline.json` 慢超过 30% 时退出码为 1，并打印告警。不读本机 `~/.claude` 或 `~/.codex`。容差在命令行，不在基线文件里。`.github/workflows/test.yml` 用单独的 `bench` job 跑 `--check`。说明和记录基线时的环境见 [docs/BENCHMARK.md](docs/BENCHMARK.md)。
 - 官方任务卡和 `.team` 工单可以显示这段工作改了多少代码：文件数、增加行、删除行。任务优先用「进行中」的时间窗（转录里的状态变化，或独占文件的修改时间）去对本地 git 提交；对不上时间、但会话在功能分支或 worktree 上时，用相对默认分支的已跟踪差异。工单只统计它写明的文件。git 只读调用，不改仓库；git 不在、目录不是仓库、命令失败或超时时，卡片不显示数字，详情里写「改动未知」，不把缺失当成 0。快照字段是 `officialTeam.tasks[].diff` 和顶层 `tickets[]`。`GET /events` 的 `hello` / `refresh` 多一个 `taskDiff`，只有计数，没有路径和文件名。说明见 [docs/AGENT_TEAMS.md](docs/AGENT_TEAMS.md)。
 - 看板读取 `~/.codex/sessions` 里 Codex CLI 的 JSONL rollout，映射到现有的成员、计划或待办、工具调用，以及拿得到的 token。模型能对上 `team.json` 价格表时才写出估算成本，对不上就空着，不是订阅账单。子代理用自己的 `id`，不会因为 `session_id` 跟父会话相同就被并进去。`update_plan`、`Plan` 和 `TodoList` 进现有的只读任务板，不写回任务目录。旧的命令、补丁、搜索和 MCP 事件跟现在的工具调用合成一条。同一 `response_id` 的用量不重复加；已经有线程累计值之后，单次响应的用量不再加进去。坏行、非 UTF-8 行会跳过，旁边的记录还在。合成样例在 `examples/codex-sessions.synthetic/variants/`。限制见 [docs/CODEX_SESSIONS.md](docs/CODEX_SESSIONS.md)。
 - `tools/release_check.py` 在发版前核对 `VERSION` 与变更记录最新版本段是否一致、`未发布` 是否有正文、README 引用的脚本是否存在、静态站（调用已有的 `build_pages_site.py --check`）以及 `tests/` 能否被发现。结果是一张通过/失败表，失败时退出码非 0，`--json` 输出同一结果。不打 tag，也不发布。清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。`.github/workflows/test.yml` 用单独的 `release-check` job 跑它，不作为现有测试矩阵的前置。

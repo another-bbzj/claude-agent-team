@@ -36,6 +36,14 @@ python tools/release_check.py
 
 The command, the interpreter and OS matrix, and the user-configuration checks are in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md). CI runs it as a separate job in `.github/workflows/test.yml` and does not make the test matrix wait on it.
 
+A cold-parse check uses the same checkout and does not read `~/.claude` or `~/.codex`:
+
+```sh
+python tools/bench.py --check
+```
+
+It times `team_board.build_snapshot` on a fixed synthetic transcript and divides by a pure-Python calibration loop. Exit code 1 means that ratio is more than 30% slower than `benchmarks/baseline.json`. See [docs/BENCHMARK.md](docs/BENCHMARK.md). CI runs this as its own job.
+
 The integration tests start temporary local HTTP servers. Installer tests use
 temporary `HOME` and `USERPROFILE` directories and disable automatic restart with
 `TEAM_BOARD_NO_RESTART=1`; follow that pattern in `tests/test_install.py` when adding
