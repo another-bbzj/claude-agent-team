@@ -126,6 +126,7 @@ python tools/export_replay.py --demo -o replay.html
 | 走完第一次团队任务 | [图文手册](docs/GUIDE.md) · [常见问题](docs/FAQ.md) |
 | 从计划生成工单与依赖波次 | [离线工作区生成器](docs/WORKSPACE.md) |
 | 对接导出、回放或监控 | [集成指南](docs/INTEGRATIONS.md) · [实时钩子](docs/HOOKS.md) |
+| 在自己的 Prometheus 里打开 Grafana 看板 | [Grafana 看板](docs/INTEGRATIONS.md#grafana) |
 | 理解 Codex 适配 | [Codex 会话](docs/CODEX_SESSIONS.md) · [用 Codex 维护](docs/CODEX.md) |
 | 了解版本与后续方向 | [变更记录](CHANGELOG.md) · [路线图](docs/ROADMAP.md) |
 
