@@ -117,6 +117,7 @@ The overview still is the stage and departments. The read-only official task row
 | The board will not open, or the numbers look wrong | [FAQ](docs/GUIDE.en.md#faq) |
 | Aggregate export for one session or project, battle card, offline Codex exec metrics | [Integrations](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) |
 | Usage and estimated costs for one session or project in Prometheus / Grafana | [Prometheus textfile export and node_exporter](docs/INTEGRATIONS.md#prometheus-and-node_exporter) |
+| Import those gauges into a Grafana you already run | [Grafana dashboard](docs/INTEGRATIONS.md#grafana) |
 | Optional live hooks | [Hooks](docs/HOOKS.md) |
 | Change this repository | [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) · [Codex maintenance](docs/CODEX.md) |
 
