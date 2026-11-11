@@ -46,7 +46,7 @@ Claude Code 原生支持子代理，但派出去之后就是一个黑盒：谁�
 
 | | 没有它 | 有它 |
 |---|---|---|
-| 分工 | 每次临时描述一遍「你是后端、你是测试」 | 8 位常驻成员各带名字、职责、模型档位，说「用 agent team」就自动上岗 |
+| 分工 | 每次临时描述一遍「你是后端、你是测试」 | 8 位常驻队友各带名字、职责、模型档位，主会话另有 team-lead 模板；说「用 agent team」就按协议上岗 |
 | 协作 | 子代理之间没法私信，接口靠猜 | 消息总线 `msg.py` 让成员随时互发消息，工单 / 收件箱 / 交接单兜底；你也能在看板上直接给任何成员发话 |
 | 可见性 | 看不到，等结果 | 明日方舟风格的实时指挥室：动画形象、当前工具、进度、token、成本、部门汇总、聊天式通讯频道、通信回放 |
 | 成本 | 全用最强模型 | 按活分档（调研 haiku · 写代码 sonnet · 审查 opus），省 token 规则写进技能 |
@@ -381,7 +381,7 @@ python install.py
 
 | 装到哪 | 内容 |
 |---|---|
-| `~/.claude/agents/` | 8 位常驻成员（Claude Code 原生 subagent 格式） |
+| `~/.claude/agents/` | 8 位常驻队友，另有主会话的 `team-lead.md`（Claude Code 原生 subagent 格式） |
 | `~/.claude/skills/agent-team/` | 团队协议技能（步骤、部门表、办公目录规范、省 token 规则） |
 | `~/.claude/team-board/` | 看板服务、18 只自带形象、导入 / 下载 / 更新脚本 |
 | `~/.claude/CLAUDE.md` | 追加一段全局约定（用标记包裹，不动你原有内容） |
@@ -428,7 +428,7 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
   handoffs/         成员完成时写的交接单
 ```
 
-**4 · 派工。** 没有依赖的工单同时派出（后台并行）。看板上：队长头顶飞出「派工」小球落到成员身上，成员开始奔跑，卡片显示它此刻在调用什么工具。
+**4 · 派工。** 没有依赖的工单同时派出。`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 且当前是交互式主会话时，队长按 `agents/team-lead.md` 用官方队友和共享任务列表；否则仍是后台 subagent。官方团队不把队友放进各自的 worktree。看板上：队长头顶飞出「派工」小球落到成员身上，成员开始奔跑，卡片显示它此刻在调用什么工具。
 
 **5 · 成员交流。** 阿服写完数据层，`msg.py send frontend-dev "createStore(storage) 已导出"` 直接告诉小界（同时落进 `inbox/frontend-dev.md`）；小界在里程碑处 `msg.py inbox frontend-dev` 查收，有疑问当场回。看板上画成一条麦金色「总线消息」飞线，通讯频道里像聊天一样可读。你也可以随时在看板上插话，消息会送进对应成员的收件箱。
 
@@ -442,7 +442,7 @@ python ~/.claude/team-board/update.py --apply --restart # 更新并重启看板
 
 ## 运行时结构
 
-图跟着系统的浅色或深色走。实线是实时路径：队长把工单写进项目里的 `.team/`，八位成员的定义在 `agents/`，`team_board.py` 只在 `127.0.0.1:7788` 读取转录和官方任务目录，并给出 `/snapshot.json`。浏览器还可以订 `/events`，那里只推修订号。虚线是三条不读个人会话的旁路。成员之间怎么交接，见下一节。官方任务板只读，不把状态写回 `~/.claude/tasks/`。
+图跟着系统的浅色或深色走。实线是实时路径：队长把工单写进项目里的 `.team/`，常驻队友的定义在 `agents/`，主会话的 lead 模板是 `team-lead.md`，`team_board.py` 只在 `127.0.0.1:7788` 读取转录和官方任务目录，并给出 `/snapshot.json`。浏览器还可以订 `/events`，那里只推修订号。虚线是三条不读个人会话的旁路。成员之间怎么交接，见下一节。官方任务板只读，不把状态写回 `~/.claude/tasks/`。
 
 ![本机运行时：主会话、常驻成员、回环看板，以及三条不读会话的旁路](img/architecture.svg)
 
@@ -513,6 +513,7 @@ python $MSG log [-n 20]                                       # 本项目最近�
 
 | 部门 | 成员 | `subagent_type` | 模型 · 强度 | 何时出场 |
 |---|---|---|---|---|
+| 🎯 指挥部 | 队长（主会话） | `team-lead` | inherit · high | 主会话执行。开关为 1 时用官方队友和共享任务；否则 subagent |
 | 🎯 指挥部 | 阿图·架构师 | `team-architect` | opus · high | L 级任务：出契约与工单 |
 | 🛠 研发部 | 阿服·后端 / 小界·前端 | `backend-dev` / `frontend-dev` | sonnet · medium | 任何写代码的任务 |
 | 🔍 质量部 | 测测·测试 / 老审·审查联调 | `qa-tester` / `code-reviewer` | sonnet · medium / opus · high | ≥ 2 人写了代码时建议收尾派 |
@@ -690,7 +691,7 @@ team-board/        看板及后端服务
   bus/                       消息总线数据（gitignore）
   backdrops/                 背景图与背景板配置（gitignore）
   sprites/                   形象（仓库只带 18 只自带的；导入的留在本机）
-agents/            8 位常驻成员定义（Claude Code 原生 subagent 格式）
+agents/            8 位常驻队友，另有 team-lead.md（主会话 lead 模板，Claude Code 原生 subagent 格式）
 skills/agent-team/ 团队协议：SKILL.md 步骤 · roles.md 部门与模型档位 · office.md 办公目录规范 · lean.md 省 token 规则
 docs/              本手册、英文手册 GUIDE.en.md、集成与路线图
 tests/             自动化测试（标准库，合成转录与临时家目录）

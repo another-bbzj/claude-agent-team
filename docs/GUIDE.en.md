@@ -40,7 +40,7 @@ Lead (main session): pick a size → write the SPEC → split tickets → put th
 
 | | Without it | With it |
 |---|---|---|
-| Roles | Re-describe “you are backend, you are QA” every time | Eight resident members with names, jobs and model tiers. “Use agent team” sends them on shift |
+| Roles | Re-describe “you are backend, you are QA” every time | Eight resident teammates with names, jobs and model tiers, plus a team-lead playbook for the main session. “Use agent team” sends them on shift |
 | Coordination | Subagents cannot rely on a private channel; interfaces get guessed | `msg.py` plus tickets, inboxes and handoffs. You can also message any member from the board |
 | Visibility | Wait for the last “done” | A live room: sprite, current tool, progress, tokens, estimated cost, department totals, a chat-style channel, communication replay |
 | Cost | The strongest model for every step | Tiers in the skill: research on haiku, implementation on sonnet, architecture and review on opus |
@@ -64,8 +64,8 @@ python install.py
 
 | Destination | What lands there |
 |---|---|
-| `~/.claude/agents/` | Eight resident members (Claude Code subagent files) |
-| `~/.claude/skills/agent-team/` | Team skill: steps, departments, office layout, token rules |
+| `~/.claude/agents/` | Eight resident teammates, plus `team-lead.md` for the main session (Claude Code subagent files) |
+| `~/.claude/skills/agent-team/` | Team skill: steps, departments, office layout, official-team vs subagent mode, token rules |
 | `~/.claude/team-board/` | Board server, single-file UI, 13 shipped sprites, import / download / update scripts |
 | `~/.claude/CLAUDE.md` | One marked block appended; existing text stays |
 | `~/.claude/settings.json` | A `SessionStart` hook so the board stays up. The previous file is backed up first. `--hooks` also merges the live event hooks |
@@ -113,7 +113,7 @@ Open any project folder in Claude Code, including an empty one.
   handoffs/          what a member leaves behind when they finish
 ```
 
-**4. Dispatch.** Tickets with no dependency go out together, in the background. On the board, an assign bead travels from the lead to the member, the sprite runs, and the card names the tool in use.
+**4. Dispatch.** Tickets with no dependency go out together. When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in an interactive session, the lead follows `agents/team-lead.md`: official teammates and a shared task list. Otherwise the same tickets go out as background subagents. Official teams do not put teammates in their own worktrees. On the board, an assign bead travels from the lead to the member, the sprite runs, and the card names the tool in use.
 
 **5. They talk.** When the data layer is exported, the backend member can `msg.py send frontend-dev "…"`. That also lands in `inbox/frontend-dev.md`. The frontend member reads `msg.py inbox frontend-dev` at milestones. The board draws a bus line and a chat row. You can interrupt from the board; the note is delivered to that inbox.
 
@@ -216,6 +216,7 @@ The page can subscribe to `GET /events` (`/api/events` is the same path) on this
 
 | Department | Member | `subagent_type` | Model · effort | When they appear |
 |---|---|---|---|---|
+| 指挥部 | 队长, lead (main session) | `team-lead` | inherit · high | The main session runs this playbook. Official teammates and a shared task list when the switch is 1; otherwise subagents |
 | 指挥部 | 阿图, architect | `team-architect` | opus · high | L-size tasks: spec and tickets |
 | 研发部 | 阿服 backend / 小界 frontend | `backend-dev` / `frontend-dev` | sonnet · medium | Any task that writes code |
 | 质量部 | 测测 tester / 老审 reviewer | `qa-tester` / `code-reviewer` | sonnet · medium / opus · high | Suggested when at least two people wrote code |

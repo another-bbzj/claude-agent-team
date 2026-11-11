@@ -161,4 +161,18 @@ Hook 载荷（同样不是任务文件）在 `TaskCreated` / `TaskCompleted` 上
 
 会话目录是 git 仓库、并且仓库根上有 `.team/tickets/*.md` 时，快照顶层多一个 `tickets` 数组。每张工单有 `id`、`title`、`status` 和同一个形状的 `diff`。行数只统计「## Owned files」里的相对路径，相对默认分支（含未提交）。写了 `..` 或绝对路径的条目丢掉。两条工单列出同一个路径时，两边都保留行数，并标成部分。没有官方任务目录时，看板上仍可以只显示这些工单。`examples/board-demo.synthetic.json` 的第一张卡是 2 个文件、+18 -3，第二张是部分，第三张是未知；下面有一张合成工单 `01-synthetic`。
 
+## 队长模板
+
+`agents/team-lead.md` 是主会话的 lead 做法，`install.py` 把它装到 `~/.claude/agents/team-lead.md`。协议在 [`skills/agent-team/modes.md`](../skills/agent-team/modes.md)。`team.json` 里把它登记在指挥部，显示名是「队长」。这是主会话要执行的模板，不是再派出去的队友：官方配置里 lead 的 agent type 已经是 `team-lead`，看板也只把这个值认成 lead。
+
+下面几句在 2026-11-11 对照过 [Agent Teams](https://code.claude.com/docs/en/agent-teams) 和 [并行方式](https://code.claude.com/docs/en/agents)。上文的目录和字段调查仍是 2026-10-21 那一次，这里不改那些「文档没公布键名」的结论。
+
+- 开关是 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`（shell 或 `settings.json` 的 `env`）。未打开时不建立团队、不写团队目录、不拉起 teammate。用户级设置里的 `0` 盖过 shell；项目设置、本地设置、`--settings` 和托管设置仍可能把它写成 `1`。
+- 值为 `1` 且当前是交互式主会话时，模板优先用带 `name` 的队友和共享任务列表。`-p` 非交互（含 Agent SDK）不拉起 teammate，模板退回 subagent，并在汇报里说明。
+- 一个会话只有一个团队。队友不能再开团队。lead 不能中途更换。不要手改 `config.json`。
+- 官方团队不把队友放进各自的 git worktree，所以工单要拆开文件所有权。需要单独检出时用 [WORKTREES.md](WORKTREES.md) 另开会话；看板的作战区分组的是多路会话，不是同一团队里的队友。
+- 工单 `accept:` 的复选框写进任务 `description` 的「验收」段，并放进 `metadata.acceptance`（同一段 Markdown，一个字符串）。看板按本文「验收」一节抽取：`acceptance.items`（`text`、`checked`），有复选框时还有 `acceptance.checklist`（`done`、`total`）。专用字段优先，所以不要把去掉方括号的句子数组放进 `metadata.acceptance`。
+- `TaskUpdate` 的 `owner` 必须与队友的 `name` 逐字相同。只有这时看板才可能写 `estimate`（`cost`、`tokens`、`status`、`partial`、`unpriced`、`basis`）。没有转录的官方队友卡不算金额。
+- `diff`（`files`、`insertions`、`deletions`、`status`、`partial`、`basis`）由看板按进行中时间窗或当前分支计算。模板不把 `estimate` 或 `diff` 写回任务目录。工单行只统计 `## Owned files` 里的相对路径。
+
 只有官方团队、没有 subagent 转录的会话，这次不会单独出现在会话列表里。只读演示快照放了两名合成的官方 teammate，以及五张合成任务卡：两张对上成员，一张对上 lead 的名字，一张没有 owner，一张 owner 多了空格所以对不上。五张卡都带只读详情用的 `blockedByDetail`、`blocksDetail`、`flags`、`notices`。其中一张还在等进行中的任务，另一张的前置任务已经完成，用来区分两种依赖线。没有 owner 的那张带两条验收清单，卡片上是 `1/2`；对上 lead 的那张有一条没有复选框的验收，卡片上不显示计数；owner 多了空格的那张没有验收，详情里不出现这一节。静态示意图是 [`docs/img/task-board.svg`](img/task-board.svg)，没有画出筛选按钮，也没有画出依赖线。`docs/img/01-overview.png`、`docs/img/03-lower.png` 和 `docs/img/demo-synthetic.svg` 画的是舞台、下半区或四名子代理，不包含这一行。可点击的看板是 `python tools/demo_board.py`，用的是同一份页面，所以也有全部、阻塞中、未对上人、已对上，以及悬停时的依赖弧线。演示不读取本机 `~/.claude`。

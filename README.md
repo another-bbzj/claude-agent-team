@@ -66,6 +66,8 @@ python install.py
 
 > 用 agent team 做这个功能，先明确接口，再分头实现和测试。
 
+`agents/team-lead.md` 是主会话的 lead 模板。有效的 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 且当前是交互式会话时，主会话用官方队友和共享任务列表派工，并把工单验收写进看板已能读取的字段；否则退回 subagent。官方团队不会把队友放进各自的 git worktree。判定和限制见 [官方 Agent Teams](docs/AGENT_TEAMS.md)。
+
 安装会复制成员与技能，并合并 Claude Code 配置。安装位置、更新和卸载方式见 [安装指南](docs/GUIDE.md#install)。需要更及时的工具活动时，可选运行 `python install.py --hooks`，见 [实时钩子](docs/HOOKS.md)。
 
 ### 查看 Codex 会话
