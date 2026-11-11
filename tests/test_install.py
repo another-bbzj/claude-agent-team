@@ -31,8 +31,10 @@ class InstallTest(unittest.TestCase):
     def test_install_then_uninstall(self):
         self.run_install('--no-pets')
         c = self.home / '.claude'
-        self.assertEqual(len(list((c / 'agents').glob('*.md'))), 8)
+        self.assertEqual(len(list((c / 'agents').glob('*.md'))), 9)
+        self.assertTrue((c / 'agents' / 'team-lead.md').is_file())
         self.assertTrue((c / 'skills' / 'agent-team' / 'SKILL.md').exists())
+        self.assertTrue((c / 'skills' / 'agent-team' / 'modes.md').is_file())
         self.assertTrue((c / 'team-board' / 'team_board.py').exists())
         self.assertGreaterEqual(len(list((c / 'team-board' / 'sprites').glob('*.webp'))), 13)
         s = json.loads((c / 'settings.json').read_text(encoding='utf-8'))
@@ -54,6 +56,8 @@ class InstallTest(unittest.TestCase):
         tj.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
         md = c / 'agents' / 'qa-tester.md'
         md.write_text(md.read_text(encoding='utf-8') + '\n- 我自己加的一条规则\n', encoding='utf-8')
+        lead = c / 'agents' / 'team-lead.md'
+        lead.write_text(lead.read_text(encoding='utf-8') + '\n- 我改过的队长规则\n', encoding='utf-8')
         (c / 'team-board' / 'sprites' / 'my-pet.webp').write_bytes(b'RIFF0000WEBPVP8X')
         (c / 'team-board' / 'sprites' / 'pip.webp').write_bytes(b'RIFF0000WEBPVP8Xmine')   # 与自带同名但换了图
         # 重复安装不重复追加
@@ -65,6 +69,10 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(cfg2['pricing_usd_per_mtok']['my-model']['in'], 1); self.assertEqual(cfg2['pricing_usd_per_mtok']['sonnet']['in'], 9, '用户改过的价格要保留')
         self.assertIn('deepseek', cfg2['pricing_usd_per_mtok'], '新默认价格行要补上')
         self.assertIn('我自己加的一条规则', md.read_text(encoding='utf-8')); self.assertTrue(md.with_name('qa-tester.md.new').exists(), '新版本另存为 .new')
+        self.assertIn('我改过的队长规则', lead.read_text(encoding='utf-8'))
+        self.assertTrue(lead.with_name('team-lead.md.new').is_file(), '改过的 team-lead.md 不覆盖，新版本另存为 .new')
+        manifest = json.loads((c / 'team-board' / '.installed.json').read_text(encoding='utf-8'))
+        self.assertIn('agents/team-lead.md', manifest)
         self.assertTrue((c / 'team-board' / 'sprites' / 'my-pet.webp').exists())
         self.assertEqual((c / 'team-board' / 'sprites' / 'pip.webp').read_bytes(), b'RIFF0000WEBPVP8Xmine', '用户换过的同名形象不覆盖')
         self.assertTrue((c / 'team-board' / 'VERSION').exists()); self.assertTrue((c / 'team-board' / '.installed.json').exists())
@@ -78,6 +86,7 @@ class InstallTest(unittest.TestCase):
         self.assertEqual((c / 'CLAUDE.md').read_text(encoding='utf-8').strip(), '# 我的旧约定')
         self.assertFalse((c / 'team-board').exists())
         self.assertFalse((c / 'agents' / 'backend-dev.md').exists())
+        self.assertFalse((c / 'agents' / 'team-lead.md').exists())
 
 
     def test_local_board_data_not_distributed(self):
